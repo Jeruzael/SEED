@@ -1,0 +1,269 @@
+{
+  "actions": [
+    "observe",
+    "reflect",
+    "consolidate",
+    "rest"
+  ],
+  "baseline": "SEED 0.1 \u2014 Germination with existing dashboard infrastructure",
+  "capture_environment": {
+    "python": "3.13.15",
+    "sqlite": "3.53.4"
+  },
+  "captured_for": "SEED 0.2 B0",
+  "captured_on": "2026-09-21",
+  "controlled_simulation": {
+    "alpha": 0.18,
+    "command": ".venv/bin/python -m tests.baseline_scenario",
+    "epsilon": 0,
+    "external_sensors_used": false,
+    "inputs": {
+      "A": {
+        "battery_pct": 80,
+        "charging": true,
+        "disk_free_pct": 75,
+        "load_ratio": 0.1,
+        "local_hour": 12
+      },
+      "B": {
+        "battery_pct": 10,
+        "charging": false,
+        "disk_free_pct": 5,
+        "load_ratio": 1,
+        "local_hour": 2
+      }
+    },
+    "installed_database_used": false,
+    "measured": {
+      "action_distribution": {
+        "consolidate": 1,
+        "observe": 4,
+        "reflect": 1,
+        "rest": 2
+      },
+      "action_sequence": [
+        "observe",
+        "observe",
+        "observe",
+        "observe",
+        "reflect",
+        "consolidate",
+        "rest",
+        "rest"
+      ],
+      "concept_count": 0,
+      "context_coverage": 2,
+      "database_footprint": {
+        "main_bytes": 118784,
+        "shm_bytes": 0,
+        "wal_bytes": 0
+      },
+      "database_page_count": 29,
+      "database_page_size": 4096,
+      "lifecycle_counts": {
+        "experience": 8,
+        "sleep": 1,
+        "wake": 1
+      },
+      "observation_count": 8,
+      "policy_coverage": 5,
+      "q_values": [
+        {
+          "action": "observe",
+          "state_key": "charging|calm|ok|day",
+          "value": 0.2018844,
+          "visits": 3
+        },
+        {
+          "action": "consolidate",
+          "state_key": "low|busy|tight|night",
+          "value": -0.036,
+          "visits": 1
+        },
+        {
+          "action": "observe",
+          "state_key": "low|busy|tight|night",
+          "value": -0.216,
+          "visits": 1
+        },
+        {
+          "action": "reflect",
+          "state_key": "low|busy|tight|night",
+          "value": -0.216,
+          "visits": 1
+        },
+        {
+          "action": "rest",
+          "state_key": "low|busy|tight|night",
+          "value": 0.6552,
+          "visits": 2
+        }
+      ],
+      "returned_intervals_seconds": [
+        8,
+        8,
+        8,
+        8,
+        12,
+        20,
+        35,
+        35
+      ]
+    },
+    "state_sequence": [
+      "A",
+      "A",
+      "B",
+      "A",
+      "B",
+      "B",
+      "B",
+      "B"
+    ],
+    "tie_breaking": "first candidate in ACTIONS order",
+    "time": "synthetic clock; one second advanced per cycle; returned wait intervals are recorded but not slept"
+  },
+  "core_constraints": {
+    "arbitrary_shell_execution": false,
+    "autonomous_new_external_actions": false,
+    "dashboard_dependencies_required": false,
+    "existing_fixed_network_probe": {
+      "port": 443,
+      "target": "1.1.1.1",
+      "timeout_seconds": 1
+    },
+    "owner_selected_home": "Writes are scoped to the owner-selected SEED_HOME; deployment is separately authorized.",
+    "resists_shutdown": false,
+    "root_launch_refused_by_code": false,
+    "root_required": false,
+    "self_replication": false
+  },
+  "cycle_order": [
+    "perceive",
+    "choose",
+    "calculate_reward",
+    "update_Q",
+    "perform_action",
+    "store_episode"
+  ],
+  "dashboard": {
+    "B0_repairs": [
+      "specified note/annotation/deterministic-summary service and routes",
+      "read-only operator schema compatibility gate"
+    ],
+    "bind_host": "127.0.0.1",
+    "confirmation_commands": [
+      "stop",
+      "restart",
+      "rotate_logs"
+    ],
+    "default_port": 8765,
+    "not_completed": [
+      "operator UI",
+      "automation scheduler",
+      "full deployment review"
+    ],
+    "observer_default": true
+  },
+  "default_intervals_seconds": {
+    "consolidate": 20,
+    "observe": 8,
+    "reflect": 12,
+    "rest": 35
+  },
+  "known_limitations": [
+    "Battery parser incorrectly identifies discharging as charging (documented, unchanged in B0).",
+    "Wake is inferred from cycle gaps, not authoritative OS notifications.",
+    "Reward is calculated and learning updated before action, with no measured outcome.",
+    "Consolidation records a checkpoint and does not perform semantic consolidation.",
+    "Experimental prediction/world-model features remain unavailable."
+  ],
+  "learning": {
+    "alpha_default": 0.18,
+    "epsilon_default": 0.15,
+    "exploitation": "uniform choice among actions with maximum current Q value",
+    "exploration": "random draw < epsilon; uniform choice from all actions",
+    "prediction_metrics_available": false,
+    "q_update": "Q_new = Q_old + alpha * (reward - Q_old)",
+    "reward_timing": "pre-action heuristic on the same observed state",
+    "type": "epsilon_greedy_contextual_bandit",
+    "visit_update": "visits_new = visits_old + 1"
+  },
+  "legacy_schema_version": null,
+  "lifecycle": {
+    "heartbeat_wait_seconds": 2,
+    "important_caveat": "Long scheduled intervals or workload delays can also cause inferred wake records.",
+    "native_sleep_notifications": false,
+    "resume_detection": "wall-clock gap between cycle starts; strictly greater than threshold",
+    "sleep_threshold_seconds": 45,
+    "stop_behavior": "owner stop sets interruptible event; process_stop records a sleep episode without fresh sensing"
+  },
+  "metrics_definitions": {
+    "action_distribution": "Count retained experience episodes by action; the control has only autonomous experiences. Owner-command experiences must be reported separately in mixed datasets.",
+    "concept_count": "Persisted concepts row count; not a measure of calibrated belief quality.",
+    "context_coverage": "Distinct state_key values among populated Q rows; equivalent to encountered learned contexts in this fixture.",
+    "database_footprint": "Main, WAL and SHM file bytes after a controlled checkpoint and close; page size and page count included. Physical bytes depend on SQLite version and record layout.",
+    "lifecycle_counts": "Raw episode counts by event; sleep includes process stop and wake includes inferred resumes.",
+    "observation_count": "Valid retained experience episodes in the controlled fixture; owner notes and wake/stop records excluded. Live raw event counts do not validate sensor quality.",
+    "policy_coverage": "Number of populated state/action Q rows, including zero or negative values."
+  },
+  "schema": {
+    "changes_in_B0": [],
+    "current_tables": [
+      "annotations",
+      "audit",
+      "automation_runs",
+      "automations",
+      "commands",
+      "concept_evidence",
+      "concepts",
+      "episodes",
+      "events",
+      "meta",
+      "q_values",
+      "runtime",
+      "seed_schema",
+      "settings",
+      "sqlite_sequence"
+    ],
+    "explicit_indexes": [
+      {
+        "name": "episodes_event_ts",
+        "sql": "CREATE INDEX episodes_event_ts ON episodes(event,ts)",
+        "table": "episodes"
+      },
+      {
+        "name": "events_category_id",
+        "sql": "CREATE INDEX events_category_id ON events(category,id)",
+        "table": "events"
+      },
+      {
+        "name": "events_ts",
+        "sql": "CREATE INDEX events_ts ON events(ts)",
+        "table": "events"
+      }
+    ],
+    "journal_mode": "wal",
+    "legacy_tables": [
+      "meta",
+      "episodes",
+      "q_values",
+      "concepts"
+    ]
+  },
+  "schema_version": 1,
+  "source": {
+    "core_sha256": {
+      "main.py": "39457deebd93bbc1e29a1373a686b0790a6e404c2c14e4a91231a1772c79b0f7",
+      "seed/body.py": "9403c5a873478ae37804a5d394f7a612a41468ac869cd5e79e2aefdd0faa6810",
+      "seed/commands.py": "9eac421c1bade0e927dd1e76efc0f75ceb6e59a8d925bac0b91a64ba67e64116",
+      "seed/learner.py": "8d51bac92532ef77420b1b43388ff0af3e2b9fa7837d8ad4284e6081a00e8a3a",
+      "seed/memory.py": "95c205e9a039a00abf91bc06f76e823666f60e874bd682dfa7ed03eead83c12f",
+      "seed/migrations.py": "4687e4b469b6d7aef8f2a932937baff2fc057e4074ae66ffcabb14700d75e117",
+      "seed/organism.py": "2d183f1015ea464a27896bb8a02dce05c8a2e67e0b322d513e58fe58a877df83",
+      "seed/telemetry.py": "ed73518919f5f6dc9a5864fdc251210f10b99c06d37e6cf9641b273125b0e941"
+    },
+    "scope": "B0 changes are tracked in the containing Git commit; core behavior is unchanged.",
+    "starting_commit": "6dd5429"
+  }
+}

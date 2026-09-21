@@ -52,3 +52,55 @@ def test_http_operator_security_and_extra_fields(home):
 
 def test_operator_refuses_legacy_schema(legacy_home):
     with pytest.raises(ServiceError): create_app(legacy_home,operator=True)
+
+@pytest.mark.parametrize('important,tags',[(1,[]),(False,['x'*33]),(False,['x']*11),(False,[1])])
+def test_annotation_rejects_malformed_values(home,important,tags):
+    service=InteractionService(home)
+    note=service.note('original')
+    with pytest.raises(ServiceError): service.annotate(note['id'],important,tags)
+    assert SeedService(home).memory(note['id'])['tags']==[]
+
+
+def test_annotation_missing_and_note_audit_rollback(home,monkeypatch):
+    service=InteractionService(home)
+    with pytest.raises(ServiceError) as error:service.annotate(999,True,[])
+    assert error.value.status==404
+    def broken(*args,**kwargs): raise RuntimeError('audit unavailable')
+    monkeypatch.setattr('dashboard.services.interaction.audit',broken)
+    with pytest.raises(RuntimeError):service.note('must roll back')
+    with sqlite3.connect(home/'memory.sqlite3') as db:
+        assert db.execute('SELECT count(*) FROM episodes').fetchone()[0]==0
+        assert db.execute('SELECT count(*) FROM events').fetchone()[0]==0
+
+
+def test_summary_counts_interval_without_fabricating(legacy_home):
+    service=InteractionService(legacy_home)
+    assert service.summary(0)['observations']==1
+    assert service.summary(1002)['observations']==0
+    for value in [-1,float('inf'),float('nan')]:
+        with pytest.raises(ServiceError):service.summary(value)
+
+
+def test_observer_cannot_write_note(home):
+    with TestClient(create_app(home),base_url=ORIGIN) as c:
+        token=c.get('/api/bootstrap').json()['token']
+        assert c.post('/api/notes',json={'text':'blocked'},headers={'Origin':ORIGIN,'X-SEED-CSRF':token}).status_code==403
+    assert SeedService(home).memories()['total']==0
+
+
+def test_operator_rejects_future_schema_without_writing(home):
+    with sqlite3.connect(home/'memory.sqlite3') as db:
+        db.execute('UPDATE seed_schema SET version=999')
+    with pytest.raises(ServiceError):create_app(home,operator=True)
+    with sqlite3.connect(home/'memory.sqlite3') as db:
+        assert db.execute('SELECT version FROM seed_schema').fetchone()[0]==999
+
+
+def test_annotation_rejects_oversized_sqlite_id(home):
+    with TestClient(create_app(home,operator=True),base_url=ORIGIN) as c:
+        token=c.get('/api/bootstrap').json()['token']
+        response=c.patch(f'/api/memories/{2**63}/annotation',
+                         json={'important':True,'tags':[]},
+                         headers={'Origin':ORIGIN,'X-SEED-CSRF':token})
+        assert response.status_code==422
+    assert SeedService(home).memories()['total']==0
