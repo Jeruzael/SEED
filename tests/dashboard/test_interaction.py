@@ -104,3 +104,11 @@ def test_annotation_rejects_oversized_sqlite_id(home):
                          headers={'Origin':ORIGIN,'X-SEED-CSRF':token})
         assert response.status_code==422
     assert SeedService(home).memories()['total']==0
+
+
+def test_operator_requires_transition_table_in_v2(home):
+    with sqlite3.connect(home/'memory.sqlite3') as db:
+        db.execute('DROP TABLE transitions')
+    with pytest.raises(ServiceError) as error:
+        create_app(home,operator=True)
+    assert error.value.status==409

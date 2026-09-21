@@ -2,21 +2,23 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B0 — Baseline and Guardrails, explicitly authorized on 2026-09-21. B0 is VERIFIED. B1–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused; only minimal, specified baseline repairs are in scope.
+**Current authorization: B1 — Transition-Based Experience, explicitly authorized on 2026-09-22. B0 and B1 are VERIFIED. B2–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
 
 ## Objective and architectural transition
 
 SEED means **Situated Experiential Emergent Development**. Evolve the existing Germination prototype incrementally into a system that learns from observed consequences and prediction error, while keeping behavior inspectable, reproducible, and under owner control.
 
-The current autonomous cycle in `seed/organism.py` is:
+The B1 autonomous cycle in `seed/organism.py` is:
 
 ```text
-perceive
+perceive state_before
 → choose predefined internal action
-→ calculate predefined reward
-→ update contextual action value
 → perform action
-→ store episode
+→ perceive state_after
+→ describe observed differences
+→ calculate unchanged legacy reward from state_before
+→ update contextual action value
+→ atomically store linked episode and transition
 ```
 
 The target architecture is:
@@ -46,8 +48,8 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 
 | Batch | Name | Status | Depends On | Tests | Notes |
 | --- | --- | --- | --- | --- | --- |
-| B0 | Baseline and Guardrails | VERIFIED | — | Full suite: 107 passed; baseline artifact and regression evidence recorded | Minimal specified API restored; core unchanged; B1 awaits authorization |
-| B1 | Transition-Based Experience | NOT STARTED | B0 | Not added or executed for B1 | Explicit before/action/after/outcome records; incremental loop change |
+| B0 | Baseline and Guardrails | VERIFIED | — | Full suite: 107 passed; baseline artifact and regression evidence recorded | Minimal specified API restored; core unchanged in B0 |
+| B1 | Transition-Based Experience | VERIFIED | B0 | Full suite: 138 passed; independent review approved | Schema v2; observed transitions; unchanged legacy reward/policy; no B2 |
 | B2 | Predictor | NOT STARTED | B1 | Not added or executed for B2 | Simple interpretable per-signal predictions, with provenance |
 | B3 | Prediction Error | NOT STARTED | B1, B2 | Not added or executed for B3 | Per-signal and aggregate errors linked to evaluated predictions |
 | B4 | World Model | NOT STARTED | B1, B3 | Not added or executed for B4 | Persistent observation-grounded beliefs and contradictions |
@@ -299,7 +301,7 @@ This roadmap is initialized when B0–B10 are listed with valid statuses, depend
 
 SEED 0.2 is complete only when each authorized batch meets its acceptance criteria, relevant tests and full regression gates pass, migrations preserve memories, runtime/dashboard separation and owner authority remain intact, and repeatable evaluation results are recorded without overstating improvement.
 
-**Ready state:** B0 VERIFIED. Ready for B1 planning/execution only upon explicit authorization. B1–B10 remain NOT STARTED.
+**Ready state:** B0 and B1 VERIFIED. B2–B10 remain NOT STARTED and unauthorized; B2 requires an explicit instruction.
 
 
 ## B0 execution log — 2026-09-21
@@ -511,3 +513,102 @@ Schema remains version 1, with no B0 migration or core-source change. All databa
 Git scope: branch `seed-0.2-b0`, starting commit `6dd5429`; this record and the twelve listed files are committed together as `seed-0.2 B0: establish verified developmental baseline`. Reverting this B0 commit restores the prior checkout without changing installed memory. The prior checkout's missing-service collection failure would return.
 
 **Ready for B1: YES**, subject to explicit owner authorization. The recorded sensor/lifecycle limitations remain part of the control condition, not claims that they were repaired.
+
+
+## B1 execution log — 2026-09-22
+
+Status: VERIFIED. Branch: `seed-0.2-b1`. Starting commit: `ecd9c65` (owner-created branch at B0 merge, identical tree to verified `b6d7a28`). Working tree initially clean; baseline command `.venv/bin/python -m pytest -q`: 107 passed, no skipped/excluded tests, two upstream warnings.
+
+Objective: observable autonomous transitions with unchanged contextual-bandit policy and legacy reward values, evaluated after action and second perception. Execution plan: `docs/superpowers/plans/2026-09-22-seed-b1.md`. Native implementation continues under the owner's detailed approved B1 design.
+
+Architectural decision: B1 preserves B0 reward semantics while moving reward evaluation and Q-learning after action completion and post-action observation. This isolates transition architecture from later changes to prediction, utility, curiosity, and decision policy.
+
+Preflight: existing learner commits Q updates independently; focused experience persistence will make the episode and transition atomic. Actions such as reflection may already have committed effects if a later observation/write fails; do not claim transactionality across the entire physical cycle. Backup runs before the migration; version validation must precede all constructor schema writes. Sensor snapshots must be copied to prevent reused mutable data changing provenance.
+
+### B1 implementation and schema
+
+- `seed/migrations.py`: VERSION 2; retain the exact v1 statements and add a v1→v2 step. An unversioned database applies both steps in one migration transaction. Exactly one supported integer schema row is required; empty, duplicate, and future versions are refused.
+- `seed/memory.py`: inspect schema before write-capable constructor initialization; back up an existing legacy or v1 database with an episodes table before upgrading. Failed backups prevent migration; failed constructor setup closes its connection. Existing path and symlink checks remain in place. Direct low-level `migrate(db)` still does not create filesystem backups; `Memory` is the supported upgrade entry point.
+- New `transitions` table: integer autoincrement ID, unique non-null `episode_id` foreign key, start/completion wall timestamps, full before/after JSON, action, outcome JSON, legacy reward, nullable prediction and prediction-error JSON. Episode primary/unique linkage provides its lookup index. No old row is rewritten or backfilled; all prediction fields remain SQL NULL.
+- `Memory.record_transition_experience(...)` validates JSON before writes and inserts both records in one SQLite transaction. Episode timestamps equal completion timestamps; episode state remains state-before, keeping the existing reflection and historical read meanings. Latest-state metadata instead records state-after, the most recent observation.
+- `seed/transitions.py`: copy complete JSON observations, reject non-dictionary/non-string top-level keys and nonfinite/unserializable values. Missing fields and None remain missing/None. Outcomes traverse sorted union keys: before/after values plus explicit presence flags; numeric pairs produce delta; other pairs produce changed, distinguishing booleans from numbers. Overflowing finite-float differences produce `delta=null, delta_unavailable=true`, never fabricated numeric change. Outcomes describe observed differences, not causal effects.
+- `seed/organism.py`: extract the existing action dispatch; observe/rest remain no additional processing; reflect/consolidate call their unchanged routines. Action completes and state-after is observed before reward evaluation and Q update. Decision provenance is emitted before action; pre/post PERCEPTION phases, ACTION start/complete, linked LEARNING and MEMORY records identify the completed experience. Runtime retains decision context and action start, exposes current action and last completed action, then returns idle/resting after successful persistence.
+- `dashboard/app.py`: the existing operator schema check now also requires transitions; it continues to refuse incompatible versions without migration. No new routes, views, or frontend changes.
+
+### B1 failure and provenance boundaries
+
+Action failure or invalid/failed post-observation produces no reward update or successful experience pair. Through `run()`, errors become ERROR telemetry/runtime and storage/lock close. No incomplete transition is synthesized, replayed, or filled with predictions after restart. Pre-action decision/action events remain inspectable; a completed action can legitimately exist without a completed transition if its following observation fails.
+
+The episode+transition pair is atomic, verified with a failing SQLite insert trigger. This does **not** make the entire cycle transactional: reflection/consolidation can commit effects before later failure, and the existing learner commits its Q update before the pair is written. Thus a later storage failure may retain that Q update without the experience pair; the error propagates and stops the runtime, rather than silently continuing or claiming successful cycle completion. B1 preserves the existing learner storage API and limits its new atomic guarantee to the requested experience pair.
+
+Owner observe/reflect/consolidate still use existing command, episode, and audit behavior, with no transition and no policy update. A historical or owner episode without a transition is valid; it is not evidence of corruption. No live installed memory was accessed or migrated, no app was installed/restarted, and no new listener was started.
+
+### B1 test evidence and B0 test adaptations
+
+New coverage:
+
+- `tests/test_transition_migrations.py`: fresh→v2, legacy→v2, populated v1→v2, reopen/no new backup, failed backup, failure in v2 SQL rolling back v1→v2 and both legacy steps, and ambiguous/future schema rejection before mutation. Representative rows from **all 13 existing tables** (`meta`, `episodes`, `q_values`, `concepts`, `events`, `runtime`, `concept_evidence`, `commands`, `annotations`, `settings`, `automations`, `automation_runs`, `audit`) are compared exactly. Backups contain their original version and rows.
+- `tests/test_transitions.py`: observed numeric/boolean/unchanged/missing/None/added/removed fields, invalid JSON/nonfinite observations, numeric overflow, snapshot detachment, exact persisted fields/NULLs/link, pair rollback, and historical reads.
+- `tests/test_transition_cycle.py`: all four actions with real learner/storage and deterministic traces; deliberately different before/after reward contexts prove reward still uses before. A reused sensor dictionary proves snapshots cannot overwrite provenance. Action/second-observation failure leaves Q unchanged and no success records; owner commands never enter the transition table.
+- `tests/dashboard/test_interaction.py`: a claimed-v2 database without transitions is rejected for operator mode.
+
+Exactly these B0 fixture/assertion adaptations were needed:
+
+1. `test_current_cycle_records_learning_before_action` became `test_b1_cycle_moves_legacy_learning_after_action_and_second_observation`. Expected telemetry order now includes the second perception and learning after action; original .655 Q result and delay remain asserted.
+2. `test_start_wait_heartbeat_stop_and_restart_preserve_identity` expects three perceptions (startup + two per cycle), previously two. All lifecycle/identity/stop assertions remain.
+3. `tests/baseline_scenario.py` supplies each of the eight original decision contexts twice, for before/after. Its tests keep every original hand-calculated policy and lifecycle assertion and add eight transitions/sixteen autonomous perceptions. Standalone CLI remains tested. The B0 JSON is unchanged.
+
+No tests removed, skipped, or excluded. RED runs reproduced missing v2/backup behavior, missing transition helpers/storage, old cycle ordering/early learning, and incomplete operator schema guard before the implementations passed. Current full-suite result: **138 passed, 2 existing upstream deprecation warnings**. Independent review approved with no findings; final verification results are recorded below.
+
+### B1 baseline comparison
+
+Artifact: `docs/baselines/seed-0.2-b1-comparison.json`. The B0 JSON SHA256 is recorded to anchor the comparison; B0 JSON itself is immutable. Run `.venv/bin/python -m tests.baseline_scenario` for the current controlled simulation.
+
+All nine comparable B0 metrics are identical: eight autonomous experiences; actions observe 4/reflect 1/consolidate 1/rest 2; two contexts; five Q rows; zero concepts; lifecycle wake 1/experience 8/sleep 1; exact stored Q values and visits; action sequence; returned intervals. B1 additionally has eight linked transitions and sixteen autonomous PERCEPTION events. In this environment the checkpointed database grows from 118,784 bytes (29 pages) to 147,456 bytes (36 pages), page size 4,096; WAL/SHM zero after close. Physical sizes vary with SQLite/platform and are measurements, not universal thresholds.
+
+Unchanged source verified against `b6d7a28`: learner (state keys, actions, epsilon/alpha defaults, reward and Q equation), sensors, configuration, commands, core lock, telemetry helpers, and main process entry point. Owner controls, loopback/security tests, standard-library-only core, and inferred wake threshold retain their B0 coverage. Schema, experience ordering, perception frequency, linked persistence, and learning timing changed intentionally. No policy/intelligence improvement is claimed.
+
+### B1 resource costs and limitations
+
+- Normal autonomous perception calls increase **1→2 per cycle**. Each performs the existing pmset query, disk/load/time/platform reads, and fixed 1.1.1.1:443 TCP reachability probe. Thus normal probes increase **1→2 per cycle**; no new destination or kind of network operation is added. Each additional perception can incur the existing pmset timeout (2s) plus network timeout (1s), aside from ordinary OS-call time. Total cycle duration can increase; configured post-cycle intervals are unchanged, so probes per wall minute need not exactly double. Startup/inferred-wake observations are additional and unchanged. Tests/simulation replace sensors and never probe the public network.
+- Rest's transition ends with the **immediate** second observation before the scheduled longer wait. It does not measure the consequence of the full rest interval or sleep. Other observed differences are also correlations, not attributed causes.
+- Existing charging parser false-positive for “discharging” remains unchanged and characterized.
+- Wake inference still uses a wall-clock cycle-start gap >45s; long work/intervals can look like resume. Start/completion timestamps are raw wall time; clock adjustment can make them non-monotonic, so they must not be treated as guaranteed elapsed-duration measurements.
+- No predictor, prediction error, curiosity, world model, self-model, utility redesign, semantic consolidation, new autonomous tools, or development UI exists. Prediction columns are NULL; no fake zero scores.
+- Full cycle atomicity is not claimed (see failure boundary above). Unknown sensor values stay unknown; JSON validation does not calibrate sensors or correct existing numeric-field assumptions in the unchanged learner.
+- Installed app remains untouched and may still use legacy schema. Operator mode requires the current schema; observer reads of historical memory remain supported. No deployment approval is implied by passing fixture tests.
+
+### B2 prerequisites
+
+B2 needs explicit authorization and a scoped prediction design: supported signals, observation horizon (B1 currently immediate post-action), cold-start and missing-value policy, evidence/uncertainty meaning, model version/provenance, and deterministic evaluation without future-state leakage. The v2 transition link and nullable prediction columns provide storage groundwork only. Account for the existing charging defect and increased sensing cost when selecting/evaluating signals. B2 must not be started by this B1 task.
+
+### B1 final acceptance — VERIFIED
+
+Files changed (15):
+
+- Core: `seed/migrations.py`, `seed/memory.py`, `seed/organism.py`, new `seed/transitions.py`.
+- Compatibility guard: `dashboard/app.py`.
+- New regressions: `tests/test_transition_migrations.py`, `tests/test_transitions.py`, `tests/test_transition_cycle.py`.
+- Existing tests/control: `tests/dashboard/test_interaction.py`, `tests/test_baseline_lifecycle.py`, `tests/baseline_scenario.py`, `tests/test_baseline_scenario.py`.
+- Documentation/artifact: `docs/seed-0.2-development-plan.md`, `docs/superpowers/plans/2026-09-22-seed-b1.md`, `docs/baselines/seed-0.2-b1-comparison.json`.
+
+Final checks:
+
+- `.venv/bin/python -m pytest -q`: **138 passed, 0 skipped/excluded, 2 upstream warnings** (Starlette/httpx and AnyIO aliases, unchanged from B0).
+- `.venv/bin/python -m tests.baseline_scenario`: successful deterministic run, eight linked transitions and all nine comparable B0 metrics unchanged.
+- `.venv/bin/python -m compileall -q seed dashboard tests`: passed.
+- `git diff --check`: passed. New files also checked for trailing whitespace; JSON parses and contains no actual host/user/path/private-memory data.
+- B0 learner/sensor/config/command/runtime/telemetry/entry-point sources and original baseline JSON match `b6d7a28` byte for byte.
+
+Independent read-only review approved the implementation with **no Critical, Important, or Minor findings** and independently reproduced 138 passing tests. Review scope decisions are explicit:
+
+1. Whole-cycle atomicity remains outside the focused pair invariant; retained Q/action effects on later failure are documented. Cost: failed cycles can leave policy/action effects without a complete transition, requiring inspection rather than replay.
+2. Real sensor accuracy/latency and live migration were not exercised; synthetic fixtures preserve the owner's installed memory. Cost: deployment and real-device behavior still require separately authorized verification; charging defect remains.
+3. Rest outcomes end before its scheduled wait, as authorized. Cost: these records cannot evaluate the environmental consequence of a full rest interval.
+4. Arbitrary future nested sensor formats and hostile internal API calls were not introduced as supported contracts; current Body emits flat JSON primitives and the core owns persistence. Cost: expanding that boundary requires new validation/tests.
+5. No policy-improvement evaluation was performed or claimed. Cost: this batch supports architectural comparison only.
+6. Review did not certify final tracker/commit cleanliness; those are the implementer's delivery checks recorded here and verified after committing.
+
+Commit scope: the 15 files above are committed on `seed-0.2-b1` as `seed-0.2 B1: add transition-based experience`, retaining the owner's existing B0 merge ancestry. No automatic merge or push. No installed schema change. Source rollback alone after a future deployment would not downgrade schema v2: restore the verified pre-upgrade backup only through an authorized recovery process, preserving the newer database separately if recovery is ever needed.
+
+**Ready for B2: YES**, with no B1 acceptance blocker. Explicit B2 authorization remains required. Stop here.

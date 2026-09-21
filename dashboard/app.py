@@ -24,7 +24,7 @@ def create_app(home: Path, port: int = 8765, operator: bool = False) -> FastAPI:
         with service.store.connection() as db:
             required = {'seed_schema', 'episodes', 'meta', 'q_values', 'concepts', 'events',
                         'runtime', 'concept_evidence', 'commands', 'annotations', 'settings',
-                        'automations', 'automation_runs', 'audit'}
+                        'automations', 'automation_runs', 'audit', 'transitions'}
             if not required <= service.store.tables(db):
                 raise ServiceError('incompatible_schema',
                                    'Operator mode requires the upgraded core schema; no migration was performed.', 409)

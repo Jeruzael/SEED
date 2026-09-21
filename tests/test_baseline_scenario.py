@@ -5,6 +5,8 @@ from tests.baseline_scenario import run_scenario
 def test_controlled_sequence_has_hand_calculated_policy(tmp_path):
     metrics=run_scenario(tmp_path/'control')
     assert metrics['observation_count']==8
+    assert metrics['transition_count']==8
+    assert metrics['autonomous_perception_count']==16
     assert metrics['action_distribution']=={'observe':4,'reflect':1,'consolidate':1,'rest':2}
     assert metrics['context_coverage']==2 and metrics['policy_coverage']==5
     assert metrics['concept_count']==0

@@ -20,7 +20,7 @@ def test_resume_inference_is_strict_gap_threshold(home,monkeypatch,gap,expected_
     finally:core.close()
 
 
-def test_current_cycle_records_learning_before_action(home,monkeypatch):
+def test_b1_cycle_moves_legacy_learning_after_action_and_second_observation(home,monkeypatch):
     monkeypatch.setattr('seed.body.Body.perceive',lambda self:dict(STATE))
     core=SeedOrganism(home)
     try:
@@ -28,10 +28,10 @@ def test_current_cycle_records_learning_before_action(home,monkeypatch):
         core.memory.set_q('charging|calm|ok|day','reflect',.7,4)
         delay=core.cycle()
         rows=core.memory.db.execute('SELECT category,data_json FROM events ORDER BY id').fetchall()
-        assert [r[0] for r in rows]==['PERCEPTION','DECISION','LEARNING','ACTION','ACTION','MEMORY']
-        assert json.loads(rows[2][1])['new_value']==pytest.approx(.655)
-        assert json.loads(rows[3][1])['phase']=='start'
-        assert json.loads(rows[4][1])['phase']=='complete'
+        assert [r[0] for r in rows]==['PERCEPTION','DECISION','ACTION','ACTION','PERCEPTION','LEARNING','MEMORY']
+        assert json.loads(rows[5][1])['new_value']==pytest.approx(.655)
+        assert json.loads(rows[2][1])['phase']=='start'
+        assert json.loads(rows[3][1])['phase']=='complete'
         assert delay==12
         episode=core.memory.recent_episodes(1)[0]
         assert episode['action']=='reflect' and episode['reward']==.45
@@ -62,7 +62,7 @@ def test_start_wait_heartbeat_stop_and_restart_preserve_identity(home,monkeypatc
     monkeypatch.setattr(core.stop_event,'wait',wait_then_stop)
     core.run()
     assert heartbeats
-    assert len(perceived)==2  # start + cycle; shutdown reuses recorded state
+    assert len(perceived)==3  # start + before/after; shutdown reuses recorded state
     with sqlite3.connect(home/'memory.sqlite3') as db:
         rows=db.execute('SELECT event,note FROM episodes ORDER BY id').fetchall()
         assert [r[0] for r in rows]==['wake','experience','sleep']

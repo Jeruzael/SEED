@@ -1,7 +1,7 @@
 """Additive migrations: original episode, concept, policy and identity rows stay intact."""
 import sqlite3
 
-VERSION = 1
+VERSION = 2
 STATEMENTS = [
     'CREATE TABLE seed_schema(version INTEGER NOT NULL)',
     '''CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL,
@@ -25,19 +25,40 @@ STATEMENTS = [
     action TEXT NOT NULL,parameters_json TEXT NOT NULL,result_json TEXT NOT NULL)''',
 ]
 
+V2_STATEMENTS = [
+    '''CREATE TABLE transitions(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    episode_id INTEGER NOT NULL UNIQUE REFERENCES episodes(id),
+    started_at REAL NOT NULL, completed_at REAL NOT NULL,
+    state_before_json TEXT NOT NULL, action TEXT NOT NULL,
+    state_after_json TEXT NOT NULL, outcome_json TEXT NOT NULL,
+    legacy_reward REAL NOT NULL, prediction_json TEXT, prediction_error_json TEXT)''',
+]
+
+
+def schema_version(db: sqlite3.Connection) -> int:
+    """Return 0 for unversioned storage; refuse ambiguous/unsupported versions."""
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE name='seed_schema'").fetchone():
+        return 0
+    rows = db.execute('SELECT version FROM seed_schema').fetchall()
+    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, VERSION):
+        raise ValueError('Unsupported SEED schema version')
+    return rows[0][0]
+
 
 def migrate(db: sqlite3.Connection) -> None:
     db.execute('BEGIN IMMEDIATE')
     try:
-        exists = db.execute("SELECT 1 FROM sqlite_master WHERE name='seed_schema'").fetchone()
-        if exists:
-            row = db.execute('SELECT version FROM seed_schema').fetchone()
-            if not row or row[0] != VERSION:
-                raise ValueError('Unsupported SEED schema version')
-        else:
+        version = schema_version(db)
+        if version == 0:
             for statement in STATEMENTS:
                 db.execute(statement)
-            db.execute('INSERT INTO seed_schema VALUES(?)', (VERSION,))
+            db.execute('INSERT INTO seed_schema VALUES(1)')
+            version = 1
+        if version == 1:
+            for statement in V2_STATEMENTS:
+                db.execute(statement)
+            db.execute('UPDATE seed_schema SET version=?', (VERSION,))
         db.commit()
     except BaseException:
         db.rollback()

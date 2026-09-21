@@ -5,8 +5,9 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
-from .migrations import migrate
+from .migrations import migrate, schema_version, VERSION
 from .paths import checked_path
+from .transitions import validated_state
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -51,19 +52,23 @@ class Memory:
             checked_path(path.parent, path.name + suffix)
         if self.path.exists():
             with sqlite3.connect(self.path.as_uri() + '?mode=ro', uri=True) as existing:
-                legacy = not existing.execute("SELECT 1 FROM sqlite_master WHERE name='seed_schema'").fetchone()
+                version = schema_version(existing)
                 has_memory = bool(existing.execute("SELECT 1 FROM sqlite_master WHERE name='episodes'").fetchone())
-            if legacy and has_memory:
+            if version < VERSION and has_memory:
                 from .backup import create_backup
                 create_backup(path.parent)
         self._lock = threading.RLock()
         self.db = sqlite3.connect(self.path, check_same_thread=False, timeout=2)
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.row_factory = sqlite3.Row
-        with self._lock:
-            self.db.executescript(SCHEMA)
-            self.db.commit()
-            migrate(self.db)
+        try:
+            with self._lock:
+                self.db.executescript(SCHEMA)
+                self.db.commit()
+                migrate(self.db)
+        except BaseException:
+            self.db.close()
+            raise
 
     def close(self):
         with self._lock:
@@ -102,6 +107,24 @@ class Memory:
                 (state_key, action),
             ).fetchone()
         return (float(row["value"]), int(row["visits"])) if row else (0.0, 0)
+
+    def record_transition_experience(self, *, state_before, action, state_after, outcome,
+                                     legacy_reward, started_at, completed_at, note=None):
+        """Commit the linked experience pair together; never backfill old episodes."""
+        before_json = json.dumps(validated_state(state_before), sort_keys=True, allow_nan=False)
+        after_json = json.dumps(validated_state(state_after), sort_keys=True, allow_nan=False)
+        outcome_json = json.dumps(outcome, sort_keys=True, allow_nan=False)
+        with self._lock, self.db:
+            episode = self.db.execute(
+                'INSERT INTO episodes(ts,event,state_json,action,reward,note) VALUES(?,?,?,?,?,?)',
+                (completed_at, 'experience', before_json, action, legacy_reward, note),
+            )
+            transition = self.db.execute('''INSERT INTO transitions(
+                episode_id,started_at,completed_at,state_before_json,action,state_after_json,
+                outcome_json,legacy_reward) VALUES(?,?,?,?,?,?,?,?)''',
+                (episode.lastrowid, started_at, completed_at, before_json, action,
+                 after_json, outcome_json, legacy_reward))
+            return episode.lastrowid, transition.lastrowid
 
     def set_q(self, state_key: str, action: str, value: float, visits: int):
         with self._lock:

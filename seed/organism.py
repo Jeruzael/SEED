@@ -16,6 +16,7 @@ from .runtime import InstanceLock
 from .telemetry import Telemetry
 from .commands import CommandQueue
 from .config import DEFAULTS, validate_settings
+from .transitions import validated_state, describe_outcome
 
 log = logging.getLogger('seed')
 
@@ -132,37 +133,59 @@ class SeedOrganism:
         self.memory.set_meta('last_consolidation', {'at': time.time(), **self.memory.stats()})
         self.telemetry.emit('MEMORY', 'organism', 'Consolidation checkpoint recorded; memories preserved', {})
 
+    def perform_action(self, action):
+        # Observe/rest have no additional internal processing. Rest's wait is later.
+        if action == 'reflect':
+            self.reflect()
+        elif action == 'consolidate':
+            self.consolidate()
+
     def cycle(self):
         self.apply_settings()
         self.infer_wake_if_needed()
-        self.telemetry.runtime(activity='observing', action_started_at=time.time(), heartbeat=time.time())
-        state = self.body.perceive()
-        self.telemetry.emit('PERCEPTION', 'body', 'Environment observed', state)
-        decision = self.learner.choose(state)
+        self.telemetry.runtime(activity='observing', current_action=None,
+                               action_started_at=time.time(), heartbeat=time.time())
+        state_before = validated_state(self.body.perceive())
+        self.telemetry.emit('PERCEPTION', 'body', 'Environment observed before action',
+                            {**state_before, 'phase': 'before_action'})
+        decision = self.learner.choose(state_before)
         self.telemetry.emit('DECISION', 'learner', f'Selected {decision.action.upper()}', asdict(decision))
-        reward = self.learner.reward(state, decision.action)
+        started_at = time.time()
+        self.telemetry.runtime(activity=decision.action, current_action=decision.action,
+                               action_started_at=started_at, context=decision.state_key,
+                               last_decision=asdict(decision))
+        self.telemetry.emit('ACTION', 'organism', f'Started {decision.action}',
+                            {'action': decision.action, 'phase': 'start'})
+        self.perform_action(decision.action)
+        self.telemetry.emit('ACTION', 'organism', f'Completed {decision.action}',
+                            {'action': decision.action, 'phase': 'complete'})
+        self.telemetry.runtime(activity='observing', current_action=None,
+                               last_completed_action=decision.action, last_action_completed_at=time.time())
+        state_after = validated_state(self.body.perceive())
+        completed_at = time.time()
+        self.telemetry.emit('PERCEPTION', 'body', 'Environment observed after action',
+                            {**state_after, 'phase': 'after_action'})
+        outcome = describe_outcome(state_before, state_after)
+        # B1 intentionally preserves B0 reward inputs; only evaluation timing changes.
+        reward = self.learner.reward(state_before, decision.action)
         self.learner.update(decision, reward)
         new, visits = self.memory.get_q(decision.state_key, decision.action)
-        self.telemetry.emit('LEARNING', 'learner', 'Updated action value',
+        episode_id, transition_id = self.memory.record_transition_experience(
+            state_before=state_before, action=decision.action, state_after=state_after,
+            outcome=outcome, legacy_reward=reward, started_at=started_at,
+            completed_at=completed_at, note=f'context={decision.state_key}')
+        self.telemetry.emit('LEARNING', 'learner', 'Updated action value using legacy reward',
                             {'state_key': decision.state_key, 'action': decision.action, 'old_value': decision.score,
-                             'new_value': new, 'visits': visits, 'reward': reward, 'alpha': self.learner.alpha})
-        self.telemetry.runtime(activity=decision.action, action_started_at=time.time(), context=decision.state_key,
-                               last_decision=asdict(decision), last_reward=reward)
-        self.telemetry.emit('ACTION', 'organism', f'Started {decision.action}', {'action': decision.action, 'phase': 'start'})
-        if decision.action == 'reflect':
-            self.reflect()
-        elif decision.action == 'consolidate':
-            self.consolidate()
-        self.telemetry.emit('ACTION', 'organism', f'Completed {decision.action}', {'action': decision.action, 'phase': 'complete'})
-        episode_id = self.memory.episode('experience', state, action=decision.action, reward=reward,
-                                         note=f'context={decision.state_key}')
-        self.telemetry.emit('MEMORY', 'memory', f'Stored episode #{episode_id}', {'episode_id': episode_id})
-        self.memory.set_meta('last_state', state)
+                             'new_value': new, 'visits': visits, 'reward': reward, 'alpha': self.learner.alpha,
+                             'transition_id': transition_id, 'episode_id': episode_id})
+        self.telemetry.emit('MEMORY', 'memory', f'Stored transition #{transition_id} and episode #{episode_id}',
+                            {'episode_id': episode_id, 'transition_id': transition_id})
+        self.memory.set_meta('last_state', state_after)
         self.memory.set_meta('last_action', decision.action)
         delay = {'observe': self.config['observe_interval'], 'reflect': self.config['reflect_interval'],
                  'consolidate': 20, 'rest': self.config['rest_interval']}[decision.action]
         self.telemetry.runtime(lifecycle='AWAKE', activity='resting' if decision.action == 'rest' else 'idle',
-                               action_started_at=time.time(), last_action=decision.action,
+                               action_started_at=time.time(), last_action=decision.action, last_reward=reward,
                                heartbeat=time.time(), last_successful_cycle=time.time(), next_observation_at=time.time() + delay,
                                epsilon=self.learner.epsilon, alpha=self.learner.alpha)
         return delay
