@@ -1,0 +1,33 @@
+.pytest_cache/
+.checkpoints/
+.superpowers/
+*.pyc
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# SEED runtime data
+memory.sqlite3
+memory.sqlite3-shm
+memory.sqlite3-wal
+*.sqlite3
+seed.log
+seed.err.log
+logs/
+backups/
+
+# IDE
+.vscode/
+.idea/
