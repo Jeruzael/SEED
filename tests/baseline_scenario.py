@@ -1,4 +1,4 @@
-"""Small, synthetic Germination control run. Never reads sensors or installed data.
+"""B0 policy control with paired B1 observations. No sensors or installed data.
 
 Run: .venv/bin/python -m tests.baseline_scenario
 All filesystem writes are confined to a TemporaryDirectory.
@@ -18,7 +18,8 @@ SEQUENCE = ['A','A','B','A','B','B','B','B']
 
 def run_scenario(home: Path) -> dict:
     now = [1_000_000_000.0]
-    pending = [STATE_A, *[STATE_A if label == 'A' else STATE_B for label in SEQUENCE]]
+    # Same decision contexts as B0, repeated for immediate post-action observation.
+    pending = [STATE_A, *[STATE_A if label == 'A' else STATE_B for label in SEQUENCE for _ in range(2)]]
     def perceive(_body):
         return {**pending.pop(0), 'wall_time':now[0], 'load_5m_ratio':0,
                 'network':False, 'hostname':'synthetic-host', 'machine':'synthetic-arch', 'macos':'synthetic-os'}
@@ -45,6 +46,8 @@ def run_scenario(home: Path) -> dict:
                 'policy_coverage':len(values), 'concept_count':core.memory.stats()['concepts'],
                 'lifecycle_counts':counts, 'q_values':values, 'action_sequence':action_sequence,
                 'returned_intervals_seconds':delays,
+                'transition_count':db.execute('SELECT count(*) FROM transitions').fetchone()[0],
+                'autonomous_perception_count':db.execute("SELECT count(*) FROM events WHERE category='PERCEPTION'").fetchone()[0],
                 'database_page_size':db.execute('PRAGMA page_size').fetchone()[0],
                 'database_page_count':db.execute('PRAGMA page_count').fetchone()[0],
             }

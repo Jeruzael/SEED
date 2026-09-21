@@ -1,0 +1,103 @@
+{
+  "b0_artifact_sha256": "06aab67678a8dc1c1aa7e226e8ae36749cf0f6d4b6cf7f4a3d2d115d02e6ec65",
+  "baseline_commit": "b6d7a28",
+  "batch": "SEED 0.2 B1",
+  "comparison_command": ".venv/bin/python -m tests.baseline_scenario",
+  "input_change": "Repeat each B0 decision context for the immediate post-action observation; same eight decisions, no external sensors.",
+  "interpretation": "Architecture comparison only; unchanged reward values and policy results do not imply policy improvement.",
+  "measured": {
+    "action_distribution": {
+      "consolidate": 1,
+      "observe": 4,
+      "reflect": 1,
+      "rest": 2
+    },
+    "action_sequence": [
+      "observe",
+      "observe",
+      "observe",
+      "observe",
+      "reflect",
+      "consolidate",
+      "rest",
+      "rest"
+    ],
+    "autonomous_perception_count": 16,
+    "concept_count": 0,
+    "context_coverage": 2,
+    "database_footprint": {
+      "main_bytes": 147456,
+      "shm_bytes": 0,
+      "wal_bytes": 0
+    },
+    "database_page_count": 36,
+    "database_page_size": 4096,
+    "lifecycle_counts": {
+      "experience": 8,
+      "sleep": 1,
+      "wake": 1
+    },
+    "observation_count": 8,
+    "policy_coverage": 5,
+    "q_values": [
+      {
+        "action": "observe",
+        "state_key": "charging|calm|ok|day",
+        "value": 0.2018844,
+        "visits": 3
+      },
+      {
+        "action": "consolidate",
+        "state_key": "low|busy|tight|night",
+        "value": -0.036,
+        "visits": 1
+      },
+      {
+        "action": "observe",
+        "state_key": "low|busy|tight|night",
+        "value": -0.216,
+        "visits": 1
+      },
+      {
+        "action": "reflect",
+        "state_key": "low|busy|tight|night",
+        "value": -0.216,
+        "visits": 1
+      },
+      {
+        "action": "rest",
+        "state_key": "low|busy|tight|night",
+        "value": 0.6552,
+        "visits": 2
+      }
+    ],
+    "returned_intervals_seconds": [
+      8,
+      8,
+      8,
+      8,
+      12,
+      20,
+      35,
+      35
+    ],
+    "transition_count": 8
+  },
+  "normal_perceptions_per_cycle": {
+    "B0": 1,
+    "B1": 2
+  },
+  "prediction_fields": "SQL NULL; no predictor or prediction error exists",
+  "schema_version": 2,
+  "unchanged_metrics": [
+    "observation_count",
+    "action_distribution",
+    "context_coverage",
+    "policy_coverage",
+    "concept_count",
+    "lifecycle_counts",
+    "q_values",
+    "action_sequence",
+    "returned_intervals_seconds"
+  ]
+}
