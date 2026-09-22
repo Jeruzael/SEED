@@ -11,7 +11,7 @@ def test_controlled_sequence_has_hand_calculated_policy(tmp_path):
     assert prediction['available']==32 and prediction['unavailable']==0
     assert prediction['coverage_pct']==100
     assert prediction['method_groups']=={'action_specific':8,'global':16,'persistence':8}
-    assert prediction['prediction_count']==8 and prediction['prediction_error_count']==0
+    assert prediction['prediction_count']==8 and prediction['prediction_error_count']==8
     for counts in prediction['evidence_counts'].values():
         assert counts==[0,0,2,3,4,5,6,7]
     assert metrics['action_distribution']=={'observe':4,'reflect':1,'consolidate':1,'rest':2}

@@ -1,0 +1,495 @@
+{
+  "b2_artifact_sha256": "3198b14635ad8cbb38360bf9dfdf26e9cb43dfd16524b2ce5a4abce25069c082",
+  "baseline_commit": "008b704",
+  "batch": "SEED 0.2 B3",
+  "command": ".venv/bin/python -m tests.prediction_error_scenario",
+  "control": {
+    "action_distribution": {
+      "consolidate": 1,
+      "observe": 4,
+      "reflect": 1,
+      "rest": 2
+    },
+    "action_sequence": [
+      "observe",
+      "observe",
+      "observe",
+      "observe",
+      "reflect",
+      "consolidate",
+      "rest",
+      "rest"
+    ],
+    "autonomous_perception_count": 16,
+    "concept_count": 0,
+    "context_coverage": 2,
+    "database_footprint": {
+      "main_bytes": 180224,
+      "shm_bytes": 0,
+      "wal_bytes": 0
+    },
+    "database_page_count": 44,
+    "database_page_size": 4096,
+    "lifecycle_counts": {
+      "experience": 8,
+      "sleep": 1,
+      "wake": 1
+    },
+    "observation_count": 8,
+    "policy_coverage": 5,
+    "prediction_structure": {
+      "available": 32,
+      "coverage_pct": 100.0,
+      "evidence_counts": {
+        "battery_pct": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "disk_free_pct": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "load_ratio": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "network_reachable": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      "method_groups": {
+        "action_specific": 8,
+        "global": 16,
+        "persistence": 8
+      },
+      "prediction_count": 8,
+      "prediction_error_count": 8,
+      "unavailable": 0
+    },
+    "q_values": [
+      {
+        "action": "observe",
+        "state_key": "charging|calm|ok|day",
+        "value": 0.2018844,
+        "visits": 3
+      },
+      {
+        "action": "consolidate",
+        "state_key": "low|busy|tight|night",
+        "value": -0.036,
+        "visits": 1
+      },
+      {
+        "action": "observe",
+        "state_key": "low|busy|tight|night",
+        "value": -0.216,
+        "visits": 1
+      },
+      {
+        "action": "reflect",
+        "state_key": "low|busy|tight|night",
+        "value": -0.216,
+        "visits": 1
+      },
+      {
+        "action": "rest",
+        "state_key": "low|busy|tight|night",
+        "value": 0.6552,
+        "visits": 2
+      }
+    ],
+    "returned_intervals_seconds": [
+      8,
+      8,
+      8,
+      8,
+      12,
+      20,
+      35,
+      35
+    ],
+    "transition_count": 8
+  },
+  "evaluation_snapshot": {
+    "cases": {
+      "full": {
+        "actual": {
+          "battery_pct": 71,
+          "charging": true,
+          "disk_free_pct": 48,
+          "hostname": "synthetic",
+          "load_5m_ratio": 0.2,
+          "load_ratio": 0.6,
+          "local_hour": 12,
+          "machine": "synthetic",
+          "macos": "synthetic",
+          "network": false,
+          "wall_time": 1000
+        },
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 0.88,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.12,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 2.0,
+              "actual": 71.0,
+              "normalized_error": 0.02,
+              "predicted": 73.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -2.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 1.0,
+              "actual": 48.0,
+              "normalized_error": 0.01,
+              "predicted": 49.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -1.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 0.19999999999999996,
+              "actual": 0.6,
+              "normalized_error": 0.19999999999999996,
+              "predicted": 0.4,
+              "scoring_method": "bounded_relative",
+              "signed_error": 0.19999999999999996,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": false,
+              "brier_error": 0.25,
+              "classification_error": 1,
+              "correct": false,
+              "normalized_error": 0.25,
+              "predicted": true,
+              "probability_true": 0.5,
+              "scoring_method": "boolean_brier",
+              "status": "evaluated"
+            }
+          }
+        },
+        "historical_errors_unchanged": true,
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 73.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 49.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 0.4
+            },
+            "network_reachable": {
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_boolean_frequency",
+              "probability_true": 0.5,
+              "status": "predicted",
+              "value": true
+            }
+          }
+        },
+        "prediction_calls": 1,
+        "q_value": 0.6549999999999999,
+        "q_visits": 5,
+        "schema_version": 2
+      },
+      "partial": {
+        "actual": {
+          "battery_pct": 73
+        },
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 1.0,
+            "coverage": 0.25,
+            "evaluated_signals": 1,
+            "mean_normalized_error": 0.0,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 0.0,
+              "actual": 73.0,
+              "normalized_error": 0.0,
+              "predicted": 73.0,
+              "scoring_method": "percentage_range",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "load_ratio": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "network_reachable": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            }
+          }
+        },
+        "historical_errors_unchanged": true,
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 73.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 49.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 0.4
+            },
+            "network_reachable": {
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_boolean_frequency",
+              "probability_true": 0.5,
+              "status": "predicted",
+              "value": true
+            }
+          }
+        },
+        "prediction_calls": 1,
+        "q_value": 0.6549999999999999,
+        "q_visits": 5,
+        "schema_version": 2
+      },
+      "unavailable": {
+        "actual": {
+          "battery_pct": null,
+          "network": null
+        },
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": null,
+            "coverage": 0.0,
+            "evaluated_signals": 0,
+            "mean_normalized_error": null,
+            "status": "unavailable",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "disk_free_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "load_ratio": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "network_reachable": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            }
+          }
+        },
+        "historical_errors_unchanged": true,
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 73.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 49.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 0.4
+            },
+            "network_reachable": {
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_boolean_frequency",
+              "probability_true": 0.5,
+              "status": "predicted",
+              "value": true
+            }
+          }
+        },
+        "prediction_calls": 1,
+        "q_value": 0.6549999999999999,
+        "q_visits": 5,
+        "schema_version": 2
+      }
+    },
+    "fixture": "SEED 0.2 B3 deterministic evaluation",
+    "metrics": {
+      "mean_accuracy_score": 0.94,
+      "mean_coverage": 0.41666666666666663,
+      "mean_normalized_error": 0.06,
+      "network_classification_accuracy": {
+        "samples": 1,
+        "value": 0.0
+      },
+      "network_mean_brier_error": {
+        "samples": 1,
+        "value": 0.25
+      },
+      "numeric_mae": {
+        "battery_pct": {
+          "samples": 2,
+          "value": 1.0
+        },
+        "disk_free_pct": {
+          "samples": 1,
+          "value": 1.0
+        },
+        "load_ratio": {
+          "samples": 1,
+          "value": 0.19999999999999996
+        }
+      },
+      "scored_transitions": 2,
+      "transitions": 3
+    }
+  },
+  "evaluator": "prediction_error_v1",
+  "evaluator_version": 1,
+  "interpretation": "Deterministic fixture verification, not evidence of improvement.",
+  "schema_version": 2,
+  "score_semantics": "Engineering summary over heterogeneous normalized errors; not a calibrated probability of correctness.",
+  "unchanged_control_metrics": [
+    "observation_count",
+    "action_distribution",
+    "context_coverage",
+    "policy_coverage",
+    "concept_count",
+    "lifecycle_counts",
+    "q_values",
+    "action_sequence",
+    "returned_intervals_seconds",
+    "transition_count",
+    "autonomous_perception_count"
+  ]
+}

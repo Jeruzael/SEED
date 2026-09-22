@@ -109,12 +109,14 @@ class Memory:
         return (float(row["value"]), int(row["visits"])) if row else (0.0, 0)
 
     def record_transition_experience(self, *, state_before, action, state_after, outcome,
-                                     legacy_reward, started_at, completed_at, note=None, prediction=None):
+                                     legacy_reward, started_at, completed_at, note=None, prediction=None,
+                                     prediction_error=None):
         """Commit the linked experience pair together; never backfill old episodes."""
         before_json = json.dumps(validated_state(state_before), sort_keys=True, allow_nan=False)
         after_json = json.dumps(validated_state(state_after), sort_keys=True, allow_nan=False)
         outcome_json = json.dumps(outcome, sort_keys=True, allow_nan=False)
         prediction_json = None if prediction is None else json.dumps(prediction, sort_keys=True, allow_nan=False)
+        error_json = None if prediction_error is None else json.dumps(prediction_error, sort_keys=True, allow_nan=False)
         with self._lock, self.db:
             episode = self.db.execute(
                 'INSERT INTO episodes(ts,event,state_json,action,reward,note) VALUES(?,?,?,?,?,?)',
@@ -122,9 +124,9 @@ class Memory:
             )
             transition = self.db.execute('''INSERT INTO transitions(
                 episode_id,started_at,completed_at,state_before_json,action,state_after_json,
-                outcome_json,legacy_reward,prediction_json) VALUES(?,?,?,?,?,?,?,?,?)''',
+                outcome_json,legacy_reward,prediction_json,prediction_error_json) VALUES(?,?,?,?,?,?,?,?,?,?)''',
                 (episode.lastrowid, started_at, completed_at, before_json, action,
-                 after_json, outcome_json, legacy_reward, prediction_json))
+                 after_json, outcome_json, legacy_reward, prediction_json, error_json))
             return episode.lastrowid, transition.lastrowid
 
     def set_q(self, state_key: str, action: str, value: float, visits: int):

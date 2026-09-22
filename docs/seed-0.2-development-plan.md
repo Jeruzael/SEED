@@ -2,13 +2,13 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B2 — Environmental Predictor, explicitly authorized on 2026-09-22. B0, B1, and B2 are VERIFIED. B3–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
+**Current authorization: B3 — Prediction Error, explicitly authorized on 2026-09-22. B0–B3 are VERIFIED. B4–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
 
 ## Objective and architectural transition
 
 SEED means **Situated Experiential Emergent Development**. Evolve the existing Germination prototype incrementally into a system that learns from observed consequences and prediction error, while keeping behavior inspectable, reproducible, and under owner control.
 
-The B2 autonomous cycle in `seed/organism.py` is:
+The B3 autonomous cycle in `seed/organism.py` is:
 
 ```text
 perceive state_before
@@ -17,9 +17,10 @@ perceive state_before
 → perform action
 → perceive state_after
 → describe observed differences
+→ evaluate the original prediction against state_after
 → calculate unchanged legacy reward from state_before
 → update contextual action value
-→ atomically store linked episode, transition, and pre-action prediction
+→ atomically store linked episode, transition, prediction, and evaluation
 ```
 
 The target architecture is:
@@ -52,7 +53,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B0 | Baseline and Guardrails | VERIFIED | — | Full suite: 107 passed; baseline artifact and regression evidence recorded | Minimal specified API restored; core unchanged in B0 |
 | B1 | Transition-Based Experience | VERIFIED | B0 | Full suite: 138 passed; independent review approved | Schema v2; observed transitions; unchanged legacy reward/policy; no B2 |
 | B2 | Predictor | VERIFIED | B1 | Full suite: 182 passed; review finding fixed/tested | Prospective action-conditioned statistics; no prediction error or policy influence |
-| B3 | Prediction Error | NOT STARTED | B1, B2 | Not added or executed for B3 | Per-signal and aggregate errors linked to evaluated predictions |
+| B3 | Prediction Error | VERIFIED | B1, B2 | Full suite: 252 passed; independent review approved | Deterministic post-observation evaluation; no policy/reward feedback |
 | B4 | World Model | NOT STARTED | B1, B3 | Not added or executed for B4 | Persistent observation-grounded beliefs and contradictions |
 | B5 | Prediction-Error Curiosity | NOT STARTED | B3, B4 | Not added or executed for B5 | Bounded influence on safe internal activity only |
 | B6 | Memory Consolidation | NOT STARTED | B1, B4 | Not added or executed for B6 | Actual pattern/knowledge processing; no automatic episode deletion |
@@ -302,7 +303,7 @@ This roadmap is initialized when B0–B10 are listed with valid statuses, depend
 
 SEED 0.2 is complete only when each authorized batch meets its acceptance criteria, relevant tests and full regression gates pass, migrations preserve memories, runtime/dashboard separation and owner authority remain intact, and repeatable evaluation results are recorded without overstating improvement.
 
-**Ready state:** B0, B1, and B2 VERIFIED. B3–B10 remain NOT STARTED and unauthorized; B3 requires an explicit instruction.
+**Ready state:** B0–B3 VERIFIED. B4–B10 remain NOT STARTED and unauthorized; B4 requires an explicit instruction.
 
 
 ## B0 execution log — 2026-09-21
@@ -730,3 +731,121 @@ Final verification:
 Git delivery: retain existing branch `seed-0.2-b2`, based on merged B1 `845416c`; commit the 12 scoped files as `seed-0.2 B2: add prospective environmental predictor`. No automatic merge or push. Commit identity and clean-tree check are reported after commit. Installed memory remains untouched. No schema migration added.
 
 **Ready for B3: YES**, no B2 acceptance blocker. B3 is not started and requires explicit authorization. Stop here.
+
+
+## B3 execution log — 2026-09-22
+
+Status: VERIFIED. Branch `seed-0.2-b3` created from verified B2 `008b704`; initial tree clean, baseline `.venv/bin/python -m pytest -q`: 182 passed, 0 skipped/excluded, two existing dependency warnings. Plan: `docs/superpowers/plans/2026-09-22-seed-b3.md`; native execution continues under the approved B3 design.
+
+Objective: pure deterministic evaluation of the original prospective prediction after actual post-action observation. Architectural decisions: evaluate only after target observation; never feed errors into policy/reward; average only evaluated normalized errors with coverage tracked separately; preserve confidence as B2 evidence support. No rolling API/UI is needed to satisfy B3; inspect persisted records/telemetry and the deterministic artifact. Schema remains v2 and historical B1/B2 records remain unchanged.
+
+### B3 evaluator contract and scoring
+
+`seed/prediction_error.py` provides pure `evaluate_prediction(prediction, actual_state) -> PredictionEvaluation`; `to_dict()` produces the plain payload. Evaluator **prediction_error_v1**, version **1**, records the supported prediction model/version and horizon. Current supported input is B2 `transition_delta_v1`, model version 1, horizon `next_post_action_observation`; unknown/malformed metadata produces not-evaluated signals rather than silently reinterpreted scores. The ordinary core path supplies a dictionary. Direct evaluation also accepts serialized prediction JSON up to 16,384 characters, safely rejecting malformed/deep/oversized strings. Extra dictionary fields are not traversed or copied; scoring visits exactly four targets and never queries history.
+
+Numeric targets retain the B2 physical domains: finite int/float, booleans excluded; battery/disk 0..100, load >=0. Out-of-domain or unrepresentable values are unavailable, not clamped into a false comparison. For valid pairs:
+
+- `signed_error = actual - predicted`; positive means actual higher, negative means actual lower.
+- `absolute_error = abs(signed_error)`.
+- Battery/disk normalized error = absolute error / 100, bounded to 0..1; raw absolute error is in percentage points.
+- Load normalized error = absolute error / max(1, abs(predicted), abs(actual)), bounded to 0..1. Load error remains in load-ratio units, not CPU percentage. The denominator is persisted implicitly through the versioned `bounded_relative` rule.
+- Non-finite intermediate results are not evaluated; no NaN/Infinity is serialized. Tests exercise both directions between zero and the largest finite float, as well as oversized integers and invalid ranges.
+
+For `network_reachable`, read actual observation key **network** and require exact booleans on both sides. Store correct and classification_error (0/1). If the original forecast has a valid finite nonboolean probability_true in 0..1, use Brier error `(probability_true - int(actual))²` as normalized error (`boolean_brier`). Otherwise use classification error (`boolean_mismatch`), omitting probability/Brier fields. Do not invent probability for persistence or echo malformed probability values. Classification and probabilistic error are distinct even if the Boolean classification is correct.
+
+Each target appears in the output. Unavailable prediction → `not_evaluated / prediction_unavailable`; malformed prediction → `not_evaluated / invalid_prediction`; unusable actual → `not_evaluated / actual_unavailable`. These records contain no zero-valued substitute score. Unavailable prediction takes precedence when both sides are absent.
+
+Aggregate only evaluated targets: arithmetic mean of normalized errors, accuracy_score = 1−mean, both bounded to 0..1. Coverage = evaluated count / **4**, independent of the score. With none evaluated, status=unavailable, evaluated_signals=0, target_signals=4, coverage=0, mean_normalized_error=null, accuracy_score=null.
+
+**accuracy_score is an engineering summary over heterogeneous normalized signal errors, not a calibrated probability of correctness.** One perfectly scored available target has accuracy_score 1 but coverage .25. B2 confidence remains evidence support and is neither rewritten nor calibrated by B3.
+
+### B3 cycle, telemetry, persistence, and isolation
+
+After post-action sensing and outcome derivation, the cycle evaluates the exact dictionary generated before action. Predictor is called **once** and is never rerun to score outcomes. PREDICTION_ERROR telemetry follows post-action PERCEPTION and precedes the unchanged legacy reward/Q update. The evaluator result is passed directly to storage; neither prediction nor error is recomputed during serialization.
+
+`record_transition_experience(..., prediction_error=None)` adds one optional parameter, serializing before the transaction and using the existing prediction_error_json column. Episode, transition, prediction, and evaluation persist together; injected insertion failure rolls the entire pair back. Default None preserves old callers and historical NULLs. Tests reopen representative B1 (both NULL), B2 (prediction only), and B3 (both populated) records and compare older rows exactly. No backfill, schema change, migration, or new table is introduced; schema remains **2**.
+
+Evaluation is calculation only: no database access, sockets, DNS, sensors, randomness, or state changes. Tests deny database actions/connections and sensing/network entry points and verify unchanged inputs and persistent rows. Normal autonomous cycles retain two perceptions and one prospective prediction. Earlier B1 action/Q/telemetry effects may survive a later persistence failure; the new atomic guarantee remains the linked experience pair, not the whole physical cycle.
+
+Error is never used for action choice, candidate ranking, epsilon, alpha, reward, Q values, delay, reflection/consolidation, annotations, or importance. Two controlled runs for each of the four actions produce zero versus nonzero evaluation errors while their decision provenance, reward, Q/visits, and delays are identical. Owner commands retain their existing provenance. No world model, curiosity, novelty/attention mechanism, semantic inference, self-model, calibration, planning, new tool, or UI is implemented.
+
+### B3 metric vocabulary and fixture
+
+Metrics are defined without adding a production rolling-summary API:
+
+| Metric | Definition and denominator |
+| --- | --- |
+| Prediction availability coverage (B2) | Predicted targets / four target opportunities per transition; distinct from evaluation coverage |
+| Evaluation coverage | Evaluable prediction/actual pairs / 4; absent targets reduce coverage, not accuracy |
+| Mean normalized error (one transition) | Equal-weight arithmetic mean of available target normalized errors |
+| Transition accuracy_score | 1−mean normalized error; unavailable if no target can be scored |
+| Mean normalized error/score across a fixture | Mean of the corresponding scores for transitions with at least one evaluated target; report scored-transition count separately |
+| Mean coverage | Mean coverage across all fixture transitions, including zero-coverage ones |
+| Battery MAE | Mean absolute battery error in percentage points over evaluated battery pairs |
+| Load-ratio MAE | Mean absolute load-ratio error over evaluated load pairs |
+| Disk-free MAE | Mean absolute disk-free error in percentage points over evaluated disk pairs |
+| Network classification accuracy | Fraction of evaluated Boolean predictions whose class matches actual |
+| Network mean Brier error | Mean squared probability error over evaluated network pairs with a valid original probability; exclude mismatch-only cases |
+
+For all signal summaries, report sample count, exclude not-evaluated records, and use null when no samples exist. B1 NULL predictions and B2 NULL errors are outside the B3 evaluation era, never successes or failures.
+
+Deterministic chain: `.venv/bin/python -m tests.prediction_error_scenario`. Each of three independent temporary homes starts with two known completed historical transitions, then uses the real predictor, cycle, evaluator, and storage against fixed current/future observations. Clock/random selection/sensing are replaced with fixed values; no real sensors, network, installed database, or random outcome. The safe artifact is **`docs/baselines/seed-0.2-b3-evaluation.json`**, anchored to `008b704` and the B2 artifact hash.
+
+The common prospective prediction is battery 73, load .4, disk 49, network True with probability .5. Three cases:
+
+| Case | Actual values | Evaluation |
+| --- | --- | --- |
+| Full | battery 71, load .6, disk 48, network False | normalized errors .02/.20/.01/.25; mean .12; accuracy_score .88; coverage 1 |
+| Partial | battery 73 only | one perfect target; score 1; coverage .25 |
+| Unavailable | no valid target values | no evaluated targets; score/error null; coverage 0 |
+
+Across this fixture: 3 transitions, 2 scored; mean coverage 5/12; mean normalized error .06 and mean accuracy_score .94 across the two scored transitions. Battery MAE 1 percentage point (2 samples), load MAE .2 (1), disk MAE 1 percentage point (1), network classification accuracy 0 (1), network mean Brier .25 (1). These intentionally selected cases verify arithmetic/availability, not general predictive performance or improvement.
+
+The separate original eight-cycle control still matches all **11 B2 control metrics**, including Q values, actions, delays, transition count, and sixteen perceptions. Prediction availability/method/evidence counts are unchanged. It now has eight populated evaluations. Checkpointed control DB size in this environment is 180,224 bytes (44×4,096), versus B2's 172,032; WAL/SHM zero after close. This is a measurement, not a cross-platform threshold.
+
+### B3 tests and prior-test adaptations
+
+- `tests/test_prediction_error.py`: literal numeric/Boolean/Brier arithmetic, sign and normalization, full/partial/none aggregation, model/version/horizon guards, malformed/oversized/deep JSON, missing/None/wrong-type/nonfinite/pathological numbers, invalid probability fallback, extra fields and purity/IO isolation.
+- `tests/test_prediction_error_cycle.py`: explicit order including outcome/evaluation; exactly one predictor call; exact payload/event/storage equality and episode link; four-action policy isolation under differing errors; atomic rollback and B1/B2 historical preservation.
+- `tests/prediction_error_scenario.py` with `tests/test_prediction_error_scenario.py`: actual history→prediction→observation→evaluation→storage fixture and standalone CLI, expected metric denominators/results.
+- Existing lifecycle and prospective-cycle event assertions add PREDICTION_ERROR after post-PERCEPTION. Existing new-cycle NULL assertions now require evaluator payloads; the B2 isolation test's deliberately unsupported fake model produces an unavailable evaluation. Historical/default-storage NULL assertions remain intact. Original control expects eight errors instead of zero; all policy/support assertions remain unchanged.
+
+RED runs reproduced the absent module, missing evaluator invocation, missing storage parameter, and absent fixture before implementation. No tests were removed, skipped, or excluded.
+
+### B3 independent review and retained boundaries
+
+Independent read-only review found **no Critical, Important, or Minor issues** and independently passed all **70 B3-specific tests** plus diff checks. No fixes or deferred findings remain. Review scope rulings:
+
+1. Whole-cycle atomicity stays at the explicit B1 boundary; cost: earlier Q/action/telemetry effects may outlive failed pair persistence.
+2. Optional rolling metrics API/runtime fields/frontend are omitted; cost: inspection uses stored telemetry/artifact rather than new dashboard summaries.
+3. B4 learning/calibration and behavioral feedback remain prohibited; cost: B3 makes errors measurable but does not use them to improve behavior.
+4. Final docs/artifact/commit/clean-tree evidence is supplied by the parent delivery checks below, not implied by code-review approval.
+5. Live sensors and installed memory are untouched; cost: fixture verification does not certify deployment/real-device behavior.
+
+Known existing limitations remain: rest horizon is immediate before the longer wait; charging parser can misclassify discharging; inferred wakes rely on wall-clock gaps; whole-cycle atomicity is incomplete; the two normal perceptions each perform the existing fixed reachability probe. Evaluation adds no probes or perceptions. Predictor/evaluator tolerance does not rewrite B1 live-state validation or learner input assumptions. Mixed normalized scores are engineering conventions and equal-weight missing-signal averages require coverage to be read alongside the score.
+
+### B4 prerequisites
+
+Explicit authorization and a scoped world-model design are required. Define evidence selection/linkage to actual observations, belief representation and versioning, bounded update/replay behavior, contradiction handling, any additive schema/backup requirements, and the distinction between observation correlation and causal claims. Preserve prediction/evaluator provenance and unknown/NULL historical semantics. B3's accuracy_score must not be relabeled as belief confidence; any later confidence meaning requires its own definition and tests. No B4 work began.
+
+### B3 final acceptance — VERIFIED
+
+Files changed (14):
+
+- Core: `seed/prediction_error.py`, `seed/organism.py`, `seed/memory.py`.
+- New tests/fixture: `tests/test_prediction_error.py`, `tests/test_prediction_error_cycle.py`, `tests/prediction_error_scenario.py`, `tests/test_prediction_error_scenario.py`.
+- Existing expectation updates: `tests/test_baseline_lifecycle.py`, `tests/test_baseline_scenario.py`, `tests/test_transition_cycle.py`, `tests/test_prediction_cycle.py`.
+- Records: `docs/baselines/seed-0.2-b3-evaluation.json`, `docs/superpowers/plans/2026-09-22-seed-b3.md`, `docs/seed-0.2-development-plan.md`.
+
+Verification:
+
+- `.venv/bin/python -m pytest -q`: **252 passed, 0 skipped/excluded, 2 existing upstream dependency warnings**.
+- `.venv/bin/python -m tests.prediction_error_scenario`: standalone fixture CLI verified by the suite; artifact regenerated from the same real fixture and hand-calculated expectations tested.
+- Original eight-cycle scenario compared with B2: all 11 policy/control metrics and prediction-support counts unchanged; eight new evaluations.
+- `.venv/bin/python -m compileall -q seed dashboard tests`: passed.
+- `git diff --check` plus explicit new-file whitespace/JSON checks: passed.
+- Byte comparison to `008b704`: predictor, learner, sensors, config, commands, core lock, migrations/schema, transition outcome helper, telemetry helpers, main entry point, and all B0/B1/B2 baseline artifacts unchanged.
+
+Git scope: dedicated `seed-0.2-b3` from `008b704`, with these 14 files committed as `seed-0.2 B3: evaluate prospective prediction error`. No automatic merge/push. Commit identity and clean working tree are checked after commit. No live memory opened/migrated, no installation/restart, and no listener started.
+
+**Ready for B4: YES**, with no B3 acceptance blocker. B4 remains NOT STARTED and requires explicit authorization. Stop here.
