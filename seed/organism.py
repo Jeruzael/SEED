@@ -12,6 +12,7 @@ from pathlib import Path
 from .body import Body
 from .learner import Learner
 from .predictor import Predictor
+from .prediction_error import evaluate_prediction
 from .memory import Memory
 from .runtime import InstanceLock
 from .telemetry import Telemetry
@@ -171,6 +172,9 @@ class SeedOrganism:
         self.telemetry.emit('PERCEPTION', 'body', 'Environment observed after action',
                             {**state_after, 'phase': 'after_action'})
         outcome = describe_outcome(state_before, state_after)
+        prediction_error = evaluate_prediction(prediction, state_after).to_dict()
+        self.telemetry.emit('PREDICTION_ERROR', 'prediction_error', 'Prospective prediction evaluated',
+                            prediction_error)
         # B1 intentionally preserves B0 reward inputs; only evaluation timing changes.
         reward = self.learner.reward(state_before, decision.action)
         self.learner.update(decision, reward)
@@ -178,7 +182,8 @@ class SeedOrganism:
         episode_id, transition_id = self.memory.record_transition_experience(
             state_before=state_before, action=decision.action, state_after=state_after,
             outcome=outcome, legacy_reward=reward, started_at=started_at,
-            completed_at=completed_at, note=f'context={decision.state_key}', prediction=prediction)
+            completed_at=completed_at, note=f'context={decision.state_key}', prediction=prediction,
+            prediction_error=prediction_error)
         self.telemetry.emit('LEARNING', 'learner', 'Updated action value using legacy reward',
                             {'state_key': decision.state_key, 'action': decision.action, 'old_value': decision.score,
                              'new_value': new, 'visits': visits, 'reward': reward, 'alpha': self.learner.alpha,

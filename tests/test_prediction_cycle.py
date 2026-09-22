@@ -69,11 +69,11 @@ def test_prospective_order_and_exact_pre_action_payload(home, monkeypatch):
         assert payload == predicted[0]
         assert payload['signals']['battery_pct']['value'] == 79
         assert payload['signals']['battery_pct']['evidence_count'] == 2
-        assert stored['prediction_error_json'] is None
+        assert json.loads(stored['prediction_error_json'])['evaluator'] == 'prediction_error_v1'
         events = [(r[0],json.loads(r[1])) for r in core.memory.db.execute(
             'SELECT category,data_json FROM events ORDER BY id')]
         assert [category for category,_ in events] == ['PERCEPTION','DECISION','PREDICTION','ACTION',
-                                                       'ACTION','PERCEPTION','LEARNING','MEMORY']
+                                                       'ACTION','PERCEPTION','PREDICTION_ERROR','LEARNING','MEMORY']
         assert events[2][1] == payload
     finally:
         core.close()
@@ -101,7 +101,7 @@ def test_prediction_values_do_not_influence_policy_reward_update_or_delay(home, 
         assert row['action'] == action and row['legacy_reward'] == reward
         assert core.memory.get_q(state_key(BEFORE),action) == pytest.approx((.7+.18*(reward-.7),5))
         assert json.loads(row['prediction_json']) == payload
-        assert row['prediction_error_json'] is None
+        assert json.loads(row['prediction_error_json'])['aggregate']['status'] == 'unavailable'
         assert len(calls) == 2
     finally:
         core.close()
