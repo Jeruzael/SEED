@@ -34,7 +34,7 @@ def v1_home(legacy_home):
 
 
 @pytest.mark.parametrize('kind', ['fresh', 'legacy', 'v1'])
-def test_upgrade_to_v2_preserves_all_rows_and_backup(kind, tmp_path, legacy_home, v1_home):
+def test_upgrade_to_current_preserves_all_rows_and_backup(kind, tmp_path, legacy_home, v1_home):
     # v1_home upgrades legacy_home to a known v1 fixture; use a separate legacy copy.
     if kind == 'fresh':
         target = tmp_path / 'fresh'
@@ -53,7 +53,7 @@ def test_upgrade_to_v2_preserves_all_rows_and_backup(kind, tmp_path, legacy_home
             before = snapshot(db)
     m = Memory(target / 'memory.sqlite3')
     try:
-        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 2
+        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 3
         assert m.db.execute('SELECT count(*) FROM transitions').fetchone()[0] == 0
     finally:
         m.close()

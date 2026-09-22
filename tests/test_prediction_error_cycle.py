@@ -123,5 +123,5 @@ def test_evaluation_pair_rollback_and_historical_b1_b2_integrity(home):
         assert rows[0]['prediction_json'] is None and rows[0]['prediction_error_json'] is None
         assert rows[1]['prediction_json'] is not None and rows[1]['prediction_error_json'] is None
         assert json.loads(rows[2]['prediction_error_json'])==evaluation
-        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0]==2
+        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0]==3
     finally:core.close()

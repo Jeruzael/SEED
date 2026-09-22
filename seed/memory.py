@@ -110,7 +110,7 @@ class Memory:
 
     def record_transition_experience(self, *, state_before, action, state_after, outcome,
                                      legacy_reward, started_at, completed_at, note=None, prediction=None,
-                                     prediction_error=None):
+                                     prediction_error=None, world_model_eligible=False):
         """Commit the linked experience pair together; never backfill old episodes."""
         before_json = json.dumps(validated_state(state_before), sort_keys=True, allow_nan=False)
         after_json = json.dumps(validated_state(state_after), sort_keys=True, allow_nan=False)
@@ -127,6 +127,9 @@ class Memory:
                 outcome_json,legacy_reward,prediction_json,prediction_error_json) VALUES(?,?,?,?,?,?,?,?,?,?)''',
                 (episode.lastrowid, started_at, completed_at, before_json, action,
                  after_json, outcome_json, legacy_reward, prediction_json, error_json))
+            if world_model_eligible:
+                self.db.execute('INSERT INTO world_model_queue(transition_id) VALUES(?)',
+                                (transition.lastrowid,))
             return episode.lastrowid, transition.lastrowid
 
     def set_q(self, state_key: str, action: str, value: float, visits: int):

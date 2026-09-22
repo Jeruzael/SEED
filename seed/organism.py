@@ -13,6 +13,7 @@ from .body import Body
 from .learner import Learner
 from .predictor import Predictor
 from .prediction_error import evaluate_prediction
+from .world_model import WorldModel
 from .memory import Memory
 from .runtime import InstanceLock
 from .telemetry import Telemetry
@@ -33,6 +34,8 @@ class SeedOrganism:
             self.body = Body(self.home)
             self.learner = Learner(self.memory)
             self.predictor = Predictor(self.memory)
+            self.world_model = WorldModel(self.memory)
+            self.world_model.recover()
             self.telemetry = Telemetry(self.memory)
             self.stop_event = threading.Event()
             self.last_tick_wall = time.time()
@@ -183,7 +186,8 @@ class SeedOrganism:
             state_before=state_before, action=decision.action, state_after=state_after,
             outcome=outcome, legacy_reward=reward, started_at=started_at,
             completed_at=completed_at, note=f'context={decision.state_key}', prediction=prediction,
-            prediction_error=prediction_error)
+            prediction_error=prediction_error, world_model_eligible=True)
+        self.world_model.recover()
         self.telemetry.emit('LEARNING', 'learner', 'Updated action value using legacy reward',
                             {'state_key': decision.state_key, 'action': decision.action, 'old_value': decision.score,
                              'new_value': new, 'visits': visits, 'reward': reward, 'alpha': self.learner.alpha,

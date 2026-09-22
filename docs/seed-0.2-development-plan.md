@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B3 — Prediction Error, explicitly authorized on 2026-09-22. B0–B3 are VERIFIED. B4–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
+**Current authorization: B4 — Persistent World Model, explicitly authorized on 2026-09-22. B0–B3 are VERIFIED; B4 is IN PROGRESS. B5–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
 
 ## Objective and architectural transition
 
@@ -54,7 +54,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B1 | Transition-Based Experience | VERIFIED | B0 | Full suite: 138 passed; independent review approved | Schema v2; observed transitions; unchanged legacy reward/policy; no B2 |
 | B2 | Predictor | VERIFIED | B1 | Full suite: 182 passed; review finding fixed/tested | Prospective action-conditioned statistics; no prediction error or policy influence |
 | B3 | Prediction Error | VERIFIED | B1, B2 | Full suite: 252 passed; independent review approved | Deterministic post-observation evaluation; no policy/reward feedback |
-| B4 | World Model | NOT STARTED | B1, B3 | Not added or executed for B4 | Persistent observation-grounded beliefs and contradictions |
+| B4 | World Model | IN PROGRESS | B1, B3 | Verification pending | Persistent observation-grounded beliefs and contradictions |
 | B5 | Prediction-Error Curiosity | NOT STARTED | B3, B4 | Not added or executed for B5 | Bounded influence on safe internal activity only |
 | B6 | Memory Consolidation | NOT STARTED | B1, B4 | Not added or executed for B6 | Actual pattern/knowledge processing; no automatic episode deletion |
 | B7 | Self Model | NOT STARTED | B3, B6 | Not added or executed for B7 | Evidence-grounded capabilities, accuracy, resources, and limitations |
