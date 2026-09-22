@@ -7,6 +7,13 @@ def test_controlled_sequence_has_hand_calculated_policy(tmp_path):
     assert metrics['observation_count']==8
     assert metrics['transition_count']==8
     assert metrics['autonomous_perception_count']==16
+    prediction=metrics['prediction_structure']
+    assert prediction['available']==32 and prediction['unavailable']==0
+    assert prediction['coverage_pct']==100
+    assert prediction['method_groups']=={'action_specific':8,'global':16,'persistence':8}
+    assert prediction['prediction_count']==8 and prediction['prediction_error_count']==0
+    for counts in prediction['evidence_counts'].values():
+        assert counts==[0,0,2,3,4,5,6,7]
     assert metrics['action_distribution']=={'observe':4,'reflect':1,'consolidate':1,'rest':2}
     assert metrics['context_coverage']==2 and metrics['policy_coverage']==5
     assert metrics['concept_count']==0

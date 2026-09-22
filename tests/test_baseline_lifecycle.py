@@ -28,10 +28,10 @@ def test_b1_cycle_moves_legacy_learning_after_action_and_second_observation(home
         core.memory.set_q('charging|calm|ok|day','reflect',.7,4)
         delay=core.cycle()
         rows=core.memory.db.execute('SELECT category,data_json FROM events ORDER BY id').fetchall()
-        assert [r[0] for r in rows]==['PERCEPTION','DECISION','ACTION','ACTION','PERCEPTION','LEARNING','MEMORY']
-        assert json.loads(rows[5][1])['new_value']==pytest.approx(.655)
-        assert json.loads(rows[2][1])['phase']=='start'
-        assert json.loads(rows[3][1])['phase']=='complete'
+        assert [r[0] for r in rows]==['PERCEPTION','DECISION','PREDICTION','ACTION','ACTION','PERCEPTION','LEARNING','MEMORY']
+        assert json.loads(rows[6][1])['new_value']==pytest.approx(.655)
+        assert json.loads(rows[3][1])['phase']=='start'
+        assert json.loads(rows[4][1])['phase']=='complete'
         assert delay==12
         episode=core.memory.recent_episodes(1)[0]
         assert episode['action']=='reflect' and episode['reward']==.45

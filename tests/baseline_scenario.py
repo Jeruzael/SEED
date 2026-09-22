@@ -16,6 +16,30 @@ STATE_B = {'battery_pct':10,'charging':False,'load_ratio':1,'disk_free_pct':5,'l
 SEQUENCE = ['A','A','B','A','B','B','B','B']
 
 
+def prediction_structure(db):
+    """Structural support/availability counts only; never compare with outcomes."""
+    predictions = [json.loads(row[0]) for row in db.execute(
+        'SELECT prediction_json FROM transitions WHERE prediction_json IS NOT NULL ORDER BY id')]
+    available = unavailable = 0
+    groups = {'action_specific':0, 'global':0, 'persistence':0}
+    evidence = {}
+    for prediction in predictions:
+        for name, signal in prediction['signals'].items():
+            evidence.setdefault(name, []).append(signal['evidence_count'])
+            if signal['status'] == 'unavailable':
+                unavailable += 1
+                continue
+            available += 1
+            method = signal['method']
+            group = 'action_specific' if method.startswith('action_') else 'global' if method.startswith('global_') else 'persistence'
+            groups[group] += 1
+    total = available + unavailable
+    return {'prediction_count':len(predictions), 'available':available, 'unavailable':unavailable,
+            'coverage_pct':100 * available / total if total else None,
+            'method_groups':groups, 'evidence_counts':evidence,
+            'prediction_error_count':db.execute('SELECT count(*) FROM transitions WHERE prediction_error_json IS NOT NULL').fetchone()[0]}
+
+
 def run_scenario(home: Path) -> dict:
     now = [1_000_000_000.0]
     # Same decision contexts as B0, repeated for immediate post-action observation.
@@ -48,6 +72,7 @@ def run_scenario(home: Path) -> dict:
                 'returned_intervals_seconds':delays,
                 'transition_count':db.execute('SELECT count(*) FROM transitions').fetchone()[0],
                 'autonomous_perception_count':db.execute("SELECT count(*) FROM events WHERE category='PERCEPTION'").fetchone()[0],
+                'prediction_structure':prediction_structure(db),
                 'database_page_size':db.execute('PRAGMA page_size').fetchone()[0],
                 'database_page_count':db.execute('PRAGMA page_count').fetchone()[0],
             }

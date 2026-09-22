@@ -2,23 +2,24 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B1 — Transition-Based Experience, explicitly authorized on 2026-09-22. B0 and B1 are VERIFIED. B2–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
+**Current authorization: B2 — Environmental Predictor, explicitly authorized on 2026-09-22. B0, B1, and B2 are VERIFIED. B3–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
 
 ## Objective and architectural transition
 
 SEED means **Situated Experiential Emergent Development**. Evolve the existing Germination prototype incrementally into a system that learns from observed consequences and prediction error, while keeping behavior inspectable, reproducible, and under owner control.
 
-The B1 autonomous cycle in `seed/organism.py` is:
+The B2 autonomous cycle in `seed/organism.py` is:
 
 ```text
 perceive state_before
 → choose predefined internal action
+→ predict immediate post-action observation
 → perform action
 → perceive state_after
 → describe observed differences
 → calculate unchanged legacy reward from state_before
 → update contextual action value
-→ atomically store linked episode and transition
+→ atomically store linked episode, transition, and pre-action prediction
 ```
 
 The target architecture is:
@@ -50,7 +51,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | --- | --- | --- | --- | --- | --- |
 | B0 | Baseline and Guardrails | VERIFIED | — | Full suite: 107 passed; baseline artifact and regression evidence recorded | Minimal specified API restored; core unchanged in B0 |
 | B1 | Transition-Based Experience | VERIFIED | B0 | Full suite: 138 passed; independent review approved | Schema v2; observed transitions; unchanged legacy reward/policy; no B2 |
-| B2 | Predictor | NOT STARTED | B1 | Not added or executed for B2 | Simple interpretable per-signal predictions, with provenance |
+| B2 | Predictor | VERIFIED | B1 | Full suite: 182 passed; review finding fixed/tested | Prospective action-conditioned statistics; no prediction error or policy influence |
 | B3 | Prediction Error | NOT STARTED | B1, B2 | Not added or executed for B3 | Per-signal and aggregate errors linked to evaluated predictions |
 | B4 | World Model | NOT STARTED | B1, B3 | Not added or executed for B4 | Persistent observation-grounded beliefs and contradictions |
 | B5 | Prediction-Error Curiosity | NOT STARTED | B3, B4 | Not added or executed for B5 | Bounded influence on safe internal activity only |
@@ -301,7 +302,7 @@ This roadmap is initialized when B0–B10 are listed with valid statuses, depend
 
 SEED 0.2 is complete only when each authorized batch meets its acceptance criteria, relevant tests and full regression gates pass, migrations preserve memories, runtime/dashboard separation and owner authority remain intact, and repeatable evaluation results are recorded without overstating improvement.
 
-**Ready state:** B0 and B1 VERIFIED. B2–B10 remain NOT STARTED and unauthorized; B2 requires an explicit instruction.
+**Ready state:** B0, B1, and B2 VERIFIED. B3–B10 remain NOT STARTED and unauthorized; B3 requires an explicit instruction.
 
 
 ## B0 execution log — 2026-09-21
@@ -612,3 +613,120 @@ Independent read-only review approved the implementation with **no Critical, Imp
 Commit scope: the 15 files above are committed on `seed-0.2-b1` as `seed-0.2 B1: add transition-based experience`, retaining the owner's existing B0 merge ancestry. No automatic merge or push. No installed schema change. Source rollback alone after a future deployment would not downgrade schema v2: restore the verified pre-upgrade backup only through an authorized recovery process, preserving the newer database separately if recovery is ever needed.
 
 **Ready for B2: YES**, with no B1 acceptance blocker. Explicit B2 authorization remains required. Stop here.
+
+
+## B2 execution log — 2026-09-22
+
+Status: VERIFIED. Branch: `seed-0.2-b2`, already created at `845416c` (merged B1, tree identical to verified `858a483`). Working tree initially clean. Initial full suite: 138 passed, no skipped/excluded tests, two existing dependency warnings.
+
+Objective: deterministic prospective environmental expectations targeting `next_post_action_observation`. Implementation plan: `docs/superpowers/plans/2026-09-22-seed-b2.md`; native execution follows the owner's approved B2 instruction.
+
+Architecture decision: B2 prediction is action-conditioned but does not influence the B1 contextual-bandit policy. This permits prospective outcome modeling now while preserving experimental isolation; future authorized decision-system work may reuse it for candidate-action evaluation. B2 confidence represents evidence support, not calibrated predictive accuracy.
+
+Source mapping: the existing sensor key is `network`; B2's prediction target `network_reachable` reads it directly. Do not change stored observation keys, add targets/probes, or infer unavailable current values. Schema remains v2. Preserve the B1 failure boundary: episode+transition+prediction commit together, but earlier Q/action effects are outside that transaction.
+
+### B2 model and evidence contract
+
+`seed/predictor.py` adds `Predictor(memory).predict(state_before, action) -> Prediction`. A frozen dataclass carries a plain model/version/horizon/action/signals contract; `to_dict()` detaches it for telemetry and persistence. Model **transition_delta_v1**, version **1**; horizon **next_post_action_observation**, belonging to the same selected autonomous transition. Inference has no clock or random input and no learned mutable model state.
+
+Targets are **battery_pct, load_ratio, disk_free_pct, network_reachable**. The forecast target network_reachable explicitly reads the existing observation key **network**. No new sensor target/source or observation alias is added. Historical B1 transitions without predictions are valid evidence; no old prediction is generated or rewritten.
+
+One SELECT reads **at most 200 most recently inserted completed transitions**, ordered by descending primary key. B1's table contains completed records only. Raw rows are bounded before parsing; invalid rows consume that window, so sparse/corrupt evidence cannot trigger a lifelong search. Only action/before/after fields are read, not predictions or outcomes. No new indexes or migration are needed.
+
+For each numeric target independently:
+
+1. Require usable current value; otherwise emit unavailable with missing/invalid-current reason, no value, evidence_count 0, confidence 0.
+2. Validate historical before and after: actual int/float (booleans excluded), finite; battery/disk in 0..100; load >=0. Skip malformed JSON, non-dictionaries, missing/None/wrong-type/out-of-range values. Extra unrelated fields do not become targets.
+3. Compute valid historical deltas after−before. Prefer selected-action evidence with **at least 2 samples** (`action_mean_delta`); otherwise all-action evidence with **at least 2** (`global_mean_delta`); otherwise current-value `persistence`, with no historical support claimed.
+4. Predict current + mean delta. Mean accumulation normalizes by maximum absolute delta before summing, avoiding overflow even for three maximal finite deltas. Clamp percentages to 0..100 and load to >=0. If positive load addition exceeds floating-point representability, cap at the largest finite float; `clamped` records a changed result. This is a serialization safeguard, not a new sensor upper bound.
+
+Network requires an actual boolean current `network` value; missing/invalid current remains unavailable regardless of history. Historical evidence uses actual boolean **state-after** network values; its state-before network value need not exist. Apply the same action/global two-sample threshold (`action_boolean_frequency` / `global_boolean_frequency`), calculate probability_true=count_true/n, and predict True for probability >=0.5, including ties. Persistence copies the current boolean, with no fabricated empirical probability.
+
+Every signal's confidence is labeled **confidence_kind=evidence_support**: `min(0.95, evidence_count / 20)`. Persistence and unavailable signals have zero evidence/confidence. This is not calibrated accuracy, probability of numeric correctness, or a reward input. Boolean probability_true is a historical frequency, separate from confidence.
+
+### B2 temporal integration and storage
+
+The autonomous order is now before observation → decision → prediction → action → after observation → outcome → unchanged legacy reward → Q update → persistence. A PREDICTION event explicitly says “Prediction generated” and contains the model payload after DECISION and before ACTION start. It records expectations, not environment facts. No additional runtime fields or dashboard views are needed; existing generic telemetry provides inspection.
+
+The dictionary serialized before action is passed directly to `record_transition_experience(..., prediction=prediction)` after completion. Storage serializes that payload without recomputing inference and inserts it in the existing prediction_json column within the same episode/transition transaction. Optional `prediction=None` preserves the old storage API and historical SQL NULLs. Prediction_error_json is never written and remains SQL NULL. Schema stays **version 2**, with migration code byte-for-byte unchanged.
+
+Prediction generation itself performs only the bounded SELECT and in-memory calculations: no database writes, sensing, sockets, DNS, subprocesses, or random draws. Telemetry is emitted by the cycle afterward. Policy choice already happened and never consumes the prediction; reward still receives state-before/action only, and alpha/Q/delay/reflect/consolidate logic remains unchanged. Owner commands retain their B1 provenance and do not invoke the autonomous predictor.
+
+If action or post-observation fails, the pre-action prediction event may remain, but no completed transition/prediction pair is fabricated. Prediction errors are not evaluated, including on failure. The B1 transaction boundary is unchanged: earlier Q or action effects can survive a later pair-write failure; there is no broad transactional redesign or automatic replay.
+
+### B2 tests and changes to existing expectations
+
+- New `tests/test_predictor.py`: cold-start contract/determinism, hand-calculated -1/-2/-1 deltas, action-specific patterns and global fallback, per-signal threshold, boolean frequencies/majority/tie, current unavailable despite history, malformed/missing/None/nonfinite/invalid historical values, signal bounds, finite extreme arithmetic, 200-row cutoff and confidence cap. Invalid recent rows cannot cause searching beyond the bound.
+- Inference-only tests deny SQLite writes through an authorizer, compare every persistent row before/after, and forbid sensor/socket/DNS calls while actual inference runs. Test fixtures use synthetic observations and temporary databases only.
+- New `tests/test_prediction_cycle.py`: trace actual core/learner/storage order, change historical evidence during action and use distinct post-state to detect any late recomputation, compare persisted JSON exactly with the pre-action payload/event, verify two perceptions, prove all four policy/reward/Q/delay outcomes remain unchanged under contradictory forecast payloads, simulate pair-write rollback, and reopen old B1 NULL predictions without backfill. Prediction errors remain NULL.
+- Existing `tests/test_baseline_lifecycle.py` adds PREDICTION between DECISION and ACTION; learning/action phase assertions retain their original meaning. Existing `tests/test_transition_cycle.py` now expects prediction_json populated for new autonomous cycles while continuing to require NULL prediction errors. Direct B1 storage tests still verify NULL when no prospective prediction was supplied. No tests removed, skipped, or excluded.
+- `tests/baseline_scenario.py` and its regression add structural counts from prediction payloads only. This helper does not read actual state-after to evaluate predictions.
+
+RED runs demonstrated the absent predictor, missing invocation/storage argument, absent structural counts, and the review's extreme-float mean failure before fixes. Existing B1 event/NULL assertion failures were the explicitly intended B2 changes above, not hidden exclusions.
+
+### B2 structural evaluation and B1 comparison
+
+Safe artifact: `docs/baselines/seed-0.2-b2-comparison.json`, anchored to verified commit `858a483` and the SHA256 of the unchanged B1 comparison artifact. Reproduce with `.venv/bin/python -m tests.baseline_scenario`. The synthetic sequence and paired observations are unchanged from B1.
+
+| Structural metric | Eight-cycle result |
+| --- | --- |
+| Completed prediction payloads | 8 |
+| Target opportunities / predicted / unavailable | 32 / 32 / 0 |
+| Prediction coverage | 100% in this fully populated synthetic fixture only |
+| Action-specific methods | 8 signal predictions |
+| Global fallback methods | 16 signal predictions |
+| Persistence methods | 8 signal predictions |
+| Evidence counts for each of the four targets, in cycle order | 0, 0, 2, 3, 4, 5, 6, 7 |
+| Non-NULL prediction-error records | 0 |
+
+All **11 comparable B1 metrics** match exactly: observations, action distribution, context coverage, policy coverage, concept count, lifecycle counts, Q values/visits, action sequence, returned delays, transition count, and autonomous perception count. The control still has eight transitions, two contexts, five Q rows, and sixteen autonomous perceptions. No accuracy/error, surprise, curiosity, or improvement measurement is computed or claimed.
+
+Measured checkpointed DB footprint is 172,032 bytes (42×4,096-byte pages), versus B1's 147,456; WAL/SHM zero after close in this environment. This reflects stored payloads/events and is not a universal size/performance threshold. Algorithm cost is one bounded 200-row read/parse and four target calculations per cycle; history accumulation creates no additional learned model state.
+
+### B2 limitations and B3 prerequisites
+
+- Confidence is evidence support, not calibrated predictive accuracy. Action association is not causal attribution. A recent global fallback may combine unlike contexts; no context/world-model conditioning was added.
+- The horizon is the same immediate post-action observation as B1. Rest predictions do not cover the later rest interval. No extra perception: still **two per normal autonomous cycle**, each with the existing network probe; predictor itself adds **zero** network operations.
+- The charging parser defect, inferred wake timing, and B1 partial-cycle persistence limitation remain unchanged. Existing learner/snapshot validation assumptions also remain: predictor tolerance does not redesign the learner's handling of malformed live observations.
+- SQL/storage failures still use the existing core error handling; invalid individual historical sensor/JSON values are skipped. The fixed row window bounds history size, not arbitrarily malicious individual JSON blob sizes.
+- No B3 prediction-error/accuracy scoring, B4 beliefs, curiosity, semantic inference, self-model, planning, LLM, new tools, sensor changes, or UI work. No live installed memory access, deployment, restart, or new listener.
+- B3 requires explicit authorization and a defined evaluation contract: supported actual-value mapping (network_reachable→network), availability/missing/invalid policies, per-signal units and any normalization, correct transition/model/horizon linkage, deterministic scoring and persistence rules, and whether already-stored prospective B2 records may be evaluated. B1 NULL predictions must remain distinguishable from unavailable B2 signals and from any legitimate zero-valued future score.
+
+### B2 review evidence
+
+Independent read-only review found one Important numerical issue and no Critical or Minor findings: three maximal finite load deltas could overflow the original scaled-sum mean. A real SQLite regression reproduced `OverflowError` before the fix; max-absolute normalization fixes both positive and negative three-sample extremes. The fix preserves ordinary hand-calculated results and adds no policy/error behavior. Final full-suite verification below supersedes the review's pre-fix verdict; no second review was requested.
+
+Review scope decisions:
+
+1. Whole-cycle atomicity and charging parsing remain expressly excluded B1 limitations. Cost: a failed persistence step can retain earlier effects; charging evidence retains its known defect.
+2. Prediction accuracy is deferred by the B2 instruction. Cost: coverage/support are not evidence that forecasts are useful.
+3. Final tracker/artifact/commit verification belongs to this task's delivery checks. Cost if omitted: unsupported completion claims; the checks below supply the evidence.
+4. Network spelling is an explicit mapping, not a sensor expansion. Cost: B3 must use the documented mapping to evaluate the correct observation field.
+5. The actual prediction path detaches one dictionary; neither telemetry nor action code mutates it. No additional immutable nested-object framework is introduced. Cost: future mutating consumers require snapshot-integrity tests.
+6. The completed-record table contract makes a bounded latest-row query sufficient; no redundant historical completion filtering is added. Cost: a future pending-transition schema must revise eligibility and tests.
+
+### B2 final acceptance — VERIFIED
+
+Files changed (12):
+
+- `seed/predictor.py`: new bounded statistical inference module and explicit prediction contract.
+- `seed/organism.py`: prediction call/telemetry after decision and before action, passing the same payload to persistence.
+- `seed/memory.py`: optional prediction serialization in the existing atomic experience insert.
+- `tests/test_predictor.py`, `tests/test_prediction_cycle.py`: new algorithm, safety, ordering, isolation, and persistence regressions.
+- `tests/test_baseline_lifecycle.py`, `tests/test_transition_cycle.py`: minimal B2 event/prediction expectation updates.
+- `tests/baseline_scenario.py`, `tests/test_baseline_scenario.py`: structural metric capture and deterministic expectations.
+- `docs/baselines/seed-0.2-b2-comparison.json`: safe reproducible structural comparison, no accuracy claims.
+- `docs/superpowers/plans/2026-09-22-seed-b2.md`, `docs/seed-0.2-development-plan.md`: implementation plan and canonical batch record.
+
+Final verification:
+
+- `.venv/bin/python -m pytest -q`: **182 passed, 0 skipped/excluded, 2 existing upstream warnings**. The review finding's positive/negative extreme regressions pass with all normal-value tests.
+- `.venv/bin/python -m tests.baseline_scenario`: standalone CLI remains covered in the suite; a fresh temporary control run after the fix exactly reproduces the B2 comparison artifact.
+- `.venv/bin/python -m compileall -q seed dashboard tests`: passed.
+- `git diff --check` and explicit whitespace checks including new files: passed. JSON parses; comparison artifact contains no real username, local path, private memory, or credentials.
+- Byte comparisons against `858a483`: learner, sensors, configuration, commands, core lock, migrations/schema, transition outcome helpers, telemetry helpers, entry point, and both B0/B1 artifacts unchanged.
+- Independent review's one Important issue addressed by a demonstrated failing test and green full suite; no deferred Critical/Important/Minor findings.
+
+Git delivery: retain existing branch `seed-0.2-b2`, based on merged B1 `845416c`; commit the 12 scoped files as `seed-0.2 B2: add prospective environmental predictor`. No automatic merge or push. Commit identity and clean-tree check are reported after commit. Installed memory remains untouched. No schema migration added.
+
+**Ready for B3: YES**, no B2 acceptance blocker. B3 is not started and requires explicit authorization. Stop here.
