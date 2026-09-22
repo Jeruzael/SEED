@@ -25,7 +25,7 @@ def test_controlled_belief_revision_and_unchanged_b3_results(tmp_path):
             assert b['value']['mean_absolute_delta']==1
     reference=json.loads((Path(__file__).parents[1]/'docs/baselines/seed-0.2-b3-evaluation.json').read_text())
     current=baseline(tmp_path/'baseline')
-    for key,value in reference['control_snapshot'].items():
+    for key,value in reference['control'].items():
         if key not in ('database_footprint','database_page_count'):
             assert current[key]==value
     scores=evaluation(tmp_path/'scores')

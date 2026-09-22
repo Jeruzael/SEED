@@ -170,7 +170,10 @@ class WorldModel:
         db.execute('DELETE FROM world_pending WHERE belief_key=?', (key,))
         old_value = json.loads(published['value_json']) if published else None
         # Evidence count/timestamp alone is not material once confidence is capped.
-        if not published or contradictory or old_value != value or published['confidence'] != score:
+        value_changed = old_value != value
+        if old_value is not None and family == 'boolean_frequency':
+            value_changed = old_value['probability_true'] != value['probability_true']
+        if not published or contradictory or value_changed or published['confidence'] != score:
             emit(db, 'WORLD_MODEL', 'world_model', 'Updated descriptive transition statistics',
                  dict(belief_key=key,signal=signal,scope=scope,scope_value=scope_value,
                       change='created' if not published else ('contradicted' if contradictory else 'updated'),

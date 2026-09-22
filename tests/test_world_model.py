@@ -247,3 +247,41 @@ def test_unknown_actions_not_autonomous_evidence(model):
     m,w=model
     for _ in range(2): w.observe_transition(record(m,after={'network':True},action='owner_note'))
     assert m.db.execute('SELECT count(*) FROM world_pending').fetchone()[0]==0
+
+
+def test_steady_boolean_at_confidence_cap_does_not_emit_count_only_events(model):
+    m,w=model
+    for _ in range(20): w.observe_transition(record(m,after={'network':True}))
+    before=m.db.execute("SELECT count(*) FROM events WHERE category='WORLD_MODEL'").fetchone()[0]
+    w.observe_transition(record(m,after={'network':True}))
+    assert belief(m,'network_reachable')['value']['true_count']==21
+    assert m.db.execute("SELECT count(*) FROM events WHERE category='WORLD_MODEL'").fetchone()[0]==before
+
+
+@pytest.mark.parametrize('signal,epsilon', [('battery_pct',.05),('disk_free_pct',.01),('load_ratio',.02)])
+def test_established_mean_inside_deadband_is_not_directional(model,signal,epsilon):
+    m,w=model
+    for _ in range(4): numeric(m,w,epsilon,signal)
+    numeric(m,w,-1,signal)
+    assert belief(m,signal)['contradiction_count']==0
+
+
+def test_two_connections_cannot_double_process_evidence(home):
+    from concurrent.futures import ThreadPoolExecutor
+    from seed.world_model import WorldModel
+    a=Memory(home/'memory.sqlite3')
+    b=Memory(home/'memory.sqlite3')
+    try:
+        w1,w2=WorldModel(a),WorldModel(b)
+        first=record(a,after={'network':True})
+        second=record(a,after={'network':False})
+        for tid in (first,second):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results=list(pool.map(lambda w:w.observe_transition(tid),(w1,w2)))
+            assert sorted(results)==[False,True]
+        row=belief(a,'network_reachable')
+        assert row['evidence_count']==2 and row['value']['probability_true']==.5
+        assert a.db.execute('SELECT count(*) FROM world_model_processed').fetchone()[0]==2
+    finally:
+        a.close()
+        b.close()

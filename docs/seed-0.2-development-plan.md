@@ -2,13 +2,13 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B4 — Persistent World Model, explicitly authorized on 2026-09-22. B0–B3 are VERIFIED; B4 is IN PROGRESS. B5–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
+**Current authorization: B4 — Persistent World Model, explicitly authorized on 2026-09-22. B0–B4 are VERIFIED. B5–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
 
 ## Objective and architectural transition
 
 SEED means **Situated Experiential Emergent Development**. Evolve the existing Germination prototype incrementally into a system that learns from observed consequences and prediction error, while keeping behavior inspectable, reproducible, and under owner control.
 
-The B3 autonomous cycle in `seed/organism.py` is:
+The B4 autonomous cycle in `seed/organism.py` is:
 
 ```text
 perceive state_before
@@ -20,7 +20,8 @@ perceive state_before
 → evaluate the original prediction against state_after
 → calculate unchanged legacy reward from state_before
 → update contextual action value
-→ atomically store linked episode, transition, prediction, and evaluation
+→ atomically store linked episode, transition, prediction, evaluation, and B4 eligibility
+→ process at most 100 queued transitions into persistent descriptive world beliefs
 ```
 
 The target architecture is:
@@ -54,7 +55,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B1 | Transition-Based Experience | VERIFIED | B0 | Full suite: 138 passed; independent review approved | Schema v2; observed transitions; unchanged legacy reward/policy; no B2 |
 | B2 | Predictor | VERIFIED | B1 | Full suite: 182 passed; review finding fixed/tested | Prospective action-conditioned statistics; no prediction error or policy influence |
 | B3 | Prediction Error | VERIFIED | B1, B2 | Full suite: 252 passed; independent review approved | Deterministic post-observation evaluation; no policy/reward feedback |
-| B4 | World Model | IN PROGRESS | B1, B3 | Verification pending | Persistent observation-grounded beliefs and contradictions |
+| B4 | World Model | VERIFIED | B1, B3 | Full suite: 327 passed; independent review: 75 B4 tests passed | Schema v3; prospective persistent descriptive statistics; no behavioral influence |
 | B5 | Prediction-Error Curiosity | NOT STARTED | B3, B4 | Not added or executed for B5 | Bounded influence on safe internal activity only |
 | B6 | Memory Consolidation | NOT STARTED | B1, B4 | Not added or executed for B6 | Actual pattern/knowledge processing; no automatic episode deletion |
 | B7 | Self Model | NOT STARTED | B3, B6 | Not added or executed for B7 | Evidence-grounded capabilities, accuracy, resources, and limitations |
@@ -849,3 +850,272 @@ Verification:
 Git scope: dedicated `seed-0.2-b3` from `008b704`, with these 14 files committed as `seed-0.2 B3: evaluate prospective prediction error`. No automatic merge/push. Commit identity and clean working tree are checked after commit. No live memory opened/migrated, no installation/restart, and no listener started.
 
 **Ready for B4: YES**, with no B3 acceptance blocker. B4 remains NOT STARTED and requires explicit authorization. Stop here.
+
+
+## B4 execution log — 2026-09-22
+
+**Status: VERIFIED.** Branch: `seed-0.2-b4`. Starting commit: `b404035`, including
+verified B3 `a51536e` and owner documentation updates. Initial tree was clean;
+initial full suite: 252 passed, no skipped/excluded tests, two upstream warnings.
+Native plan: `docs/superpowers/plans/2026-09-22-seed-b4.md`. The owner checkpointed
+partial work in `24dca90` (`b4 partial implementation`) while execution was underway;
+that checkpoint is preserved. Delivery commit is the commit containing this final
+record, titled `seed-0.2 B4: add persistent world model`; its resolved hash is reported
+in the completion report after Git verification. No merge or push is performed.
+
+Objective: persistent statistical regularities from completed observations, with
+inspectable evidence, contradictions and confidence. B4 adds no causal inference
+and makes no intelligence, understanding, or predictive-improvement claim.
+
+### B4 architecture decisions
+
+1. World beliefs describe observed statistical regularities, not causal effects
+   of actions. Action conditioning identifies the action selected during a transition.
+2. Evidence eligibility is prospective and explicit: only B4 autonomous writes opt
+   in. B1/B2/B3 transitions are never silently backfilled, regardless of timestamps.
+3. Persistent beliefs are separate from the unchanged B2 on-demand predictor.
+   Neither beliefs nor their confidence/counts are consumed by prediction or policy.
+4. Confidence combines bounded evidence support with observed consistency; it is
+   labeled `evidence_consistency`, not certainty or a truth probability.
+5. Contradictory observations remain evidence, revise statistics, and increment
+   contradiction counts; they are never discarded for disagreeing.
+
+Legacy `concepts` remain reflection-derived summaries. B4 `world_beliefs` are
+transition-derived persistent statistical models. Reflection and consolidation
+remain byte-for-byte unchanged inside the existing organism methods.
+
+### Schema v3 and preservation
+
+The additive migration ladder is unversioned → v1 → v2 → v3, in one migration
+transaction. Existing v1/v2 statements and prior tables are retained. Exactly one
+supported integer schema row is required; future/ambiguous versions are rejected
+before constructor schema writes. Current v3 reopen is a no-op.
+
+Four new tables:
+
+- `world_beliefs`: stable key and integer ID, signal, global/action scope and scope
+  value, numeric_delta/boolean_frequency family, JSON value, evidence and
+  contradiction counts, confidence, creation/update timestamps, first/last source
+  transition IDs, and model version 1. Unique statistical identity and schema
+  checks constrain supported scopes, signals, counts and confidence.
+- `world_pending`: the same statistical representation for one valid sample.
+  Pending samples persist across restart and are not returned as published beliefs.
+  On the second valid sample, the accumulated statistics move into world_beliefs
+  and the pending row is removed atomically. Creation time records first accumulated
+  evidence; updated_at records the latest model processing time.
+- `world_model_queue`: primary-key transition IDs eligible for prospective learning.
+- `world_model_processed`: primary-key transition IDs, processing time, model version
+  and valid-signal count; a compact durable idempotency/provenance ledger.
+
+All source ID columns reference transitions. There is no migration backfill or
+rewriting of episodes, transitions, prediction/error JSON, Q values, concepts,
+identity, runtime, commands, settings, annotations, events, automations or audit.
+
+`Memory` retains backup-before-migration for an existing legacy/v1/v2 database.
+Tests compare every row in the fourteen prior application tables, including B1
+NULL, B2 prediction-only, and B3 prediction+evaluation transitions. The v2 snapshot
+retains schema 2 and exact rows. Failed backup prevents migration; injected failure
+in the final v3 step rolls back every applied step for legacy/v1/v2 fixtures.
+Existing future-version rejection and legacy preservation regressions also pass.
+
+### Evidence, statistics, contradictions and confidence
+
+`seed/world_model.py` reads only persisted source observations. Supported numeric
+signals are battery_pct and disk_free_pct (finite nonboolean numbers in 0..100)
+and load_ratio (finite nonboolean number >=0). Both before and after must be valid;
+the sample is after−before. Boolean target network_reachable reads the existing
+**after.network** sensor key and requires an exact Boolean. No new sensor is added.
+
+Each valid signal contributes once to global scope and once to its selected action
+scope (observe/reflect/consolidate/rest). There are at most 20 combined pending and
+published statistical identities. Unknown actions provide no evidence. Two valid
+samples for the particular signal/scope are required to publish a belief.
+
+Numeric payload: mean_delta, mean_absolute_delta, min_delta, max_delta. Means use
+incremental updates, with a convex weighted sum for opposite signs to avoid overflow
+at finite load extremes; there is no history rescan or statistical dependency.
+Boolean payload: true_count, false_count, probability_true; counts sum to evidence.
+Both families persist confidence_kind=evidence_consistency.
+
+Contradictions use **pre-update evidence_count >=4**:
+
+- Numeric: mean > epsilon and new delta < −epsilon, or the reverse. Epsilons are
+  battery .05 percentage points, disk .01 percentage points, load .02 ratio units.
+  Equality and values inside the deadband are neutral.
+- Boolean: probability_true >=.75 with new False, or <=.25 with new True. Interior
+  probabilities are ambiguous and do not turn ordinary variation into contradiction.
+
+Confidence = clamp(min(.95,n/20) × (1−c/n), 0, .95); n=0 gives 0. All contradictory
+samples still increase n and revise the value. Confidence can plateau before the
+support cap and decline as the contradiction ratio rises. There is no recency
+weighting, forgetting, calibration, causal inference or prediction-error dependency.
+
+Missing/None/wrong-type/nonfinite/out-of-domain fields are skipped per signal;
+valid other fields still contribute. Serialized states are decoded independently,
+limited to 16,384 characters, and malformed/deep/non-object states are unavailable.
+An invalid before-state does not prevent a valid Boolean after-observation.
+Processed records retain valid-signal counts, including zero; rejected fields are
+not fabricated or retried indefinitely. Original transition JSON is not changed.
+
+### Ordering, idempotency, atomicity and recovery
+
+`Memory.record_transition_experience(..., world_model_eligible=False)` retains old
+caller semantics. The autonomous cycle passes True; inserting the queue entry is
+in the same transaction as episode+transition+prediction+evaluation. Queue insertion
+failure rolls back the complete pair, so no uncommitted experience becomes evidence.
+Owner command and historical/default callers do not opt in.
+
+WorldModel.recover runs once during core construction and once after each successful
+autonomous pair commit. Each pass selects **at most 100 queued IDs**, ascending, from
+the dedicated queue. Normal no-backlog work processes the new transition only.
+Source reads use the transition primary key, never a lifetime history scan. The
+update visits at most four signals × two scopes.
+
+WorldModel.observe_transition(id) takes the Memory lock and begins IMMEDIATE before
+reading model state. Pending/belief revisions, small WORLD_MODEL events, processed
+marker insertion and queue deletion commit atomically. A previously processed or
+ineligible ID is a no-op. Out-of-order queued calls are refused, preserving the
+meaning of pre-update contradictions across recovery. Concurrent connections cannot
+double count the same source. Recovery passes are idempotent.
+
+A model failure leaves the completed real transition and queue entry intact and
+rolls back all model work. The existing core error path can stop the process; a later
+restart retries eligible records. No hidden restart loop, skip-on-failure policy,
+automatic rebuild, or historical replay utility is introduced. A corrupt internal
+model row or persistent storage error can block FIFO progress and requires diagnosis.
+As in B1–B3, actions/Q/other telemetry can commit before a later failure: the entire
+physical cycle is not transactional.
+
+### Telemetry and read-only inspection
+
+WORLD_MODEL emits a per-belief event on creation, contradiction, statistical value
+change, or confidence change. Payloads contain stable key, signal/scope, old/new
+values and confidence, counts, change kind, and transition ID. Pending samples do
+not emit belief events. At capped confidence, evidence/timestamp-only changes do
+not emit events; Boolean raw count changes alone are also suppressed when frequency
+is unchanged. Existing event retention applies. No full-model dump or anthropomorphic
+message is emitted.
+
+New observer routes:
+
+- `GET /api/world-beliefs`: keyset `after`, limit 1..100 (default 50), optional signal,
+  scope and scope_value filters, items and next_cursor. Only published beliefs appear.
+- `GET /api/world-beliefs/{belief_id}`: value, provenance, counts, confidence and
+  timestamps; missing IDs return 404; invalid/oversized IDs return 422.
+
+The service validates direct callers too and uses SQLite mode=ro. Legacy inspection
+returns available=false and no rows without migrating. Operator startup now requires
+all four v3 tables and version 3. Local Host/Origin/token boundaries remain unchanged.
+No frontend, new listener, runtime model dump, production aggregate-metrics endpoint,
+or maintenance rebuild route is added.
+
+### Deterministic metrics and baseline comparison
+
+Reproduce: `.venv/bin/python -m tests.world_model_scenario`.
+Artifact: `docs/baselines/seed-0.2-b4-comparison.json`, anchored to B3 `a51536e`,
+starting commit `b404035`, the unchanged B3 artifact hash and unchanged core-source
+hashes. All observations and homes are synthetic. Write timestamps are omitted
+from deterministic belief snapshots; actual persisted rows still retain them.
+
+The revision fixture supplies 20 positive numeric/True network transitions followed
+by two negative numeric/False network transitions, all with action observe:
+
+- One transition: 0 published beliefs, 8 pending statistics.
+- At 20 samples: confidence .95.
+- At 22 samples: 8 beliefs (2 per signal; 4 global and 4 action); every belief has
+  evidence 22, contradictions 2, and confidence **0.8636363636363635**.
+- Numeric mean delta 18/22, mean absolute delta 1, min −1, max +1.
+- Network counts True 20, False 2; observed frequency 20/22.
+- 22 processed transitions, **88 valid signal samples**; **176 scoped evidence** and
+  **16 scoped contradictions** count the global/action duplication explicitly.
+- 0 unprocessed eligible transitions. Counts describe development records, not
+  knowledge or intelligence. Aggregate count queries occur only in the fixture,
+  never during normal model updates or dashboard inspection.
+
+The original eight-cycle control reproduces every B3 non-footprint metric exactly,
+including all predictions/support counts, eight evaluations, action sequence, Q
+values/visits, rewards/delays, concept count and 16 perceptions. The three B3 full,
+partial and unavailable evaluation cases reproduce **every non-schema field** and
+all aggregate metrics exactly; only schema changes from 2 to 3.
+
+Checkpointed control database: **249,856 bytes**, 61 × 4,096-byte pages, zero WAL/SHM
+bytes after close (B3: 180,224 bytes, 44 pages). This is a fixture measurement, not a
+portable size/performance threshold. Statistical rows are bounded, but the durable
+processed ledger grows by one compact row per eligible transition; detailed
+transitions already grow with experience. A recovery backlog is not silently pruned.
+
+### Tests, review, and isolation evidence
+
+New test files/fixture:
+
+- `tests/test_world_migrations.py`: v2 preservation/backup, final-step ladder rollback,
+  failed backup and atomic prospective eligibility.
+- `tests/test_world_model.py`: hand-calculated statistics, action/global scope,
+  promotion/restart, contradiction boundaries, confidence rise/fall, invalid signals,
+  extreme finite numbers, malformed JSON, duplicate/concurrent processing, model
+  failure/retry, historical exclusion, FIFO recovery bounds and material telemetry.
+- `tests/test_world_model_cycle.py`: post-commit timing, startup recovery without
+  sensing/network, all-action predictor/evaluator/policy/reward/Q/delay equivalence,
+  concept/evidence preservation, real cycle failure and restart recovery.
+- `tests/dashboard/test_world_beliefs.py`: read-only pagination/filter/detail,
+  validation, legacy empty state and missing-v3-table operator refusal.
+- `tests/test_world_model_scenario.py` and `tests/world_model_scenario.py`: literal
+  confidence/statistics fixture and comparison against the immutable B3 artifact.
+
+Four prior test files change only supported-current-version assertions (and one
+migration test name): test_transition_migrations.py, test_prediction_cycle.py,
+test_prediction_error_cycle.py, test_prediction_error_scenario.py. All earlier
+behavior, provenance, future-version, backup, sensor and owner-authority tests remain.
+
+RED runs reproduced missing migration/queue/model/core/read paths before their
+implementation. A final count-only Boolean telemetry regression was reproduced and
+fixed without changing learning. Test-harness corrections addressed a chained
+pytest.approx comparison, colliding fixture directories, local TestClient Host,
+ServiceError type, and the saved artifact's `control` key; production rules were
+not weakened to match those mistakes.
+
+Independent fresh read-only review: **no Critical, Important, or Minor findings**;
+reviewer independently ran **75 B4 tests**, all passing. Review boundary rulings:
+optional rebuild/metrics/UI remain omitted; whole-cycle atomicity retains the
+explicit earlier boundary; live deployment remains outside fixture verification.
+No material or deferred review findings remain.
+
+Final intended suite: `.venv/bin/python -m pytest -q` → **327 passed**, **0 skipped**,
+**0 excluded**, **2 existing upstream deprecation warnings** (Starlette/httpx and
+AnyIO aliases). Warnings were not suppressed; dependencies were not upgraded.
+Standalone world-model CLI output matches the committed comparison artifact.
+`.venv/bin/python -m compileall -q seed dashboard tests` and both final/range
+`git diff --check` pass. Source comparison with B3 verifies unchanged predictor, evaluator, learner, body,
+config, commands, instance-lock implementation, outcome helpers, telemetry helpers,
+main entry point and all four prior baseline artifacts.
+
+Normal autonomous perception frequency remains **2**. World-model work adds **zero
+perceptions, network requests, DNS lookups or socket connections**. The existing two
+fixed reachability probes per normal cycle remain. All validation used temporary
+homes and synthetic sensors; installed memory was neither read nor migrated. No
+installation, process restart, LaunchAgent change or listener was performed.
+
+Files changed in B4: seed/{migrations,memory,organism,world_model}.py;
+dashboard/app.py, dashboard/api/observer.py, dashboard/services/seed_service.py;
+the six new tests/fixture and four prior test files listed above; the B4 plan,
+comparison artifact, this tracker, and short B4 pointers above the owner's preserved
+B3 README/architecture reference text. No B5 implementation is included.
+
+### Known limitations and B5 prerequisites
+
+Retained limitations: immediate rest prediction horizon before the longer wait;
+charging-parser discharging false positive; inferred wakes based on wall-clock gaps;
+incomplete whole-cycle atomicity; two existing reachability probes per normal cycle.
+B4 is limited to immediate descriptive transition statistics, two scope dimensions,
+fixed contradiction deadbands, cumulative evidence/contradictions, and a compact but
+growing processed ledger. There is no causal or long-horizon model, forgetting,
+semantic consolidation or belief-driven prediction/behavior. B3 engineering accuracy
+must still be read with coverage; it is distinct from evidence_consistency confidence.
+
+**Ready for B5: YES**, no B4 blocker. B5 still requires explicit owner authorization
+and a scoped curiosity design: define the prediction-error/uncertainty inputs and
+missing-data handling, bound any influence on existing internal actions or timing,
+preserve owner stop and resource/network boundaries, and add deterministic regressions
+against this B4 baseline. Curiosity must not authorize new tools, destinations,
+external actions, LLM cognition, semantic consolidation or later-batch planning.
+B5–B10 remain NOT STARTED. Stop after B4 delivery.
