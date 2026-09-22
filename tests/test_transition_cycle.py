@@ -59,7 +59,8 @@ def test_cycle_observes_outcome_before_legacy_learning(home, monkeypatch, action
         assert json.loads(row['state_after_json']) == AFTER
         assert row['started_at'] == 1000 and row['completed_at'] == 1002
         assert row['legacy_reward'] == reward
-        assert row['prediction_json'] is None and row['prediction_error_json'] is None
+        assert json.loads(row['prediction_json'])['action'] == action
+        assert row['prediction_error_json'] is None
         assert core.memory.get_meta('last_state') == AFTER
         events = [(r[0],json.loads(r[1])) for r in core.memory.db.execute(
             'SELECT category,data_json FROM events ORDER BY id')]

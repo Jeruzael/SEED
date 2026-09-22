@@ -1,0 +1,163 @@
+{
+  "b1_artifact_sha256": "4ebb6e6fb84b8315a7b274f1c5f3f5e6fd192f73fc6a30a6b1eed929ee044b79",
+  "baseline_commit": "858a483",
+  "batch": "SEED 0.2 B2",
+  "command": ".venv/bin/python -m tests.baseline_scenario",
+  "confidence_formula": "min(0.95, evidence_count / 20)",
+  "confidence_kind": "evidence_support",
+  "history_limit": 200,
+  "horizon": "next_post_action_observation",
+  "interpretation": "Structural coverage and evidence support only; no accuracy/error calculations or improvement claim.",
+  "measured": {
+    "action_distribution": {
+      "consolidate": 1,
+      "observe": 4,
+      "reflect": 1,
+      "rest": 2
+    },
+    "action_sequence": [
+      "observe",
+      "observe",
+      "observe",
+      "observe",
+      "reflect",
+      "consolidate",
+      "rest",
+      "rest"
+    ],
+    "autonomous_perception_count": 16,
+    "concept_count": 0,
+    "context_coverage": 2,
+    "database_footprint": {
+      "main_bytes": 172032,
+      "shm_bytes": 0,
+      "wal_bytes": 0
+    },
+    "database_page_count": 42,
+    "database_page_size": 4096,
+    "lifecycle_counts": {
+      "experience": 8,
+      "sleep": 1,
+      "wake": 1
+    },
+    "observation_count": 8,
+    "policy_coverage": 5,
+    "prediction_structure": {
+      "available": 32,
+      "coverage_pct": 100.0,
+      "evidence_counts": {
+        "battery_pct": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "disk_free_pct": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "load_ratio": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "network_reachable": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      "method_groups": {
+        "action_specific": 8,
+        "global": 16,
+        "persistence": 8
+      },
+      "prediction_count": 8,
+      "prediction_error_count": 0,
+      "unavailable": 0
+    },
+    "q_values": [
+      {
+        "action": "observe",
+        "state_key": "charging|calm|ok|day",
+        "value": 0.2018844,
+        "visits": 3
+      },
+      {
+        "action": "consolidate",
+        "state_key": "low|busy|tight|night",
+        "value": -0.036,
+        "visits": 1
+      },
+      {
+        "action": "observe",
+        "state_key": "low|busy|tight|night",
+        "value": -0.216,
+        "visits": 1
+      },
+      {
+        "action": "reflect",
+        "state_key": "low|busy|tight|night",
+        "value": -0.216,
+        "visits": 1
+      },
+      {
+        "action": "rest",
+        "state_key": "low|busy|tight|night",
+        "value": 0.6552,
+        "visits": 2
+      }
+    ],
+    "returned_intervals_seconds": [
+      8,
+      8,
+      8,
+      8,
+      12,
+      20,
+      35,
+      35
+    ],
+    "transition_count": 8
+  },
+  "minimum_evidence": 2,
+  "model": "transition_delta_v1",
+  "model_version": 1,
+  "network_target_source": {
+    "network_reachable": "network"
+  },
+  "schema_version": 2,
+  "unchanged_metrics": [
+    "observation_count",
+    "action_distribution",
+    "context_coverage",
+    "policy_coverage",
+    "concept_count",
+    "lifecycle_counts",
+    "q_values",
+    "action_sequence",
+    "returned_intervals_seconds",
+    "transition_count",
+    "autonomous_perception_count"
+  ]
+}
