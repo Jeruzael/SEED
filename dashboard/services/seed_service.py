@@ -5,6 +5,7 @@ import threading
 import time
 from pathlib import Path
 from seed.runtime import owner
+from seed.world_model import SIGNALS, ACTIONS
 from .read_store import ReadStore, ServiceError, decode
 from .process import ProcessController
 from .storage import StorageService
@@ -132,6 +133,40 @@ class SeedService:
                             evidence_scope='Qualifying samples in the latest reflection window, not lifetime observations')
                 items.append(item)
         return {'items': items}
+
+    @staticmethod
+    def _world_belief(row):
+        item = dict(row)
+        item['value'] = decode(item.pop('value_json'), {})
+        item['confidence_kind'] = 'evidence_consistency'
+        return item
+
+    def world_beliefs(self, signal=None, scope=None, scope_value=None, after=0, limit=50):
+        """Bounded keyset inspection, with no construction/migration of core memory."""
+        if (type(limit) is not int or not 1 <= limit <= 100 or
+            type(after) is not int or not 0 <= after <= 2**63-1 or
+            signal not in (None, *SIGNALS) or scope not in (None, 'global', 'action') or
+            scope_value not in (None, '', *ACTIONS)):
+            raise ServiceError('invalid_query', 'Invalid world-belief filter or pagination.')
+        with self.store.connection() as db:
+            if 'world_beliefs' not in self.store.tables(db):
+                return {'available': False, 'items': [], 'next_cursor': None}
+            rows = db.execute('''SELECT * FROM world_beliefs WHERE id>?
+                AND (? IS NULL OR signal=?) AND (? IS NULL OR scope=?)
+                AND (? IS NULL OR scope_value=?) ORDER BY id LIMIT ?''',
+                (after,signal,signal,scope,scope,scope_value,scope_value,limit+1)).fetchall()
+            return {'available': True, 'items': [self._world_belief(r) for r in rows[:limit]],
+                    'next_cursor': rows[limit-1]['id'] if len(rows)>limit else None}
+
+    def world_belief(self, belief_id):
+        if type(belief_id) is not int or not 1 <= belief_id <= 2**63-1:
+            raise ServiceError('invalid_id', 'Invalid world-belief ID.')
+        with self.store.connection() as db:
+            row = db.execute('SELECT * FROM world_beliefs WHERE id=?', (belief_id,)).fetchone() \
+                if 'world_beliefs' in self.store.tables(db) else None
+            if row is None:
+                raise ServiceError('not_found', 'World belief does not exist.', 404)
+            return self._world_belief(row)
 
     def learning(self):
         with self.store.connection() as db:

@@ -1,7 +1,7 @@
 """Additive migrations: original episode, concept, policy and identity rows stay intact."""
 import sqlite3
 
-VERSION = 2
+VERSION = 3
 STATEMENTS = [
     'CREATE TABLE seed_schema(version INTEGER NOT NULL)',
     '''CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL,
@@ -35,13 +35,43 @@ V2_STATEMENTS = [
     legacy_reward REAL NOT NULL, prediction_json TEXT, prediction_error_json TEXT)''',
 ]
 
+# A single sample is durable pending evidence, not yet a published belief.
+_WORLD_COLUMNS = '''(
+    id INTEGER PRIMARY KEY,
+    belief_key TEXT NOT NULL UNIQUE,
+    signal TEXT NOT NULL CHECK(signal IN ('battery_pct','load_ratio','disk_free_pct','network_reachable')),
+    scope TEXT NOT NULL, scope_value TEXT NOT NULL,
+    belief_type TEXT NOT NULL CHECK(belief_type IN ('numeric_delta','boolean_frequency')),
+    value_json TEXT NOT NULL,
+    evidence_count INTEGER NOT NULL CHECK(evidence_count >= {minimum}),
+    contradiction_count INTEGER NOT NULL CHECK(contradiction_count BETWEEN 0 AND evidence_count),
+    confidence REAL NOT NULL CHECK(confidence BETWEEN 0 AND 0.95),
+    created_at REAL NOT NULL, updated_at REAL NOT NULL,
+    source_first_transition_id INTEGER NOT NULL REFERENCES transitions(id),
+    source_last_transition_id INTEGER NOT NULL REFERENCES transitions(id),
+    model_version INTEGER NOT NULL CHECK(model_version=1),
+    CHECK((scope='global' AND scope_value='') OR
+          (scope='action' AND scope_value IN ('observe','reflect','consolidate','rest'))),
+    UNIQUE(signal,scope,scope_value,belief_type,model_version))'''
+
+V3_STATEMENTS = [
+    'CREATE TABLE world_beliefs' + _WORLD_COLUMNS.format(minimum=2),
+    'CREATE TABLE world_pending' + _WORLD_COLUMNS.format(minimum=1),
+    '''CREATE TABLE world_model_queue(
+        transition_id INTEGER PRIMARY KEY REFERENCES transitions(id))''',
+    '''CREATE TABLE world_model_processed(
+        transition_id INTEGER PRIMARY KEY REFERENCES transitions(id),
+        processed_at REAL NOT NULL, model_version INTEGER NOT NULL CHECK(model_version=1),
+        valid_signals INTEGER NOT NULL CHECK(valid_signals BETWEEN 0 AND 4))''',
+]
+
 
 def schema_version(db: sqlite3.Connection) -> int:
     """Return 0 for unversioned storage; refuse ambiguous/unsupported versions."""
     if not db.execute("SELECT 1 FROM sqlite_master WHERE name='seed_schema'").fetchone():
         return 0
     rows = db.execute('SELECT version FROM seed_schema').fetchall()
-    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, VERSION):
+    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, 2, VERSION):
         raise ValueError('Unsupported SEED schema version')
     return rows[0][0]
 
@@ -57,6 +87,11 @@ def migrate(db: sqlite3.Connection) -> None:
             version = 1
         if version == 1:
             for statement in V2_STATEMENTS:
+                db.execute(statement)
+            db.execute('UPDATE seed_schema SET version=2')
+            version = 2
+        if version == 2:
+            for statement in V3_STATEMENTS:
                 db.execute(statement)
             db.execute('UPDATE seed_schema SET version=?', (VERSION,))
         db.commit()

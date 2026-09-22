@@ -20,6 +20,14 @@ def observer_router(service, slots):
     def learning(): return service.learning()
     @router.get('/concepts')
     def concepts(): return service.concepts()
+    @router.get('/world-beliefs')
+    def world_beliefs(signal: str | None = Query(None, max_length=32),
+                      scope: str | None = Query(None, max_length=16),
+                      scope_value: str | None = Query(None, max_length=16),
+                      after: int = Query(0, ge=0, le=2**63-1), limit: int = Query(50, ge=1, le=100)):
+        return service.world_beliefs(signal, scope, scope_value, after, limit)
+    @router.get('/world-beliefs/{belief_id}')
+    def world_belief(belief_id: int): return service.world_belief(belief_id)
     @router.get('/history')
     def history(limit: int = Query(200, ge=2, le=500)): return service.history(limit)
     @router.get('/memories')
