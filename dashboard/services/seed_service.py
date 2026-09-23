@@ -11,6 +11,7 @@ from seed.world_model import SIGNALS, ACTIONS
 from .read_store import ReadStore, ServiceError, decode
 from .process import ProcessController
 from .storage import StorageService
+from .semantic_memory import SemanticReadService
 
 
 class SeedService:
@@ -217,6 +218,18 @@ class SeedService:
                     suppressed_reflection_count=sum(r['suppression_reason'] is not None for r in rows),
                     suppression_reasons=dict(Counter(r['suppression_reason'] for r in rows if r['suppression_reason'])),
                     failure_count=sum(r['failure_reason'] is not None for r in rows))
+
+    def semantic_memories(self, signal=None, scope=None, status=None, after=0, limit=50):
+        return SemanticReadService(self.store).memories(signal, scope, status, after, limit)
+
+    def semantic_memory(self, semantic_id):
+        return SemanticReadService(self.store).memory(semantic_id)
+
+    def semantic_history(self, semantic_id, before=2**63-1, limit=50):
+        return SemanticReadService(self.store).history(semantic_id, before, limit)
+
+    def consolidation_runs(self, before=2**63-1, limit=50):
+        return SemanticReadService(self.store).runs(before, limit)
 
     def learning(self):
         with self.store.connection() as db:

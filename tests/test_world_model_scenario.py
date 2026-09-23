@@ -34,4 +34,4 @@ def test_controlled_belief_revision_and_unchanged_b3_results(tmp_path):
     for name,case in scores['cases'].items():
         for key,value in expected['cases'][name].items():
             if key!='schema_version': assert case[key]==value
-        assert case['schema_version']==4
+        assert case['schema_version']==5

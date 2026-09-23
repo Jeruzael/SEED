@@ -35,6 +35,22 @@ def observer_router(service, slots):
     def curiosity_summary(): return service.curiosity_summary()
     @router.get('/curiosity/{transition_id}')
     def curiosity_assessment(transition_id: int): return service.curiosity_assessment(transition_id)
+    @router.get('/semantic-memories')
+    def semantic_memories(signal: str | None = Query(None, max_length=32),
+                          scope: str | None = Query(None, max_length=16),
+                          status: str | None = Query(None, max_length=32),
+                          after: int = Query(0, ge=0, le=2**63-1), limit: int = Query(50, ge=1, le=100)):
+        return service.semantic_memories(signal, scope, status, after, limit)
+    @router.get('/semantic-memories/{semantic_id}')
+    def semantic_memory(semantic_id: int): return service.semantic_memory(semantic_id)
+    @router.get('/semantic-memories/{semantic_id}/history')
+    def semantic_history(semantic_id: int, before: int = Query(2**63-1, ge=0, le=2**63-1),
+                         limit: int = Query(50, ge=1, le=100)):
+        return service.semantic_history(semantic_id, before, limit)
+    @router.get('/consolidation-runs')
+    def consolidation_runs(before: int = Query(2**63-1, ge=0, le=2**63-1),
+                           limit: int = Query(50, ge=1, le=100)):
+        return service.consolidation_runs(before, limit)
     @router.get('/history')
     def history(limit: int = Query(200, ge=2, le=500)): return service.history(limit)
     @router.get('/memories')

@@ -42,9 +42,9 @@ def test_prospective_order_and_exact_pre_action_payload(home, monkeypatch):
         def choose_traced(state):
             trace.append('decision')
             return choose(state)
-        def act(action):
+        def act(action, state=None):
             trace.append('action')
-            perform(action)
+            perform(action, state=state)
             # New history would change a recomputed estimate; the stored one must stay prospective.
             for _ in range(2): history(core.memory, {'battery_pct':70}, {'battery_pct':75}, 'reflect')
         def evaluate(state, action):
@@ -132,6 +132,6 @@ def test_prediction_joins_atomic_experience_and_does_not_backfill(home):
         assert [r[0] for r in rows] == [old_transition,new_transition]
         assert rows[0][1] is None and json.loads(rows[1][1]) == payload
         assert all(r[2] is None for r in rows)
-        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 4
+        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 5
     finally:
         core.close()

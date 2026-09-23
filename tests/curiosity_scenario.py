@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from seed.organism import SeedOrganism
 from seed.learner import state_key
+from seed.migrations import VERSION
 
 BEFORE=dict(battery_pct=100,charging=True,disk_free_pct=100,load_ratio=1e300,network=False,local_hour=12)
 AFTER=dict(battery_pct=20,charging=False,disk_free_pct=10,load_ratio=0,network=True,local_hour=12)
@@ -45,7 +46,7 @@ def run_scenario(root):
                     reflection_provenance=[json.loads(r[0])['provenance'] for r in db.execute(
                         "SELECT data_json FROM events WHERE category='REFLECTION' ORDER BY id")])
             finally:core.close()
-    return dict(fixture='SEED 0.2 B5 deterministic computational curiosity',schema_version=4,cases=cases)
+    return dict(fixture='SEED 0.2 B5 deterministic computational curiosity',schema_version=VERSION,cases=cases)
 
 
 if __name__=='__main__':

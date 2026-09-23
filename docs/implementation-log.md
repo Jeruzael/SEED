@@ -1,99 +1,34 @@
 # SEED Implementation Log
 
-This file is a navigation index for SEED development records.
+This is a navigation index. The [development tracker](seed-0.2-development-plan.md) holds the canonical batch requirements, decisions, acceptance evidence, limitations and readiness gates. The [README](../README.md) explains current use; the [architecture guide](architecture.md) describes current implementation contracts.
 
-The canonical SEED 0.2 development history, batch status, acceptance criteria, implementation decisions, verification results, known limitations, and readiness gates are maintained in:
+## Current verified state
 
-* [`seed-0.2-development-plan.md`](./seed-0.2-development-plan.md)
+**SEED 0.2 is verified through B6**, implemented in commit **dc225af**. Current schema is **v5**. The recorded full suite has **497 passing tests**, zero skips, and two existing dependency deprecation warnings. B7 is ready for separately authorized design and implementation; B7–B10 remain unstarted.
 
-Reproducible baseline and evaluation artifacts are stored in:
+| Batch | Status | Capability | Evidence |
+| --- | --- | --- | --- |
+| B0 | VERIFIED | Baseline and guardrails | [Baseline](baselines/seed-0.1-baseline.json) |
+| B1 | VERIFIED | Transition-based experience | [Comparison](baselines/seed-0.2-b1-comparison.json) |
+| B2 | VERIFIED | Prospective environmental prediction | [Comparison](baselines/seed-0.2-b2-comparison.json) |
+| B3 | VERIFIED | Prediction-error evaluation | [Evaluation](baselines/seed-0.2-b3-evaluation.json) |
+| B4 | VERIFIED | Persistent descriptive world model | [Execution record](seed-0.2-development-plan.md#b4-execution-log--2026-09-22), [comparison](baselines/seed-0.2-b4-comparison.json) |
+| B5 | VERIFIED | Bounded computational curiosity | [Execution record](seed-0.2-development-plan.md#b5-execution-log--2026-09-22), [comparison](baselines/seed-0.2-b5-comparison.json) |
+| B6 | VERIFIED | Semantic memory consolidation | [Execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23), [comparison](baselines/seed-0.2-b6-comparison.json) |
+| B7–B10 | NOT STARTED | Self model, decision upgrade, development UI, evaluation | Separate authorization required |
 
-* [`baselines/`](./baselines/)
+## Current boundaries
 
-Detailed batch implementation plans are stored under:
+The autonomous cycle records before/action/after experience, a prospective prediction, its evaluation, and a curiosity assessment before updating persistent world beliefs. Existing consolidate actions promote sufficiently supported beliefs into revisable semantic memory. The [architecture guide](architecture.md#autonomous-cycle-and-ordering) specifies the ordering and separate transaction boundaries.
 
-* [`superpowers/plans/`](./superpowers/plans/)
+The contextual bandit, reward/Q update, epsilon, alpha and action delays remain unchanged. Optional curiosity reflection is owner-controlled and **off by default**. Semantic memory has no upstream influence and deletes no original experience. Normal autonomous cycles retain two perceptions and their existing fixed reachability probes; B2–B6 add no network activity.
 
----
+## Historical evidence
 
-## Current verified development state
+All seven artifacts in [baselines/](baselines/) represent their own development stages. Do not rewrite older results to match the current schema or footprint. Missing historical fields can be valid evidence of earlier capabilities rather than corruption. Detailed historical implementation plans remain under [superpowers/plans/](superpowers/plans/).
 
-SEED 0.2 is verified through:
-
-| Batch  | Status      | Purpose                                            |
-| ------ | ----------- | -------------------------------------------------- |
-| B0     | VERIFIED    | Baseline and guardrails                            |
-| B1     | VERIFIED    | Transition-based experience                        |
-| B2     | VERIFIED    | Prospective environmental prediction               |
-| B3     | VERIFIED    | Prediction-error evaluation                        |
-| B4–B10 | NOT STARTED | Require separate design and explicit authorization |
-
-Current development schema:
-
-```text
-2
-```
-
-Current B3 autonomous architecture:
-
-```text
-state_before
-→ action selection
-→ prospective prediction
-→ internal action
-→ state_after
-→ observed transition
-→ prediction-error evaluation
-→ legacy reward
-→ contextual Q update
-→ persistent experience record
-```
-
-At B3, prediction and prediction-error data remain observational.
-
-They do not yet influence the contextual learning policy.
-
----
-
-## Historical artifacts
-
-Historical baseline/evaluation artifacts should be treated as immutable evidence of the development stage that produced them.
-
-They include:
-
-```text
-docs/baselines/seed-0.1-baseline.json
-docs/baselines/seed-0.2-b1-comparison.json
-docs/baselines/seed-0.2-b2-comparison.json
-docs/baselines/seed-0.2-b3-evaluation.json
-```
-
-Do not rewrite older artifacts to reflect newer behavior.
-
-Historical NULL or absent fields are valid representations of earlier developmental stages.
-
----
+The current README and architecture guide supersede their former B3 snapshots. Historical execution records remain unchanged; the post-B6 documentation refresh is recorded in the tracker.
 
 ## Deployment boundary
 
-Development commits, branch merges, and documentation updates do not automatically update the installed SEED organism.
-
-The repository source and installed application may therefore represent different developmental states.
-
-Installation, restart, and live-memory migration remain separate explicit operations.
-
-No development batch should imply deployment merely because its source tests pass.
-
----
-
-## Source of truth
-
-Use the following precedence when determining current project status:
-
-1. `docs/seed-0.2-development-plan.md` for canonical developmental state and acceptance records.
-2. `docs/baselines/` for recorded reproducible evaluation artifacts.
-3. `docs/superpowers/plans/` for historical batch execution plans.
-4. `README.md` for the current high-level project description.
-5. `docs/architecture.md` for the current architectural model.
-
-This file should remain a lightweight index rather than duplicating the full development record.
+Source commits, merges and documentation updates do not update the installed organism. Installation, restart and live-memory migration are separate owner-directed operations. A passing development suite does not imply deployment.

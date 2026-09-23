@@ -2,19 +2,19 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B5 — Bounded Computational Curiosity, explicitly authorized on 2026-09-22. B0–B5 are VERIFIED. B6–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
+**Current authorization: B6 — Semantic Memory Consolidation, explicitly authorized on 2026-09-23. B0–B6 are VERIFIED. B7–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
 
 ## Objective and architectural transition
 
 SEED means **Situated Experiential Emergent Development**. Evolve the existing Germination prototype incrementally into a system that learns from observed consequences and prediction error, while keeping behavior inspectable, reproducible, and under owner control.
 
-The B5 autonomous cycle in `seed/organism.py` is:
+The B6 autonomous cycle in `seed/organism.py` is:
 
 ```text
 perceive state_before
 → choose predefined internal action
 → predict immediate post-action observation
-→ perform action
+→ perform action (consolidate: one guarded bounded semantic run and checkpoint)
 → perceive state_after
 → describe observed differences
 → evaluate the original prediction against state_after
@@ -59,7 +59,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B3 | Prediction Error | VERIFIED | B1, B2 | Full suite: 252 passed; independent review approved | Deterministic post-observation evaluation; no policy/reward feedback |
 | B4 | World Model | VERIFIED | B1, B3 | Full suite: 327 passed; independent review: 75 B4 tests passed | Schema v3; prospective persistent descriptive statistics; no behavioral influence |
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
-| B6 | Memory Consolidation | NOT STARTED | B1, B4 | Not added or executed for B6 | Actual pattern/knowledge processing; no automatic episode deletion |
+| B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
 | B7 | Self Model | NOT STARTED | B3, B6 | Not added or executed for B7 | Evidence-grounded capabilities, accuracy, resources, and limitations |
 | B8 | Decision-System Upgrade | NOT STARTED | B5, B7 | Not added or executed for B8 | Combine decision signals while retaining Q-value compatibility |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
@@ -1461,3 +1461,242 @@ verification and resource bounds. Preserve original memories and owner control;
 curiosity must not silently weight evidence or consolidation, merge/prune beliefs,
 forget experiences, or introduce later self-model/planning/tool capabilities.
 B6–B10 remain NOT STARTED. Stop after B5 delivery.
+
+## B6 execution log — 2026-09-23
+
+**Objective:** retain compact, revisable semantic knowledge derived exclusively
+from published B4 world beliefs while preserving every original memory.
+Authorized by the owner's B6 instruction; B7 and later work remains unauthorized.
+Branch **seed-0.2-b6** starts at **2ddad70**, the merge of verified B5 **ad83ea6**.
+Delivery commit: the commit containing this record, titled
+**seed-0.2 B6: add semantic memory consolidation**. Native execution; no live
+installation, memory migration, restart, LaunchAgent change, or listener.
+
+### B6 architecture decisions
+
+1. Semantic memory is downstream of published B4 world beliefs. It never rescans
+   lifetime episodes to rediscover patterns or rewrites upstream statistics.
+2. Promotion requires **evidence_count >= 8 AND confidence >= 0.30**. These
+   semantic_v1 engineering defaults are not statistical guarantees or settings.
+3. Knowledge is revisable: loss of eligibility weakens an existing record;
+   restored eligibility reactivates it. Prior revisions remain inspectable.
+4. Consolidation preserves autobiographical memory. No deletion, pruning,
+   expiration, forgetting, or semantic-promotion vacuum is introduced.
+5. The existing policy-selected consolidate action and owner consolidate command
+   each invoke one bounded run, retaining the existing checkpoint.
+6. Semantic memory has no influence on policy, prediction, prediction error,
+   curiosity, or world-model learning in B6.
+
+The layers remain distinct: episodes/transitions record **what happened**;
+world_beliefs record **currently observed statistical regularities**;
+semantic_memories record **consolidated sufficiently supported regularities**.
+The original concepts/concept_evidence remain legacy reflection products, with
+their algorithm and meaning unchanged. There is no migration between these layers.
+
+### Model, revision and provenance
+
+Every record uses **semantic_v1**, model_version **1**, and a unique structural key
+composed of semantic type, signal, scope, scope value and version. Supported
+signals are battery_pct, load_ratio, disk_free_pct and network_reachable; scopes
+are global and the four existing action conditions.
+
+Numeric records use numeric_delta_summary and copy mean_delta,
+mean_absolute_delta, min_delta and max_delta, with interpretation
+observed_transition_delta. Boolean records use boolean_frequency_summary and copy
+true_count, false_count and probability_true, with interpretation
+observed_boolean_frequency. No LLM, generated prose, cross-signal concept or
+causal claim is involved. Payload validation rejects malformed JSON, nonfinite
+statistics, invalid domains, inconsistent Boolean evidence and unsupported identities.
+
+Creation starts at revision 1, active. Canonical source fingerprints detect changed
+evidence, contradictions, confidence, complete source value or provenance, even
+when clocks are equal or move backward. JSON formatting and equivalent numbers
+such as 1 and 1.0 do not count as material changes. Timestamp-only source changes
+do not mutate the semantic row or its timestamps. source_belief_updated_at therefore
+identifies the source state last materially consolidated, not every later write.
+
+Changed eligible sources revise once; sources below either promotion threshold
+become weakened; renewed support returns them to active with another revision.
+Each mutation first stores the complete previous row in semantic_memory_history.
+created_at stays fixed; revision and updated_at advance only on material/status
+changes. Evidence counts, contradictions and source confidence remain visible.
+Exact source belief ID, B4 model version and update time are retained, plus first
+and last transition provenance; original B4 evidence remains accessible without
+copying every transition ID.
+
+A malformed source is counted as a failed item while other valid sources proceed.
+An existing semantic record becomes source_unavailable once, preserving its last
+valid payload and statistics. Recovery of valid source data can reactivate it.
+The bounded read layer also reports a missing or corrupt source through
+source_status=source_unavailable without rewriting stored semantic history.
+Its status filter refers to the persisted consolidation status. No orphan sweep
+or automatic semantic deletion occurs.
+
+### Persistence, scheduling and failure semantics
+
+Schema **4 → 5** adds semantic_memories, semantic_memory_history,
+consolidation_runs and consolidation_state. Existing tables and rows are retained.
+The existing backup-before-migration and transactional migration ladder cover
+fresh, legacy, v1, v2, v3, v4 and v5 reopen, with future-version refusal. Migration
+creates no semantic rows, history, runs or cursor: there is no automatic backfill.
+An explicit later run may consolidate already-published eligible B4 beliefs.
+
+At most **100** world beliefs are examined per invocation, in ascending ID order
+after a persistent cursor, wrapping to lower IDs only within the remaining budget.
+This cyclic cursor eventually revisits changed older beliefs; a monotonically
+increasing exclusion watermark would miss them. Canonical fingerprints make
+revisits idempotent. No correctness state depends on RAM. The normal B4 identity
+space is currently 20; valid multi-pass tests lower the budget, while a synthetic
+105-row malformed overflow fixture verifies the hard 100 limit and continued work.
+
+A started audit is committed first. One IMMEDIATE transaction then includes all
+current/history changes, progress, semantic events and completed run counters.
+A serious failure rolls this transaction back; a separate failed audit records
+zero committed successes where storage permits, then the error propagates.
+Malformed-item failures can coexist with successful changes in completed_with_errors.
+A failed source can also cause a source_unavailable revision, so failed_count and
+revised_count are not disjoint totals. weakened_count counts transitions into
+weakened status; subsequent changed weakened statistics count as revisions.
+
+Repeated unchanged runs add only run/event audit records and cursor/checkpoint
+metadata: creates, revisions and weakened counts stay zero, and semantic rows,
+history and timestamps remain unchanged. No automatic startup, wake, shutdown,
+curiosity or periodic consolidation is added. An interrupted run may retain a
+running audit; a later explicit run re-examines durable source/progress state,
+without automatically replaying the interrupted invocation.
+
+### Triggers, resources and inspection
+
+Policy-selected consolidate receives the existing fresh pre-action state explicitly.
+Owner consolidate uses the latest persisted state and provenance owner_requested;
+it creates no learner transition, curiosity assessment or Q update.
+Both retain last_consolidation metadata with original at/episodes/concepts fields
+plus run_id and status. The existing checkpoint telemetry remains.
+
+Known load_ratio > .8, battery_pct < 20 with charging exactly False, or
+disk_free_pct < 10 suppresses the run with high_load, low_battery or low_disk.
+A suppressed run has zero work counts and is not a failure. Missing or invalid
+resource values are unknown, not assumed unsafe; owner state may be stale.
+No guard performs perception. Selected action, legacy reward/Q and returned
+20-second consolidate delay remain unchanged.
+
+CONSOLIDATION and SEMANTIC_MEMORY events record started/completed/suppressed/failed
+runs, creations and revisions with status/provenance. Event payloads are bounded.
+Run audit results contain at most 100 examined IDs and bounded item failure reasons.
+
+Read-only observer endpoints:
+- /api/semantic-memories: signal/scope/status filters, ascending ID keyset pages.
+- /api/semantic-memories/{id}: structured current record and source availability.
+- /api/semantic-memories/{id}/history: prior revisions, newest first.
+- /api/consolidation-runs: newest run audits first.
+
+Pages default to 50, maximum 100, with one lookahead row; detail is one ID.
+History and run cursors are inclusive descending cursors. Legacy reads return
+unavailable empty lists or 404 detail without migration. Direct and HTTP argument
+bounds are validated, and operator mode requires all v5 tables. No frontend redesign.
+
+### B6 deterministic evidence and compatibility
+
+The standalone fixture is **.venv/bin/python -m tests.semantic_scenario**.
+The saved **docs/baselines/seed-0.2-b6-comparison.json** anchors verified B5 and its
+artifact hash, records all outputs, and includes unchanged upstream source hashes.
+
+A real B4 battery evidence sequence consolidates global and observe scope:
+8 consistent observations create two active revision-1 records (confidence .4).
+An unchanged run leaves both rows identical. Eighteen valid opposing observations
+produce n=26, contradictions=18, confidence .2923076923076923; both rows weaken
+at revision 2. One consistent observation restores confidence .3166666666666667
+at n=27; both reactivate at revision 3. Four complete prior revisions remain.
+All 27 episodes, 27 transitions, 27 processed markers and two world beliefs survive.
+
+All nine B5 curiosity cases match exactly, including score/components, suppression,
+reflection claims/completion/provenance, predictions, evaluation, Q and delays.
+B4 world statistics match the saved fixture exactly apart from current schema.
+B3 scores and every non-schema case field match; all eight-cycle control metrics
+match apart from the expected additive database footprint. Two perceptions per
+autonomous cycle remain, with zero additional sockets, DNS or reachability probes.
+The existing two probes per autonomous cycle are unchanged.
+
+Predictor, evaluator, learner, body, world model, curiosity, curiosity attention,
+configuration, commands, runtime, transition helpers and telemetry are byte-identical
+to verified B5. All six B0–B5 baseline artifacts remain byte-identical.
+Checkpointed control storage is **311,296 bytes**, 76×4,096-byte pages, versus
+B5's 282,624 bytes/69 pages; both have zero WAL/SHM after close. These are fixture
+measurements, not portable storage thresholds or intelligence scores.
+
+### B6 tests and files
+
+71 new tests cover migration/backup/rollback/preservation (7), engine thresholds,
+payloads, revisions, real contradiction/recovery, idempotency, bounds/restart,
+guards and atomic failure (38), command/cycle/isolation behavior (8), bounded
+read-only inspection, legacy/security bounds and source damage (16), and full
+deterministic revision/compatibility artifacts (2).
+
+Existing tests retain their behavioral checks. Current schema assertions move to
+5, three action spies forward the explicit existing state argument, and the B5
+scenario reports the current schema rather than hardcoding 4. No tests are removed
+or skipped. RED runs preceded migrations, engine, integration, reads and fixture;
+an equivalent-number idempotency regression was reproduced and corrected.
+Fixture-only corrections used the repository's actual entry-point layout and
+existing artifact keys.
+
+Files: new seed/semantic_memory.py and dashboard/services/semantic_memory.py;
+additive migrations.py, organism.py, observer routes, SeedService delegations and
+operator schema guard; new semantic migration/engine/cycle/dashboard/scenario tests
+and fixture; schema/spies in prior regression tests; B6 plan, artifact, this tracker
+and brief README/architecture pointers above the preserved B3 reference snapshot.
+
+Full **.venv/bin/python -m pytest -q: 497 passed, 0 skipped/excluded**.
+Two existing upstream deprecation warnings remain. Compilation and tracked diff
+whitespace checks pass. Independent review found no Critical or Important issues
+and one Minor issue: transaction acquisition occurred outside failure auditing.
+An injected acquisition failure reproduced a misleading running audit. Moving
+BEGIN IMMEDIATE inside the existing try handler fixes it; the new regression
+verifies failed status, completion time, zero committed successes and safe retry.
+The reviewer independently ran the original 70 B6 tests; the parent ran the new
+regression RED→GREEN and the complete 497-test suite after the fix. No deferred
+review findings remain. The standalone artifact matches a fresh CLI run exactly;
+all 28 changed/new files pass whitespace checks.
+
+### B6 limitations and B7 prerequisites
+
+semantic_v1 only consolidates B4 descriptive world beliefs. It supplies no causal
+knowledge, cross-signal concepts, multi-step temporal patterns, forgetting, or
+decision influence. Promotion thresholds are engineering defaults. Revisions are
+observed only when consolidation is explicitly invoked; full audit/history storage
+grows, although per-run processing and inspection are bounded.
+
+Inherited limitations remain: immediate prediction/rest horizon, charging-parser
+defect, incomplete whole-cycle atomicity, two existing reachability probes per
+autonomous cycle, processed-marker growth, descriptive non-causal world statistics,
+and heuristic default-off curiosity attention. B6 does not repair or broaden these.
+
+B7 requires explicit authorization and a scoped design for evidence-grounded
+self-model records, their source windows, provenance, uncertainty, revisions,
+resource bounds and tests. Semantic confidence must not become an unsupported
+capability or psychological claim. Policy/decision integration remains B8.
+
+**B6 status: VERIFIED. Ready for B7: YES**, with no remaining B6 blocker.
+B7–B10 remain NOT STARTED; await separate explicit authorization.
+
+## Documentation refresh — 2026-09-23
+
+Owner requested a README and documentation update after verified B6 commit
+**dc225af**. README.md and docs/architecture.md now describe B0–B6 and schema v5
+throughout, replacing the former B3 reference snapshots and temporary update
+banners. docs/implementation-log.md now indexes all seven batch artifacts and the
+B4–B6 execution records. Historical batch entries and baseline artifacts are retained.
+
+The refresh documents the current cycle ordering, distinct memory layers,
+world-model evidence/contradiction rules, default-off optional curiosity reflection,
+semantic eligibility/revisions/history, resource and processing bounds, inspection
+APIs, migration/atomicity boundaries, reproducible development commands and known
+limitations. Policy/reward/Q isolation and the separate installed-app deployment
+boundary remain explicit. B7–B10 stay NOT STARTED.
+
+Validation: relative documentation links and heading anchors, local command paths,
+model constants/defaults and API names checked against the repository; Markdown
+fences and whitespace checked. This is a documentation-only change. Runtime code,
+tests and baseline artifacts are unchanged; the recorded B6 result remains
+497 passed with zero skips and two existing dependency warnings. No live process,
+installed memory or migration was accessed for this refresh.

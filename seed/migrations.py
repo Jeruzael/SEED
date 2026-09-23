@@ -1,7 +1,7 @@
 """Additive migrations: original episode, concept, policy and identity rows stay intact."""
 import sqlite3
 
-VERSION = 4
+VERSION = 5
 STATEMENTS = [
     'CREATE TABLE seed_schema(version INTEGER NOT NULL)',
     '''CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL,
@@ -86,13 +86,44 @@ V4_STATEMENTS = [
         last_reflection_at REAL NOT NULL)''',
 ]
 
+V5_STATEMENTS = [
+    '''CREATE TABLE semantic_memories(
+        id INTEGER PRIMARY KEY, semantic_key TEXT NOT NULL UNIQUE,
+        signal TEXT NOT NULL, scope TEXT NOT NULL, scope_value TEXT NOT NULL,
+        semantic_type TEXT NOT NULL, payload_json TEXT NOT NULL,
+        confidence REAL NOT NULL, evidence_count INTEGER NOT NULL, contradiction_count INTEGER NOT NULL,
+        source_belief_id INTEGER NOT NULL REFERENCES world_beliefs(id),
+        source_belief_model_version INTEGER NOT NULL, source_belief_updated_at REAL NOT NULL,
+        source_first_transition_id INTEGER NOT NULL, source_last_transition_id INTEGER NOT NULL,
+        source_fingerprint TEXT NOT NULL,
+        revision INTEGER NOT NULL CHECK(revision>=1),
+        status TEXT NOT NULL CHECK(status IN ('active','weakened','source_unavailable')),
+        created_at REAL NOT NULL, updated_at REAL NOT NULL,
+        model TEXT NOT NULL, model_version INTEGER NOT NULL)''',
+    'CREATE INDEX semantic_source ON semantic_memories(source_belief_id)',
+    '''CREATE TABLE semantic_memory_history(
+        semantic_memory_id INTEGER NOT NULL REFERENCES semantic_memories(id),
+        revision INTEGER NOT NULL, recorded_at REAL NOT NULL, record_json TEXT NOT NULL,
+        PRIMARY KEY(semantic_memory_id,revision))''',
+    '''CREATE TABLE consolidation_runs(
+        id INTEGER PRIMARY KEY, started_at REAL NOT NULL, completed_at REAL,
+        model TEXT NOT NULL, model_version INTEGER NOT NULL, provenance TEXT NOT NULL,
+        source_beliefs_examined INTEGER NOT NULL DEFAULT 0, eligible_beliefs INTEGER NOT NULL DEFAULT 0,
+        created_count INTEGER NOT NULL DEFAULT 0, revised_count INTEGER NOT NULL DEFAULT 0,
+        weakened_count INTEGER NOT NULL DEFAULT 0, unchanged_count INTEGER NOT NULL DEFAULT 0,
+        failed_count INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL, result_json TEXT NOT NULL)''',
+    '''CREATE TABLE consolidation_state(
+        singleton INTEGER PRIMARY KEY CHECK(singleton=1), last_belief_id INTEGER NOT NULL)''',
+]
+
 
 def schema_version(db: sqlite3.Connection) -> int:
     """Return 0 for unversioned storage; refuse ambiguous/unsupported versions."""
     if not db.execute("SELECT 1 FROM sqlite_master WHERE name='seed_schema'").fetchone():
         return 0
     rows = db.execute('SELECT version FROM seed_schema').fetchall()
-    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, 2, 3, VERSION):
+    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, 2, 3, 4, VERSION):
         raise ValueError('Unsupported SEED schema version')
     return rows[0][0]
 
@@ -118,6 +149,11 @@ def migrate(db: sqlite3.Connection) -> None:
             version = 3
         if version == 3:
             for statement in V4_STATEMENTS:
+                db.execute(statement)
+            db.execute('UPDATE seed_schema SET version=4')
+            version = 4
+        if version == 4:
+            for statement in V5_STATEMENTS:
                 db.execute(statement)
             db.execute('UPDATE seed_schema SET version=?', (VERSION,))
         db.commit()

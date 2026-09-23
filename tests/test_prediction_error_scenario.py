@@ -26,7 +26,7 @@ def test_historical_prediction_to_scoring_snapshot(tmp_path):
     for case in result['cases'].values():
         assert case['delay']==8 and case['q_value']==pytest.approx(.655) and case['q_visits']==5
         assert case['perceptions']==2 and case['prediction_calls']==1
-        assert case['schema_version']==4 and case['historical_errors_unchanged'] is True
+        assert case['schema_version']==5 and case['historical_errors_unchanged'] is True
     metrics=result['metrics']
     assert metrics['mean_coverage']==pytest.approx(5/12)
     assert metrics['scored_transitions']==2 and metrics['transitions']==3
