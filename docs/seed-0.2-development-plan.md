@@ -1678,3 +1678,25 @@ capability or psychological claim. Policy/decision integration remains B8.
 
 **B6 status: VERIFIED. Ready for B7: YES**, with no remaining B6 blocker.
 B7–B10 remain NOT STARTED; await separate explicit authorization.
+
+## Documentation refresh — 2026-09-23
+
+Owner requested a README and documentation update after verified B6 commit
+**dc225af**. README.md and docs/architecture.md now describe B0–B6 and schema v5
+throughout, replacing the former B3 reference snapshots and temporary update
+banners. docs/implementation-log.md now indexes all seven batch artifacts and the
+B4–B6 execution records. Historical batch entries and baseline artifacts are retained.
+
+The refresh documents the current cycle ordering, distinct memory layers,
+world-model evidence/contradiction rules, default-off optional curiosity reflection,
+semantic eligibility/revisions/history, resource and processing bounds, inspection
+APIs, migration/atomicity boundaries, reproducible development commands and known
+limitations. Policy/reward/Q isolation and the separate installed-app deployment
+boundary remain explicit. B7–B10 stay NOT STARTED.
+
+Validation: relative documentation links and heading anchors, local command paths,
+model constants/defaults and API names checked against the repository; Markdown
+fences and whitespace checked. This is a documentation-only change. Runtime code,
+tests and baseline artifacts are unchanged; the recorded B6 result remains
+497 passed with zero skips and two existing dependency warnings. No live process,
+installed memory or migration was accessed for this refresh.

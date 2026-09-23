@@ -1,1135 +1,253 @@
 # SEED Current Architecture
 
-> **B6 update (2026-09-23):** Semantic memory consolidation and schema v5 are verified. Existing consolidate commands now run bounded, revisable consolidation from B4 beliefs while preserving original memories. See [the B6 execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23) for behavior, tests and limits. The detailed text below is the preserved B3 reference snapshot; its status and not-yet-implemented statements describe that earlier state.
+**SEED 0.2 — verified through B6, schema v5.** This guide describes the source implemented in B6 commit **dc225af**. Verification recorded **497 passing tests**, zero skips, and two existing dependency warnings. The [development tracker](seed-0.2-development-plan.md) is the canonical acceptance ledger; [historical artifacts](baselines/) preserve results from each batch. The installed organism is a separate deployment and may be older.
 
-**Current verified development state: SEED 0.2 B3**
+SEED studies learning from observed transitions while preserving provenance, bounded processing, and owner control. B7 self-modeling and later batches remain unstarted.
 
-This document describes the active SEED source architecture after completion of developmental batches B0 through B3.
+## Runtime composition
 
-Historical batch requirements, implementation decisions, verification results, limitations, and acceptance records are maintained in:
+| Component | Source | Responsibility |
+| --- | --- | --- |
+| Organism | `seed/organism.py` | Sequence autonomous cycles, lifecycle, settings and owner commands |
+| Body | `seed/body.py` | Existing host observations and fixed reachability probe |
+| Memory | `seed/memory.py`, `seed/migrations.py` | SQLite connection, schema upgrade and linked experience persistence |
+| Learner | `seed/learner.py` | Existing contextual bandit and legacy reward/Q update |
+| Predictor | `seed/predictor.py` | Prospective immediate-outcome prediction from bounded transition history |
+| Evaluator | `seed/prediction_error.py` | Pure comparison of the original prediction with its matching observation |
+| World model | `seed/world_model.py` | Persistent descriptive statistics from explicitly queued transitions |
+| Curiosity | `seed/curiosity.py`, `seed/curiosity_attention.py` | Pure assessment and durable budget for optional existing reflection |
+| Consolidator | `seed/semantic_memory.py` | Bounded promotion and revision of supported world beliefs |
+| Infrastructure | `seed/telemetry.py`, `seed/commands.py`, `seed/runtime.py` | Events, owner-command queue and instance lock |
+| Dashboard | `dashboard/` | Separate local observer and explicit operator controls |
 
-```text
-docs/seed-0.2-development-plan.md
-```
-
-Reproducible baseline and evaluation artifacts are stored under:
-
-```text
-docs/baselines/
-```
-
-Batch-specific execution plans are stored under:
-
-```text
-docs/superpowers/plans/
-```
-
-This document describes the **current architecture**, not the historical starting state.
-
----
-
-## Architectural objective
-
-SEED means:
-
-**Situated Experiential Emergent Development**
-
-The current developmental architecture is intended to move incrementally from simple contextual behavior toward systems capable of learning from observed transitions and prediction error while preserving:
-
-* inspectability;
-* reproducibility;
-* bounded resource usage;
-* historical provenance;
-* owner authority;
-* explicit capability boundaries.
-
-The MacBook is treated as both SEED's body and its first environment.
-
----
-
-## Current runtime composition
-
-The main organism is `SeedOrganism`.
-
-Conceptually:
-
-```text
-SeedOrganism
-├── Body
-├── Memory
-├── Learner
-├── Predictor
-├── Prediction Error Evaluator
-├── Telemetry
-├── Command Queue
-└── Instance Lock
-```
-
-### Body
-
-`seed/body.py`
-
-The body exposes bounded observations of the host environment.
-
-Current observations include:
-
-* battery percentage;
-* charging state;
-* normalized system load;
-* free disk percentage;
-* local hour;
-* wall-clock time;
-* load-average information;
-* network reachability;
-* hostname;
-* machine architecture;
-* macOS/platform identity.
-
-Network reachability uses the existing fixed TCP probe to:
-
-```text
-1.1.1.1:443
-```
-
-The predictor and prediction-error evaluator do not add additional probes.
-
----
-
-## Memory
-
-`seed/memory.py`
-
-Memory owns the core SQLite connection and persistent organism state.
-
-It provides:
-
-* autobiographical episodes;
-* contextual action values;
-* concepts;
-* transition persistence;
-* metadata;
-* schema initialization;
-* migration coordination;
-* transaction boundaries for linked experience storage.
-
-The current schema version is:
-
-```text
-2
-```
-
-Write-capable construction checks existing schema state before migration.
-
-Supported older memory is backed up before a required schema upgrade through the normal `Memory` path.
-
-The migration design is additive.
-
-Historical records are preserved rather than rewritten to imitate newer developmental stages.
-
----
-
-## Learner
-
-`seed/learner.py`
-
-The learner remains the original bounded contextual-bandit system.
-
-Current autonomous actions are:
-
-```text
-observe
-reflect
-consolidate
-rest
-```
-
-The learner uses an epsilon-greedy policy.
-
-The legacy Q update remains conceptually:
-
-```text
-Q_new = Q_old + alpha × (reward - Q_old)
-```
-
-The B1–B3 architecture deliberately preserves this learning mechanism so prediction and prediction-error behavior can be evaluated without simultaneously changing the decision policy.
-
-At B3:
-
-* predictions do not affect action choice;
-* prediction errors do not affect reward;
-* prediction errors do not affect Q values;
-* prediction errors do not affect epsilon;
-* prediction errors do not affect alpha;
-* prediction errors do not affect delays.
-
----
-
-## Predictor
-
-`seed/predictor.py`
-
-B2 introduced a deterministic prospective predictor.
-
-Model:
-
-```text
-transition_delta_v1
-```
-
-Model version:
-
-```text
-1
-```
-
-Prediction horizon:
-
-```text
-next_post_action_observation
-```
-
-History window:
-
-```text
-latest 200 completed transitions
-```
-
-Minimum historical evidence for a historical prediction method:
-
-```text
-2 usable samples
-```
-
-The predictor contains no persistent learned mutable model separate from transition history.
-
-Inference is derived from completed historical transitions at prediction time.
-
----
-
-## Prediction targets
-
-The predictor currently produces expectations for:
-
-```text
-battery_pct
-load_ratio
-disk_free_pct
-network_reachable
-```
-
-The network prediction target maps to the existing observation field:
-
-```text
-network_reachable ← state["network"]
-```
-
-No additional sensor field is introduced merely to satisfy predictor naming.
-
----
-
-## Numeric prediction
-
-For a usable numeric target, historical evidence is derived from:
-
-```text
-delta = state_after - state_before
-```
-
-Evidence selection follows:
-
-```text
-action-specific evidence
-        ↓
-global evidence
-        ↓
-persistence
-```
-
-### Action-specific prediction
-
-If at least two valid historical transitions exist for the selected action and target:
-
-```text
-predicted =
-current + mean(action-specific historical delta)
-```
-
-### Global fallback
-
-If action-specific evidence is insufficient but at least two valid historical samples exist globally:
-
-```text
-predicted =
-current + mean(global historical delta)
-```
-
-### Persistence fallback
-
-If insufficient historical evidence exists:
-
-```text
-predicted = current
-```
-
-Persistence carries:
-
-```text
-evidence_count = 0
-confidence = 0
-```
-
-and does not pretend historical evidence exists.
-
----
-
-## Numeric validation and bounds
-
-Numeric observations must be:
-
-* actual integers or floats;
-* not booleans;
-* finite;
-* within the supported physical domain.
-
-Battery and free disk require:
-
-```text
-0 <= value <= 100
-```
-
-Load ratio requires:
-
-```text
-value >= 0
-```
-
-Predicted battery and disk values are clamped to:
-
-```text
-0..100
-```
-
-Predicted load is constrained to finite non-negative representable values.
-
-The predictor records whether clamping changed the raw result.
-
-Historical malformed values are skipped per signal.
-
-Invalid recent rows still consume the fixed 200-row history window, preventing malformed data from triggering an unbounded search through lifetime history.
-
----
-
-## Network prediction
-
-Historical network evidence uses actual Boolean post-transition observations.
-
-Evidence selection uses the same structure:
-
-```text
-action-specific Boolean frequency
-        ↓
-global Boolean frequency
-        ↓
-persistence
-```
-
-With sufficient historical evidence:
-
-```text
-probability_true =
-true_samples / evidence_count
-```
-
-Classification is deterministic:
-
-```text
-True  when probability_true >= 0.5
-False otherwise
-```
-
-A 50/50 tie therefore resolves to `True`.
-
-If historical evidence is insufficient, the current Boolean network state is persisted as the predicted value.
-
----
-
-## Predictor confidence semantics
-
-Every signal uses:
-
-```text
-confidence_kind = evidence_support
-```
-
-The current support formula is:
-
-```text
-confidence =
-min(0.95, evidence_count / 20)
-```
-
-This is not a calibrated probability.
-
-For example:
-
-```text
-confidence = 0.95
-```
-
-means the predictor has reached the configured historical evidence-support ceiling.
-
-It does not mean:
-
-```text
-95% probability of correctness
-```
-
-Actual prediction quality is evaluated independently by B3.
-
----
-
-## Prediction-error evaluator
-
-`seed/prediction_error.py`
-
-B3 introduced a pure deterministic evaluator.
-
-Evaluator:
-
-```text
-prediction_error_v1
-```
-
-Evaluator version:
-
-```text
-1
-```
-
-Supported prediction contract:
-
-```text
-model = transition_delta_v1
-model_version = 1
-horizon = next_post_action_observation
-```
-
-Unknown or malformed prediction contracts are not silently reinterpreted.
-
-Their targets are marked not evaluated.
-
-The evaluator performs no:
-
-* history lookup;
-* database access;
-* sensing;
-* network operation;
-* DNS;
-* subprocess execution;
-* randomness;
-* mutation of its inputs.
-
-It scores exactly the four supported targets.
-
----
-
-## Numeric prediction error
-
-For valid numeric prediction/actual pairs:
-
-```text
-signed_error = actual - predicted
-```
-
-Positive signed error means the actual observation was higher than predicted.
-
-Negative signed error means it was lower.
-
-Absolute error is:
-
-```text
-absolute_error =
-abs(signed_error)
-```
-
-### Battery and disk normalization
-
-Battery and disk values occupy the known percentage domain:
-
-```text
-0..100
-```
-
-Their normalized error is:
-
-```text
-normalized_error =
-absolute_error / 100
-```
-
-### Load normalization
-
-Load ratio does not have a fixed 0..100 domain.
-
-Its normalized error is:
-
-```text
-normalized_error =
-absolute_error /
-max(1, abs(predicted), abs(actual))
-```
-
-Normalized errors are bounded to:
-
-```text
-0..1
-```
-
-Non-finite intermediate calculations are not converted into artificial scores.
-
-They become not-evaluated results instead.
-
----
-
-## Network prediction error
-
-For `network_reachable`, both predicted and actual values must be exact booleans.
-
-Basic classification records:
-
-```text
-correct
-classification_error
-```
-
-where classification error is:
-
-```text
-0 when classification matches
-1 when classification differs
-```
-
-If the original prediction contains a valid:
-
-```text
-probability_true
-```
-
-in the range:
-
-```text
-0..1
-```
-
-the evaluator calculates Brier error:
-
-```text
-brier_error =
-(probability_true - int(actual))²
-```
-
-That Brier value becomes the network signal's normalized error.
-
-If no valid probability was present in the original prospective prediction, classification mismatch is used instead.
-
-The evaluator never invents a probability after observing the outcome.
-
----
-
-## Evaluation availability
-
-Every supported target appears in the evaluation payload.
-
-Signals can be:
-
-```text
-evaluated
-```
-
-or:
-
-```text
-not_evaluated
-```
-
-Not-evaluated reasons include:
-
-```text
-prediction_unavailable
-invalid_prediction
-actual_unavailable
-nonfinite_calculation
-```
-
-Missing information is not replaced with a zero-error value.
-
-That prevents absent evidence from being counted as predictive success.
-
----
-
-## Aggregate prediction error
-
-Only evaluated targets participate in aggregate error.
-
-For one transition:
-
-```text
-mean_normalized_error =
-mean(normalized errors for evaluated targets)
-```
-
-The engineering score is:
-
-```text
-accuracy_score =
-1 - mean_normalized_error
-```
-
-Evaluation coverage is calculated independently:
-
-```text
-coverage =
-evaluated_signals / 4
-```
-
-The aggregate payload records:
-
-```text
-status
-evaluated_signals
-target_signals
-coverage
-mean_normalized_error
-accuracy_score
-```
-
-If no signals can be evaluated:
-
-```text
-status = unavailable
-evaluated_signals = 0
-coverage = 0
-mean_normalized_error = null
-accuracy_score = null
-```
-
-Missing signals therefore reduce coverage rather than artificially improving or worsening accuracy.
-
----
-
-## Score semantics
-
-`accuracy_score` is an engineering summary over heterogeneous normalized signal errors.
-
-It is **not**:
-
-* calibrated probability;
-* confidence;
-* certainty;
-* causal evidence;
-* reward;
-* utility;
-* policy value.
-
-A transition can legitimately have:
-
-```text
-accuracy_score = 1
-coverage = 0.25
-```
-
-when its one available target was predicted exactly.
-
-Consumers must therefore interpret accuracy and coverage together.
-
-B2 predictor confidence remains a separate concept representing historical evidence support.
-
----
-
-## Autonomous B3 cycle
-
-The current autonomous cycle is:
-
-```text
-apply settings
-→ infer wake if necessary
-→ perceive state_before
-→ record pre-action PERCEPTION telemetry
-→ choose internal action
-→ record DECISION telemetry
-→ generate prospective prediction
-→ record PREDICTION telemetry
-→ record action start
-→ perform selected action
-→ record action completion
-→ perceive state_after
-→ record post-action PERCEPTION telemetry
-→ derive observed transition outcome
-→ evaluate original prediction against state_after
-→ record PREDICTION_ERROR telemetry
-→ calculate unchanged legacy reward from state_before
-→ update contextual Q value
-→ atomically persist linked experience data
-→ record LEARNING telemetry
-→ record MEMORY telemetry
-→ update latest-state metadata
-→ return the selected action delay
-```
-
-The important temporal property is:
-
-```text
-prediction
-    occurs before
-action
-    occurs before
-state_after
-    occurs before
-prediction evaluation
-```
-
-The predictor is called once for the completed autonomous cycle.
-
-The prediction is not regenerated for evaluation.
-
----
-
-## Learning isolation
-
-Prediction and evaluation are intentionally isolated from the current learner.
-
-At B3, neither prediction values nor prediction errors alter:
-
-* action choice;
-* candidate ranking;
-* contextual state key;
-* epsilon;
-* alpha;
-* legacy reward;
-* Q-value update;
-* action delay;
-* reflection behavior;
-* consolidation behavior;
-* annotations;
-* importance;
-* owner-command execution.
+`Body` observes battery/charging state, load, disk availability, local time, wall-clock time, network reachability and host identity. The existing network probe connects to `1.1.1.1:443`. There is no new sensing or network activity in B2–B6 model processing.
 
-Controlled tests verify that runs with zero and nonzero prediction errors retain the same action, legacy reward, Q update, and delay.
+## Autonomous cycle and ordering
 
-This gives B3 a clean measurement boundary.
-
-Later developmental batches may use prediction error in carefully specified ways, but B3 itself does not.
-
----
-
-## Transition memory
-
-B1 introduced explicit transition persistence.
-
-Conceptually:
-
-```text
-episodes
-   |
-   | one-to-one for autonomous transition experience
-   |
-transitions
-```
-
-The transition table contains:
-
-```text
-id
-episode_id
-started_at
-completed_at
-state_before_json
-action
-state_after_json
-outcome_json
-legacy_reward
-prediction_json
-prediction_error_json
-```
-
-`episode_id` is unique within the transition table.
-
-One completed autonomous transition therefore links to one experience episode.
-
----
-
-## Historical transition semantics
-
-SEED does not backfill information that did not historically exist.
-
-Valid historical states include:
-
-### Pre-B1
-
-```text
-episode exists
-transition does not
-```
-
-### B1
-
-```text
-transition exists
-prediction_json = NULL
-prediction_error_json = NULL
-```
-
-### B2
-
-```text
-transition exists
-prediction_json = populated
-prediction_error_json = NULL
-```
-
-### B3
-
-```text
-transition exists
-prediction_json = populated
-prediction_error_json = populated
-```
-
-These are valid historical eras rather than corruption states.
-
----
-
-## Experience persistence transaction
-
-For current B3 experience persistence, the following logical information is written together:
-
-```text
-experience episode
-+
-transition
-+
-prospective prediction
-+
-prediction evaluation
-```
-
-If the transition insert fails, the linked newly attempted experience episode is rolled back with it.
-
-Prediction and prediction-error payloads are serialized before the transaction and stored without recomputing inference or evaluation.
-
----
-
-## Whole-cycle atomicity boundary
-
-The entire physical organism cycle is not transactional.
-
-Before final experience persistence, earlier operations may already have effects.
-
-Examples include:
-
-* reflection updates;
-* consolidation metadata;
-* telemetry;
-* Q-value updates.
-
-Therefore, if final persistence fails after one of those effects has committed, SEED may retain those earlier effects without a completed transition row.
-
-This behavior is explicitly documented.
-
-The architecture does not claim whole-cycle rollback.
-
----
-
-## Outcome semantics
-
-`seed/transitions.py` describes observed differences between:
-
-```text
-state_before
-```
-
-and:
-
-```text
-state_after
-```
-
-Numeric values can record deltas.
-
-Other values record whether they changed.
-
-Presence flags distinguish:
-
-```text
-missing
-```
-
-from:
-
 ```text
-present with null/None
+apply settings; infer wake if necessary
+→ perceive and detach state_before
+→ choose predefined action using the contextual bandit
+→ generate and record one prospective prediction
+→ perform the action
+    reflect: existing legacy concept mechanism
+    consolidate: one guarded semantic run plus checkpoint
+    observe/rest: no additional action work
+→ perceive and detach state_after
+→ describe observed differences
+→ evaluate the original prediction
+→ assess curiosity from the pre-update published world-model snapshot
+→ calculate legacy reward using state_before; update Q
+→ atomically persist episode + transition + prediction + evaluation
+  + curiosity assessment + world-model queue entry
+→ recover at most 100 queued transitions into B4 statistics
+→ record learning/memory telemetry and latest-state metadata
+→ optionally claim and perform one guarded existing reflection
+→ return the selected delay for the subsequent wait
 ```
-
-Observed differences are correlations between two measurements.
 
-They are not automatically treated as causal effects of the selected action.
+Prediction precedes action; evaluation follows the matching `state_after`. Curiosity is assessed before B4 incorporates the current transition. Policy consolidation runs before that transition exists, consuming only previously published beliefs. Detached observation snapshots prevent sensor dictionary reuse from altering provenance.
 
----
+A normal cycle performs two perceptions. An inferred wake can separately perform the existing wake observation. Delays are 8 seconds for observe, 12 for reflect and 35 for rest by default (configurable), and 20 seconds for consolidate. Post-action observation precedes the wait, including for rest.
 
-## Observation snapshot integrity
+## Policy and isolation
 
-Observations are detached before transition processing.
+The learner uses epsilon-greedy choice among `observe`, `reflect`, `consolidate`, and `rest`, with random choice among tied candidates. Its state key describes energy, load, storage and time-of-day categories. Default epsilon is .15; default alpha is .18.
 
-This prevents mutable sensor dictionaries from rewriting historical provenance after reuse.
-
-Stored `state_before` therefore remains the actual pre-action snapshot even if the underlying sensor implementation later mutates or reuses its original Python object.
-
----
-
-## Schema and migration
-
-Current schema version:
-
-```text
-2
-```
-
-Schema evolution is additive.
-
-The current migration path supports:
-
 ```text
-unversioned legacy memory
-→ schema v1
-→ schema v2
+Q_new = Q_old + alpha × (legacy_reward - Q_old)
 ```
 
-Unsupported, ambiguous, duplicate, or future schema versions are refused instead of guessed.
+Legacy reward uses the pre-action observation and selected action. B2–B6 do not change this equation, reward inputs, action ranking, epsilon, alpha, state keys, or returned delays. In particular, suppressing a consolidation run does not alter its selected action or reward.
 
-Migration failures roll back.
+B5 can add one optional internal reflection after persistence. That limited attention mechanism does not create an extra policy choice, transition or Q update. World beliefs and semantic memories do not feed back into prediction or policy. Semantic memory also does not affect curiosity scoring, cooldown, reflection eligibility, or B4 evidence weight. B8 owns future decision integration.
 
-Existing memory rows are preserved.
+## Prediction and evaluation
 
-The supported write-capable `Memory` path performs backup before upgrading memory that requires migration.
+The model contract is `transition_delta_v1`, version 1, horizon `next_post_action_observation`. Targets are `battery_pct`, `load_ratio`, `disk_free_pct`, and `network_reachable`; the last maps to the existing observed field `network`.
 
-Direct low-level migration code does not substitute for that filesystem backup policy.
+One predictor query reads at most the newest **200 raw completed transitions**, limiting rows before filtering malformed evidence. For each target, two usable action-specific samples enable action-conditioned estimation; otherwise two global samples enable global estimation; otherwise the current value is persisted. A missing or invalid current target remains unavailable.
 
----
+Numeric predictions add the mean historical `after - before` delta to the current value. Battery/disk predictions are clamped to 0–100; load is finite and nonnegative. Boolean history uses the frequency of true post-action observations; `probability_true >= .5` predicts true. Persistence does not invent a historical probability. Numeric validation excludes booleans, nonfinite numbers and invalid domains; Boolean targets require exact booleans.
 
-## Dashboard boundary
+Predictor confidence is `min(.95, evidence_count / 20)`, labeled `evidence_support`. Persistence and unavailable results have zero historical support. It is not calibrated accuracy.
 
-The dashboard remains architecturally separate from the autonomous organism.
+The pure `prediction_error_v1` evaluator (version 1) accepts the supported prospective contract and compares it with the matching actual observation. It performs no history lookup, database access, sensing, subprocess, network, randomness or input mutation.
 
-Observer access uses a narrow storage/service layer and read-only database connections where appropriate.
+| Measure | Definition |
+| --- | --- |
+| Signed numeric error | `actual - predicted` |
+| Absolute numeric error | `abs(actual - predicted)` |
+| Battery/disk normalized error | `absolute_error / 100` |
+| Load normalized error | `absolute_error / max(1, abs(predicted), abs(actual))` |
+| Boolean classification error | 0 for a match, 1 for a mismatch |
+| Boolean Brier error | `(original_probability_true - int(actual))²` when that probability is valid |
+| Coverage | Number of evaluated targets divided by 4 |
+| Mean normalized error | Mean over evaluated targets only |
+| Accuracy score | `1 - mean_normalized_error` |
 
-The dashboard does not instantiate another autonomous `SeedOrganism`.
+Normalized errors are bounded to 0–1. Network uses Brier error when a valid original probability exists, otherwise classification error. Unknown contracts and invalid/missing inputs are not silently reinterpreted. Targets are `evaluated` or `not_evaluated`, with reasons such as prediction_unavailable, invalid_prediction, actual_unavailable or nonfinite_calculation.
 
-Operator mode requires the expected current schema.
+An unavailable aggregate has zero coverage and null error/accuracy. Missing observations never count as zero error. An accuracy score of 1 at coverage .25 means only one target was evaluable and exact. Score and support confidence are distinct engineering measures, neither a probability of truth nor policy reward.
 
-If required tables or the expected schema version are absent, operator mode refuses the storage rather than migrating it.
+## Persistent world model — B4
 
-Dashboard/operator protections include the existing bounded local-control mechanisms, including:
+`WorldModel` accumulates descriptive numeric deltas and Boolean post-action frequencies, model version 1. Each valid sample contributes once to its global scope and once to its action scope. Four signals and five scopes (global plus four actions) yield at most **20 normal belief identities**.
 
-* loopback-oriented access;
-* Host/Origin validation;
-* mutation Origin requirements;
-* CSRF protection;
-* bounded JSON request size;
-* strict request models;
-* fixed operator command allowlists.
+A one-sample statistic stays in `world_pending`. At two samples it becomes a published `world_beliefs` row. Numeric values retain mean delta, mean absolute delta and extrema; Boolean values retain true/false counts and probability_true. Every belief records evidence, contradictions, creation/update times and first/last transition provenance.
 
-The dashboard must not become a second organism or a migration engine.
+Contradictions are tested against the prior statistic only after four samples:
 
----
+- Numeric: the new delta opposes the prior mean's sign and both exceed the signal's epsilon in magnitude (.05 battery, .02 load, .01 disk).
+- Boolean: false contradicts a prior probability >= .75; true contradicts a prior probability <= .25.
 
-## Owner-command boundary
-
-Owner commands remain distinct from autonomous transitions.
-
-Owner-requested:
-
 ```text
-observe
-reflect
-consolidate
+confidence = min(.95, n / 20) × (1 - contradiction_count / n)
+confidence_kind = evidence_consistency
 ```
-
-retain their existing provenance.
 
-They do not automatically:
+The result is bounded to 0–.95. Confidence and contradiction counts describe accumulated support and consistency, not causal evidence or a calibrated truth probability.
 
-* create autonomous policy transitions;
-* update contextual Q values;
-* invoke the autonomous predictor as a policy step;
-* generate prediction-error learning.
+New autonomous transitions atomically enter `world_model_queue` with their experience. Recovery processes at most **100 queued IDs in ascending order** at construction and after cycle persistence. Each transition's world updates, processed marker and queue removal share an IMMEDIATE transaction. A failed update leaves the experience and queue entry intact for retry. Duplicate processing is prevented by durable markers, not an in-memory set. Older history is not automatically enqueued or backfilled.
 
-This keeps operator intervention distinguishable from autonomous experience.
+Curiosity reads at most eight keyed published rows (global/action candidates for four signals), preferring action scope and falling back to global. B2 continues to use its independent transition-history predictor.
 
----
+## Computational curiosity — B5
 
-## Lifecycle
+`curiosity_v1`, version 1, assesses the original B3 error against a detached snapshot of prior B4 beliefs. It stores one assessment per new autonomous transition regardless of the owner attention setting.
 
-The organism starts through the normal user-level process/LaunchAgent path.
-
-On process start, SEED records wake state.
-
-Actual macOS sleep suspends the process.
-
-Wake is currently inferred when the elapsed wall-clock gap between cycle starts exceeds the configured threshold.
-
-This remains an approximation rather than an authoritative macOS sleep event.
-
-Shutdown records a final lifecycle/sleep state when normal termination completes.
-
-The process does not use privileged persistence and does not resist deliberate shutdown.
-
----
-
-## Current action timing
-
-Current action delays remain approximately:
-
 ```text
-observe       configurable, baseline 8 s
-reflect       configurable, baseline 12 s
-consolidate   20 s
-rest          configurable, baseline 35 s
+prediction_surprise = mean_normalized_error × coverage
+score = clamp(prediction_surprise
+              × (.5 + .5 × uncertainty)
+              × (.5 + .5 × novelty), 0, 1)
 ```
 
-The post-action observation occurs before the later waiting interval.
+Per valid B4 signal sample, uncertainty is `1 - prior confidence`, or 1 when no published belief exists. Novelty is 1 without a prior belief, .5 with fewer than four prior samples, and otherwise 1 for contradiction or 0 for consistency. Uncertainty and novelty are averaged over usable samples. These components retain their pre-update source snapshots. Unavailable evaluations/samples remain unavailable rather than becoming invented zero-error evidence.
 
-That matters particularly for `rest`.
+| Score | Level |
+| --- | --- |
+| < .20 | LOW |
+| .20 to < .50 | NOTABLE |
+| .50 to < .75 | HIGH |
+| >= .75 | VERY_HIGH |
+| Unavailable | UNAVAILABLE |
 
----
+The owner setting `prediction_error_curiosity` defaults to **false**. When enabled, HIGH/VERY_HIGH assessments can invoke the existing reflection only if coverage >= .5, the selected action was not reflect, resource guards pass, and no owner stop is pending. Both **10 subsequent actual autonomous transitions** and **300 seconds** must separate reflection claims.
 
-## Prediction horizon limitation
+The claim and cooldown state commit before the callback. Work is at most once: restart cannot replay it, and a crash may lose claimed work. Reflection failures do not release the consumed budget. Reflection uses up to 80 recent episodes and updates only the legacy concept mechanism; it introduces no perception, network access, transition or Q update. Provenance distinguishes policy_selected, owner_requested and curiosity_triggered reflection. Curiosity cannot force consolidation or increase evidence weight.
 
-Current predictor and evaluator horizon:
+## Semantic memory — B6
 
-```text
-next_post_action_observation
-```
+`semantic_v1`, model version 1, consumes **published B4 world beliefs only**. It does not rescan lifetime episodes or independently rediscover statistical patterns. Eligibility requires **evidence_count >= 8 AND confidence >= .30**. These fixed engineering defaults keep semantic promotion distinct from B4's two-sample publication threshold.
 
-For all actions, evaluation compares the prediction against the immediate second perception.
+| Semantic type | Canonical payload |
+| --- | --- |
+| `numeric_delta_summary` | mean_delta, mean_absolute_delta, min_delta, max_delta; interpretation `observed_transition_delta` |
+| `boolean_frequency_summary` | true_count, false_count, probability_true; interpretation `observed_boolean_frequency` |
 
-For `rest`, this happens before the longer scheduled rest delay.
+Identity combines semantic type, signal, scope, scope value and model version. Source belief ID, source model version, source update time, evidence, contradictions and first/last transition provenance remain inspectable. No LLM-generated prose, causal assertion, new signal or richer scope is introduced.
 
-Therefore current rest prediction does **not** model:
-
-```text
-state after the full rest period
-```
+An eligible new identity creates one active record at revision 1. Canonical source fingerprints detect material changes to evidence, contradictions, confidence, source values or provenance even when timestamps are equal or reversed. Formatting changes, equivalent numbers such as 1 and 1.0, and timestamp-only changes cause no revision. Source update time therefore reflects the last materially consolidated source state.
 
-It models:
+Before mutation, the complete prior row is saved in `semantic_memory_history`. Loss of eligibility changes status to `weakened`; restored support returns it to `active`, each with a new revision. Creation time remains fixed. A malformed source is counted as an item failure and can mark existing knowledge `source_unavailable` while preserving its last valid statistics. Other valid items continue. The read layer also reports missing/corrupt sources without rewriting history or sweeping for orphans.
 
-```text
-state at the immediate post-action observation
-```
+### Invocation and bounded progress
 
-Future multi-horizon prediction would require an explicit new contract.
+Existing policy-selected and owner-requested `consolidate` each invoke the same engine. Policy uses its already-observed pre-action state; owner requests use the latest persisted state. Both retain checkpoint metadata (`at`, episode/concept counts, run_id and status). Owner requests do not create learner transitions or Q updates.
 
----
+Resource suppression uses no new perception. A known load > .8, battery < 20 with charging exactly false, or disk < 10 produces a suppressed audit with high_load, low_battery or low_disk and zero work counts. Unknown/invalid values are not assumed to violate a guard; owner state may be stale.
 
-## Resource bounds
+Each run reads **at most 100 world beliefs** after a persistent ID cursor in ascending order, wrapping within the remaining budget. This cyclic cursor revisits older changed IDs and survives restart. Fingerprints make unchanged revisits idempotent. Migration/startup/wake/shutdown and curiosity add no consolidation invocation. An explicit later run may promote already-published eligible beliefs.
 
-The predictor performs one bounded history query per autonomous cycle.
+### Transaction and audit
 
-Maximum raw history rows:
+A started run audit commits first. One IMMEDIATE transaction includes semantic changes, prior revisions, cursor, per-item events and final counters. Acquisition or processing failure rolls back work and records a failed audit with zero committed successes where storage permits, then propagates the error. A crash can leave a running audit; later explicit work uses durable progress without automatically replaying the invocation.
 
-```text
-200
-```
+Runs expose examined, eligible, created, revised, weakened, unchanged and failed counts. Malformed items allow completed_with_errors; a failed source can also cause a source_unavailable revision, so failed/revised counts can overlap. weakened_count measures entry into weakened status; further changes to an already-weakened record count as revisions.
 
-Targets evaluated:
+Repeated unchanged runs can add run/events and update cursor/checkpoint metadata, but leave semantic rows, timestamps and history untouched. No original memory is deleted, pruned or expired. Run audits and revision history grow over time.
 
-```text
-4
-```
+## Storage layers and schema
 
-The evaluator performs no database query.
+| Layer | Tables | Role |
+| --- | --- | --- |
+| Experience | `episodes`, `transitions` | Original observations, action, differences, reward, prediction and evaluation |
+| Legacy reflection | `concepts`, `concept_evidence` | Existing recent-observation summaries, separate from semantic knowledge |
+| World model | `world_pending`, `world_beliefs`, `world_model_queue`, `world_model_processed` | Prospective statistical accumulation, publication, retry and provenance |
+| Curiosity | `curiosity_assessments`, `curiosity_runtime` | Assessments, attention outcomes and durable cooldown |
+| Semantic knowledge | `semantic_memories`, `semantic_memory_history` | Current consolidated records and complete prior revisions |
+| Consolidation | `consolidation_runs`, `consolidation_state` | Run audit and persistent cyclic cursor |
+| Supporting state | `meta`, `q_values`, telemetry/operator tables | Identity, learned policy, settings, lifecycle and local controls |
 
-A normal autonomous cycle still performs two environmental perceptions:
+Supported migration path:
 
 ```text
-state_before
-state_after
+unversioned → v1 instrumentation → v2 transitions
+→ v3 world model → v4 curiosity → v5 semantic memory
 ```
 
-Each perception retains the existing body sensor behavior, including the fixed reachability probe.
+The write-capable `Memory` constructor checks existing schema and backs up supported older memory before upgrading. The migration ladder is transactional and additive. Unknown, future, ambiguous or duplicate schema versions are refused. Direct low-level migration does not substitute for the constructor's filesystem backup policy. V5 migration creates empty semantic/history/run/progress tables, with no automatic backfill.
 
-B2 and B3 add no new network destinations.
+Historical records remain valid across eras: episodes may lack transitions, transitions may lack predictions, predictions may lack evaluations, and older experiences may lack world-model eligibility or curiosity. These absences are not corruption and are not filled with invented observations.
 
----
+### Atomicity boundaries
 
-## Current known limitations
+One current experience transaction stores the linked episode/transition (including prediction and evaluation), its B4 queue entry, and curiosity assessment. World-model processing and semantic consolidation use their own transactions. Curiosity claims and reflection effects also commit separately.
 
-Known current limitations include:
+The entire physical cycle is **not transactional**. Reflection, consolidation, telemetry and Q updates can survive a later experience-storage failure. No whole-cycle rollback is claimed. Observed before/after differences remain descriptive association; presence flags distinguish missing fields from present null values.
 
-1. Charging-state parsing can misclassify the string `discharging`.
+## Dashboard and inspection
 
-2. Wake detection is inferred from wall-clock gaps rather than native macOS sleep/wake notifications.
+The dashboard never constructs a second organism. Observer services use read-only SQLite connections; operator mode requires schema v5 and its required tables rather than migrating storage. The CLI binds to `127.0.0.1`, with no arbitrary host option. Existing Host/Origin checks, required mutation Origin, CSRF, bounded request bodies, strict models and fixed command allowlists remain in place.
 
-3. Wall-clock timestamps can be affected by clock adjustment and must not automatically be treated as monotonic elapsed-duration measurements.
+B4–B6 inspection routes are bounded:
 
-4. Prediction horizon is immediate post-action observation only.
+| Route | Result and filters |
+| --- | --- |
+| `/api/world-beliefs` | Ascending ID pages; signal, scope, scope_value, after, limit |
+| `/api/world-beliefs/{id}` | One published belief and provenance |
+| `/api/curiosity` | Newest assessments first; inclusive before transition ID, limit |
+| `/api/curiosity/summary` | Summary over at most 100 recent assessments |
+| `/api/curiosity/{transition_id}` | One assessment and attention outcome |
+| `/api/semantic-memories` | Ascending ID pages; signal, scope, persisted status, after, limit |
+| `/api/semantic-memories/{id}` | One current record and source_status |
+| `/api/semantic-memories/{id}/history` | Prior revisions newest first; inclusive before revision, limit |
+| `/api/consolidation-runs` | Newest audits first; inclusive before run ID, limit |
 
-5. Rest evaluation does not cover the later rest interval.
+List pages default to 50 and allow 1–100 items, with one lookahead row for next_cursor. Use the returned cursor with the appropriate after/before parameter. Semantic source_status reports current source availability separately from the persisted semantic status; the status filter selects the latter. A history record is the saved prior state, not a fresh source interpretation.
 
-6. Global predictor fallback may combine unlike environmental contexts.
+Legacy storage without the corresponding feature tables returns unavailable empty lists or 404 details, without migration. These are inspection APIs; B9's broader development UI is still unimplemented.
 
-7. Action-conditioned historical association does not establish causation.
+## Owner commands and lifecycle
 
-8. Predictor confidence represents evidence support rather than calibrated predictive accuracy.
+Owner observe, reflect and consolidate remain distinct from autonomous policy experience. Owner observation stores an episode; reflection uses owner_requested provenance; consolidation runs the same bounded B6 engine with owner_requested provenance. None automatically performs autonomous prediction/evaluation or learner Q updates.
 
-9. B3 aggregate `accuracy_score` is an engineering convention rather than calibrated probability.
+The per-user LaunchAgent has no KeepAlive. The core uses an instance lock, honors termination signals and does not resist shutdown. Actual system sleep suspends the process; wake is inferred from a large wall-clock gap rather than native macOS notifications. Normal shutdown records last-known lifecycle state without fresh sensing or a semantic consolidation pass.
 
-10. Whole-cycle atomic persistence is intentionally incomplete.
+## Bounds and known limitations
 
-11. Predictor/evaluator validation does not redesign all legacy learner assumptions about malformed live state.
+| Operation | Bound |
+| --- | --- |
+| Predictor history | Latest 200 raw transitions; four targets |
+| Evaluator | Four targets; no database query |
+| World-model recovery | 100 queued transitions per pass |
+| Curiosity prior-belief snapshot | At most eight keyed published rows |
+| Optional reflection | At most once per eligible claimed transition; 10-transition and 300-second cooldowns |
+| Legacy reflection window | 80 recent episodes |
+| Semantic run | 100 published beliefs, with durable cyclic progress |
+| Feature inspection page | 100 returned items plus one lookahead |
 
-12. Normal autonomous cycles still perform the existing fixed reachability probe twice because they contain two perceptions.
+Bounds limit model work, not total database growth. Existing checkpoint counts, retained episodes, B4 processed markers, assessments, audits and semantic history remain subject to growing storage.
 
----
+Inherited limitations include charging parsing of `discharging`, inferred wake, wall-clock adjustments, immediate prediction/rest horizon, mixed contexts in global fallback, legacy learner assumptions about malformed live state, and incomplete whole-cycle atomicity. Normal autonomous cycles still have two existing reachability probes.
 
-## Not implemented at B3
+World beliefs and action associations are descriptive rather than causal. Predictor support, B3 accuracy, B4 consistency, B5 curiosity and B6 promotion thresholds are separate engineering measures, not calibrated certainty. Curiosity is coarse and optional work can be lost after a claim. Semantic knowledge only summarizes B4's existing signals/scopes and changes when consolidation is invoked; it has no cross-signal concepts or multi-step temporal patterns.
 
-The following are explicitly outside the verified B3 architecture:
-
-* persistent world-model beliefs;
-* belief contradiction handling;
-* causal reasoning;
-* curiosity driven by prediction error;
-* novelty-driven action selection;
-* prediction-error reward shaping;
-* prediction-driven candidate action planning;
-* semantic memory consolidation;
-* episode deletion based on learned importance;
-* self-modeling;
-* autonomous planning;
-* arbitrary external tool use;
-* autonomous tool acquisition;
-* arbitrary network actions;
-* generated shell execution;
-* autonomous source-code modification;
-* automatic capability expansion;
-* language-model-based cognition.
-
-Later batches require separate design, acceptance criteria, tests, and explicit authorization.
-
----
-
-## Current developmental boundary
-
-The B3 system can now answer three distinct questions:
-
-```text
-What did I observe?
-What did I predict?
-How wrong was I?
-```
+Self-modeling, semantic-driven policy, prediction-error reward shaping, candidate-action planning, forgetting, arbitrary external tools, generated shell/code execution, autonomous source modification and LLM cognition are not implemented. B7 and later work require explicit authorization and their own acceptance evidence.
 
-It does **not yet** use the answer to the third question to construct a persistent world model or alter behavior.
+## Verification
 
-That boundary separates B3 from later developmental work.
+The [B6 execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23) records the 497-test suite, 71 new B6 tests, independent review and corrected transaction-acquisition audit regression. Coverage includes migration/backup/rollback, material revision and idempotency, actual contradictory evidence followed by reactivation, bounded/restarted work, failure isolation, resource suppression, read-only APIs and upstream compatibility.
 
-The next planned architectural stage is B4 world modeling, but B4 is not implemented and requires its own explicit design and authorization.
+The [B6 comparison artifact](baselines/seed-0.2-b6-comparison.json) reproduces the semantic lifecycle and checks B5 curiosity, B4 statistics, B3 evaluation and baseline policy outputs. Earlier batch artifacts remain immutable. Reproduction commands are in the [README](../README.md#development-verification); they use synthetic observations and temporary homes rather than installed memory or live sensors.

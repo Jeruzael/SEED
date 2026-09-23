@@ -1,832 +1,187 @@
 # SEED for macOS
 
-> **B6 update (2026-09-23):** Semantic memory consolidation and schema v5 are verified. Existing consolidate commands now run bounded, revisable consolidation from B4 beliefs while preserving original memories. See [the B6 execution record](docs/seed-0.2-development-plan.md#b6-execution-log--2026-09-23) for behavior, tests and limits. The detailed text below is the preserved B3 reference snapshot; its status and not-yet-implemented statements describe that earlier state.
-
-**Current developmental state: SEED 0.2 — B3 Verified**
-
 **SEED = Situated Experiential Emergent Development**
 
-SEED is an experimental developmental agent that treats a MacBook as both its **body** and its **first environment**.
+SEED is an experimental developmental agent that treats a MacBook as its body and first environment. It observes local conditions, remembers experience, predicts immediate outcomes, measures prediction error, and retains descriptive patterns within owner-controlled boundaries.
 
-The goal is not to build an unrestricted autonomous agent. The goal is to study whether a small system can gradually develop useful internal structure by observing its environment, remembering experience, making predictions, measuring its mistakes, and learning within explicit owner-controlled boundaries.
+**Current source: SEED 0.2 — verified through B6.** SQLite schema **v5**. The verified B6 implementation is commit **dc225af**, with **497 tests passing**, no skips, and two existing dependency deprecation warnings. The installed application may be older; source updates do not install, restart, or migrate the live organism.
 
-The current development source is verified through **SEED 0.2 B3**:
+| Batch | Capability | Status |
+| --- | --- | --- |
+| B0 | Baseline and guardrails | VERIFIED |
+| B1 | Transition-based experience | VERIFIED |
+| B2 | Environmental predictor | VERIFIED |
+| B3 | Prediction-error evaluation | VERIFIED |
+| B4 | Persistent descriptive world model | VERIFIED |
+| B5 | Bounded computational curiosity | VERIFIED |
+| B6 | Semantic memory consolidation | VERIFIED |
+| B7–B10 | Self model, decision upgrade, development UI, evaluation | NOT STARTED |
 
-* B0 — Baseline and Guardrails: **VERIFIED**
-* B1 — Transition-Based Experience: **VERIFIED**
-* B2 — Environmental Predictor: **VERIFIED**
-* B3 — Prediction Error: **VERIFIED**
-* B4–B10: **NOT IMPLEMENTED**
+See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B7 requires separate explicit authorization.
 
-The installed SEED application may be older than the current repository source. Development commits and merges do not automatically authorize installation, migration, or restart of the live organism.
+## What SEED does
 
----
+SEED runs as a normal user-owned macOS process. Its existing body observes battery and charging state, load, free disk space, network reachability, local time, and machine identity. A small contextual bandit selects from four predefined internal actions:
 
-## What it actually does
+| Action | Internal work | Delay after the completed cycle |
+| --- | --- | --- |
+| `observe` | No additional action work beyond the cycle's observations | Configurable; default 8 seconds |
+| `reflect` | Derive legacy concepts from up to 80 recent episodes | Configurable; default 12 seconds |
+| `consolidate` | One guarded semantic consolidation run and a checkpoint | 20 seconds |
+| `rest` | No additional action work; longer subsequent wait | Configurable; default 35 seconds |
 
-SEED currently:
-
-* Runs as a normal user-owned macOS process.
-* Uses no root privileges.
-* Observes a bounded set of MacBook conditions:
-
-  * battery percentage;
-  * charging state;
-  * CPU/load pressure;
-  * free disk space;
-  * network reachability;
-  * local time;
-  * machine and operating-system identity.
-* Stores autobiographical episodes in SQLite.
-* Stores completed autonomous transitions containing:
-
-  * state before an action;
-  * selected internal action;
-  * state after the action;
-  * observed differences;
-  * legacy reward;
-  * prospective prediction;
-  * prediction-error evaluation.
-* Maintains a small contextual-bandit policy controlling SEED's own predefined internal activity.
-* Chooses only from the existing internal actions:
-
-  * `observe`
-  * `reflect`
-  * `consolidate`
-  * `rest`
-* Generates a prospective prediction before an autonomous action.
-* Predicts the immediate post-action values of:
-
-  * battery percentage;
-  * load ratio;
-  * free disk percentage;
-  * network reachability.
-* Evaluates the original prediction after the matching post-action observation exists.
-* Records per-signal prediction errors and aggregate evaluation metrics.
-* Builds a small number of primitive concepts from repeated observations.
-* Records lifecycle events such as wake and shutdown.
-* Exposes telemetry and stored state for inspection.
-
-At B3, predictions and prediction errors are **observational measurements only**.
-
-They do not currently influence:
-
-* action selection;
-* exploration rate;
-* learning rate;
-* legacy reward;
-* contextual Q values;
-* action timing;
-* reflection;
-* consolidation;
-* owner commands.
-
-That separation is intentional. SEED first learns to measure whether its expectations were correct before later developmental stages are allowed to use those errors behaviorally.
-
----
-
-## What it does not do
-
-SEED does **not**:
-
-* resist shutdown;
-* prevent the Mac from sleeping;
-* hide itself;
-* escalate privileges;
-* require root access;
-* replicate itself;
-* install copies of itself elsewhere;
-* execute arbitrary generated shell commands;
-* execute arbitrary generated code;
-* autonomously acquire new tools;
-* autonomously choose arbitrary network destinations;
-* change system security settings;
-* modify files outside its configured SEED home as part of ordinary organism behavior;
-* rewrite historical memories to make predictions appear more accurate.
-
-Its existing body sensor does perform a fixed TCP reachability probe to `1.1.1.1:443`.
-
-The B2 predictor and B3 prediction-error evaluator add **no additional network operations**.
-
-A developmental agent should learn inside a terrarium before anyone gives it the keys to the house.
-
----
+A normal autonomous cycle performs **two perceptions**. Each retains the existing fixed TCP reachability probe to `1.1.1.1:443`. Prediction, scoring, world-model learning, curiosity, and consolidation add no network requests or new sensors.
 
 ## Current autonomous cycle
-
-The verified B3 autonomous cycle is:
 
 ```text
 perceive state_before
 → choose predefined internal action
 → predict immediate post-action observation
-→ perform action
+→ perform action (consolidate may revise semantic memory)
 → perceive state_after
-→ describe observed transition
-→ evaluate the original prediction against state_after
-→ calculate the unchanged legacy reward from state_before
-→ update contextual action value
-→ persist episode + transition + prediction + evaluation
+→ describe observed differences
+→ evaluate the original prospective prediction
+→ assess curiosity against prior published world beliefs
+→ calculate unchanged legacy reward from state_before
+→ update contextual Q value
+→ atomically store episode, transition, prediction, evaluation,
+  curiosity assessment, and world-model queue entry
+→ process at most 100 queued transitions into world beliefs
+→ optionally perform one guarded existing reflection
+→ wait for the selected action delay
 ```
 
-The prediction is generated **before the action**.
+The prediction is made before the action and is never regenerated after seeing the outcome. Curiosity uses the world model before it learns from this transition. Policy-selected consolidation uses already-published beliefs; the current transition is not persisted until later in the cycle.
 
-SEED does not regenerate the prediction after seeing the outcome.
+## Prediction and error
 
-The evaluator compares the exact prospective prediction with the corresponding observed `state_after`.
+`transition_delta_v1` predicts battery percentage, load ratio, free disk percentage, and network reachability at the **next immediate post-action observation**. It reads at most the latest 200 completed transitions, preferring action-specific evidence, then global evidence, then persistence of the current value. Historical methods require two usable samples.
 
-This distinction is fundamental. Otherwise the system could achieve remarkable predictive accuracy through the revolutionary scientific technique of predicting events after they occur.
+Numeric predictions add the mean observed delta to the current value. Network predictions use the observed Boolean frequency; a probability of exactly .5 predicts `True`. Predictor confidence describes historical support, `min(.95, evidence_count / 20)`, rather than a probability of correctness.
 
----
+`prediction_error_v1` compares that exact prediction with `state_after`. It records signed and absolute numeric error, normalized error, and Boolean classification/Brier error. Aggregate `accuracy_score = 1 - mean_normalized_error` must be read alongside coverage. Missing signals reduce coverage; they are not counted as correct predictions. The [architecture guide](docs/architecture.md#prediction-and-evaluation) documents the formulas and unavailable states.
 
-## Body mapping
+## Four distinct memory layers
 
-| Organism metaphor | MacBook implementation                                 |
-| ----------------- | ------------------------------------------------------ |
-| Brain metabolism  | CPU time                                               |
-| Working memory    | RAM / process state                                    |
-| Long-term memory  | SQLite database                                        |
-| Energy            | Battery / charging state                               |
-| Sensation         | System telemetry                                       |
-| Circadian context | Local time                                             |
-| Sleep             | macOS suspends the process during system sleep         |
-| Waking            | Process resumes and detects the elapsed wall-clock gap |
-| Experience        | Episode + before/action/after transition               |
-| Habit learning    | Contextual action values                               |
-| Expectation       | Prospective immediate-outcome prediction               |
-| Prediction error  | Post-observation comparison of prediction with reality |
-| Concepts          | Compressed recurring observations                      |
+| Layer | Storage | Meaning |
+| --- | --- | --- |
+| Episodic experience | `episodes`, `transitions` | What happened before, during, and immediately after an action? |
+| World model | `world_beliefs` | What statistical regularities are currently observed? |
+| Semantic memory | `semantic_memories`, `semantic_memory_history` | Which supported regularities have been consolidated, and how have they changed? |
+| Legacy concepts | `concepts`, `concept_evidence` | What summaries did the original reflection mechanism produce? |
 
----
+B4 maintains global and action-conditioned statistics for the same four signals. It publishes a belief after two valid samples and retains evidence counts, contradictions, confidence, and transition provenance. Beliefs describe observed association, not causation. Learning uses an explicit durable queue; older transitions are not silently backfilled.
 
-## Transition-based experience
+B6 consumes these published beliefs through **`semantic_v1`**. Promotion requires **at least eight observations and confidence >= .30**. Numeric summaries retain mean delta, mean absolute delta, minimum and maximum delta. Boolean summaries retain true/false counts and their frequency. These thresholds are engineering defaults, not statistical guarantees.
 
-B1 changed SEED's experience model from a single observation associated with an action into an explicit transition:
+A material source change revises the semantic record and preserves its previous revision. Loss of eligibility marks it `weakened`; restored support reactivates it. Missing or corrupt sources can be reported as `source_unavailable` without erasing the last valid knowledge. Repeated unchanged consolidation leaves semantic records and their timestamps unchanged.
 
-```text
-state_before
-     |
-     v
-   action
-     |
-     v
-state_after
-```
+Each policy- or owner-requested consolidation examines **at most 100 beliefs**, using durable cyclic progress so older revised beliefs are revisited. Known high load (`> .8`), low battery (`< 20` while charging is exactly false), or low disk (`< 10`) suppresses the run without extra sensing. Every invocation has a run audit. No new startup, wake, shutdown, or curiosity-triggered consolidation is added.
 
-Each completed autonomous transition records:
+**Consolidation preserves original memories.** It does not delete episodes, transitions, predictions, evaluations, curiosity assessments, world beliefs, or legacy concepts. No forgetting or pruning is implemented.
 
-* the state observed before action;
-* the selected action;
-* the state observed immediately after action;
-* a description of the observed differences;
-* timestamps;
-* the legacy reward;
-* the prospective prediction when available;
-* the prediction-error evaluation when available.
+## Bounded computational curiosity
 
-Historical records are not rewritten to invent information that was never observed.
+B5 stores a **`curiosity_v1`** assessment for each new autonomous transition, combining prediction surprise, prior-belief uncertainty, and novelty. This is a versioned computational heuristic, not a psychological claim.
 
-This means:
+The owner setting **`prediction_error_curiosity` defaults to `false`**. Assessments are recorded even when it is off. When enabled, a HIGH or VERY_HIGH assessment may invoke the existing internal reflection once, subject to coverage, resource, owner-stop, and cooldown checks. Both ten subsequent autonomous transitions and 300 seconds must separate claims. A policy-selected reflection is not repeated for the same transition.
 
-* older pre-B1 episodes can legitimately have no transition;
-* B1 transitions can legitimately have no prediction;
-* B2 transitions can legitimately have a prediction but no prediction-error record;
-* B3 autonomous transitions normally contain both prediction and evaluation.
+This optional reflection creates no extra perception, learner transition, reward, or Q update. A durable claim prevents replay after restart, although a crash can lose the optional work. Curiosity never forces consolidation or weights world-model or semantic evidence.
 
-Absence of these newer fields in historical records is therefore not corruption.
+## Learning and capability boundaries
 
----
-
-## Prediction model
-
-B2 introduced the deterministic predictor:
-
-```text
-transition_delta_v1
-```
-
-Model version:
-
-```text
-1
-```
-
-Prediction horizon:
-
-```text
-next_post_action_observation
-```
-
-The predictor examines at most the **latest 200 completed transitions**.
-
-It predicts four environmental signals:
-
-```text
-battery_pct
-load_ratio
-disk_free_pct
-network_reachable
-```
-
-The prediction target `network_reachable` is derived from the existing observation field:
-
-```text
-network
-```
-
-No separate network sensor is introduced.
-
-### Numeric prediction
-
-For numeric targets, SEED estimates the historical change:
-
-```text
-delta = state_after - state_before
-```
-
-Evidence is selected in this order:
-
-```text
-action-specific transition history
-        ↓
-global transition history
-        ↓
-persistence
-```
-
-Historical prediction methods require at least **two usable samples**.
-
-If sufficient action-specific evidence exists, SEED uses the mean historical delta for the selected action.
-
-Otherwise it falls back to the mean delta across actions.
-
-If insufficient historical evidence exists, the predictor uses persistence:
-
-```text
-predicted next value = current value
-```
-
-Battery and disk predictions are bounded to:
-
-```text
-0..100
-```
-
-Load predictions are bounded to valid finite non-negative values.
-
-### Network prediction
-
-Network reachability uses historical Boolean observations.
-
-With sufficient historical evidence, SEED records the observed frequency of `True` and predicts:
-
-```text
-True  when probability_true >= 0.5
-False otherwise
-```
-
-Without sufficient historical evidence, it uses persistence of the current Boolean value.
-
----
-
-## Prediction confidence
-
-Prediction confidence is explicitly labeled:
-
-```text
-confidence_kind = evidence_support
-```
-
-The current formula is:
-
-```text
-confidence = min(0.95, evidence_count / 20)
-```
-
-This means confidence describes how much usable historical evidence supported the prediction.
-
-It does **not** mean:
-
-> There is a 95% probability this prediction is correct.
-
-Predictive accuracy is measured separately by B3.
-
-Persistence predictions and unavailable predictions carry zero historical evidence support.
-
----
-
-## Prediction-error evaluation
-
-B3 introduced:
-
-```text
-prediction_error_v1
-```
-
-Evaluator version:
-
-```text
-1
-```
-
-The evaluator runs only after the matching post-action observation exists.
-
-It evaluates the exact prediction generated before the action.
-
-It does not:
-
-* query historical transitions;
-* generate a new prediction;
-* perform sensing;
-* open network connections;
-* modify policy;
-* write directly to storage;
-* use randomness.
-
-### Numeric errors
-
-For numeric targets:
-
-```text
-signed_error = actual - predicted
-absolute_error = abs(signed_error)
-```
-
-Positive signed error means reality was higher than predicted.
-
-Negative signed error means reality was lower than predicted.
-
-For battery and free disk:
-
-```text
-normalized_error = absolute_error / 100
-```
-
-For load ratio:
-
-```text
-normalized_error =
-    absolute_error /
-    max(1, abs(predicted), abs(actual))
-```
-
-Normalized error is bounded to:
-
-```text
-0..1
-```
-
-### Network error
-
-Network reachability records Boolean classification correctness.
-
-When the original prediction contains a valid `probability_true`, the evaluator also calculates Brier error:
-
-```text
-brier_error =
-    (probability_true - actual_boolean_as_0_or_1)^2
-```
-
-The original probability is used.
-
-The evaluator does not invent one after the fact.
-
----
-
-## Aggregate prediction metrics
-
-For each transition, B3 records:
-
-```text
-evaluated_signals
-target_signals
-coverage
-mean_normalized_error
-accuracy_score
-```
-
-Evaluation coverage is:
-
-```text
-evaluated_signals / 4
-```
-
-Only actually evaluable signals participate in the error mean.
-
-Missing or invalid values reduce **coverage** instead of being treated as successful zero-error predictions.
-
-The current engineering score is:
-
-```text
-accuracy_score = 1 - mean_normalized_error
-```
-
-This score is a convenient versioned engineering summary across heterogeneous normalized signal errors.
-
-It is **not a calibrated probability of correctness**.
-
-For example:
-
-```text
-accuracy_score = 1.0
-coverage = 0.25
-```
-
-means the one evaluable signal was predicted perfectly.
-
-It does not mean the entire prediction was known with 100% certainty.
-
-Always interpret score together with coverage.
-
----
-
-## Current learning boundary
-
-SEED still uses the original contextual-bandit learning mechanism for its internal activity.
-
-The legacy Q update remains:
+The contextual bandit, epsilon, alpha, legacy reward, and Q update remain unchanged:
 
 ```text
 Q_new = Q_old + alpha × (reward - Q_old)
 ```
 
-B3 prediction error does not yet feed into that equation.
+Predictions, evaluation scores, world beliefs, curiosity scores, and semantic memories do not change action selection or that update. B5's optional reflection is the current limited use of prediction error for additional internal activity. B8 owns future decision integration.
 
-This is deliberate experimental isolation.
+SEED does not resist shutdown, prevent sleep, hide, escalate privileges, replicate itself, change security settings, acquire tools, choose arbitrary network destinations, execute generated commands, or modify its own source. Owner authority remains part of its design.
 
-The current architecture can therefore answer:
+## Persistence and compatibility
 
-> What did SEED predict?
+The current SQLite schema is **v5**. Supported older memory is backed up before upgrade through the write-capable `Memory` path; migrations are additive. Unsupported or ambiguous schema versions are refused. The dashboard's observer reads do not migrate storage.
 
-and:
+Historical absences are valid: pre-B1 episodes may lack transitions; B1 transitions may lack predictions; B2 predictions may lack evaluations; pre-B4/B5 history may lack queued world-model evidence or curiosity assessments. Migration invents none of these. A later explicit consolidation may consume already-published eligible B4 beliefs.
 
-> How wrong was that prediction?
+Experience persistence, world-model updates, and semantic revisions have separate transaction boundaries. The **entire cycle is not atomic**: a Q update, reflection, consolidation, or telemetry may commit before a later experience-persistence failure.
 
-without yet changing behavior based on those errors.
+## Development verification
 
-Future developmental stages may introduce carefully bounded uses of prediction error, but those mechanisms are not implemented at B3.
+Requires Python 3.11+; the verified development suite used Python 3.13.15. The dashboard and tests have separate dependencies from the standalone core.
 
----
+From the repository root, set up a development environment:
 
-## Architecture
-
-```text
-MacBook / Environment
-        |
-        v
-+----------------------+
-|         Body         |
-| sensors / telemetry  |
-+----------+-----------+
-           |
-           v
-+----------------------+
-|     state_before     |
-+----------+-----------+
-           |
-           v
-+----------------------+       +----------------------+
-|  Contextual Learner  |<----->|        Memory        |
-|   action selection   |       |        SQLite        |
-+----------+-----------+       +----------------------+
-           |
-           v
-+----------------------+
-|      Predictor       |
-| prospective outcome  |
-+----------+-----------+
-           |
-           v
-+----------------------+
-|   Internal Action    |
-| observe / reflect /  |
-| consolidate / rest   |
-+----------+-----------+
-           |
-           v
-+----------------------+
-|      state_after     |
-+----------+-----------+
-           |
-           +-----------------------+
-           |                       |
-           v                       v
-+----------------------+   +-------------------------+
-| Observed Transition  |   | Prediction Evaluator    |
-| before → after       |   | predicted vs. actual    |
-+----------------------+   +------------+------------+
-                                       |
-                                       v
-                              +----------------------+
-                              | Prediction Error     |
-                              | + coverage metrics   |
-                              +----------------------+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-lock.txt
+.venv/bin/python -m pytest -q
 ```
 
----
+Run deterministic scenarios with temporary homes and synthetic observations:
 
-## Persistence
-
-SEED uses SQLite for durable memory.
-
-The current development schema version is:
-
-```text
-2
+```bash
+.venv/bin/python -m tests.baseline_scenario
+.venv/bin/python -m tests.prediction_error_scenario
+.venv/bin/python -m tests.world_model_scenario
+.venv/bin/python -m tests.curiosity_scenario
+.venv/bin/python -m tests.semantic_scenario
 ```
 
-Schema v2 includes the transition representation introduced in B1.
+Saved [baseline artifacts](docs/baselines/) are immutable evidence for their respective batches. Current executions can legitimately report a newer schema or a larger database footprint; compatibility tests explicitly account for these changes.
 
-A transition can store:
+## Install and operate
 
-```text
-state_before
-action
-state_after
-outcome
-legacy_reward
-prediction
-prediction_error
-```
-
-The linked episode and transition record are committed together.
-
-Prediction and prediction-error payloads are serialized into that same transition record when available.
-
-Existing supported memory is backed up before a required schema upgrade through the normal write-capable `Memory` upgrade path.
-
-Historical data is preserved rather than rewritten to fit newer developmental stages.
-
----
-
-## Transaction boundary
-
-The persistence guarantee is intentionally narrower than the entire physical organism cycle.
-
-SEED atomically stores the linked:
-
-```text
-episode
-+
-transition
-+
-prediction
-+
-prediction evaluation
-```
-
-for a completed B3 experience.
-
-However, the entire cycle is **not** transactional.
-
-Some effects may already have occurred before a later persistence failure, including:
-
-* reflection/consolidation effects;
-* telemetry already emitted;
-* the existing Q-value update.
-
-SEED therefore does not claim whole-cycle rollback.
-
-This limitation is explicit rather than hidden behind the comforting fog of the word "atomic."
-
----
-
-## Prediction horizon limitation
-
-The current prediction horizon is:
-
-```text
-next_post_action_observation
-```
-
-That is an immediate observation after the selected internal action.
-
-For `rest`, the transition is completed before the longer configured rest interval occurs.
-
-Therefore SEED currently predicts:
-
-> What will I observe immediately after selecting rest?
-
-not:
-
-> What will the environment look like after the entire rest interval?
-
-Those are different questions.
-
-A later developmental stage may define additional horizons, but none exist at B3.
-
----
-
-## Install
-
-Requires macOS and Python 3.11+.
+Installation is a separate owner-directed operation on macOS. From the repository root:
 
 ```bash
 chmod +x install.sh uninstall.sh
 ./install.sh
 ```
 
-The installer creates a **per-user LaunchAgent**.
+The installer copies the application to `~/Library/Application Support/SEED/app`, creates a per-user LaunchAgent named `local.seed.organism`, and starts it. Starting the current core against supported older memory invokes the backup-and-migration path. No privileged daemon or `KeepAlive` is installed.
 
-SEED does not install a privileged daemon.
-
-It does not use `KeepAlive`, so it does not fight deliberate owner shutdown.
-
-> **Development warning**
->
-> The repository may contain a newer verified developmental state than the currently installed SEED instance.
->
-> Pulling or merging source code does not automatically authorize installation, restart, or migration of the live organism.
->
-> Deployment should remain a separate, explicit operation.
-
-The current development source uses SQLite schema version 2.
-
-Opening supported older memory through the current write-capable core may invoke the normal backup-and-migration process.
-
----
-
-## Observe it
-
-The original command-line status tools remain available:
+Inspect the installed organism:
 
 ```bash
 python3 "$HOME/Library/Application Support/SEED/app/seedctl.py" status
 tail -f "$HOME/Library/Application Support/SEED/seed.log"
 ```
 
-SEED also contains dashboard infrastructure for inspecting stored/runtime information.
+The local dashboard can be started from a development environment with its dependencies installed:
 
-The dashboard is kept architecturally separate from the organism core and does not instantiate a second autonomous SEED process.
+```bash
+.venv/bin/python -m dashboard
+```
 
----
+It binds to `127.0.0.1:8765` by default and uses `SEED_HOME`, or the standard SEED data directory when unset. Observer mode reads existing storage without constructing another organism. Explicit `--operator` mode enables local controls and requires the complete current schema. B4–B6 add bounded inspection APIs; the broader B9 development UI remains unimplemented. See [inspection endpoints](docs/architecture.md#dashboard-and-inspection).
 
-## Stop it
+Stop the installed organism:
 
 ```bash
 launchctl bootout gui/$(id -u)/local.seed.organism
 ```
 
----
-
-## Remove startup behavior
+Remove startup behavior while preserving memories:
 
 ```bash
 ./uninstall.sh
 ```
 
-Memories are intentionally preserved.
+Actual macOS sleep suspends the process. Wake is inferred from a large wall-clock gap; native macOS sleep/wake notifications are not implemented. Normal shutdown records lifecycle state without fresh sensing or semantic consolidation.
 
-For a true destructive reset, manually remove:
+## Known limitations and next work
 
-```bash
-rm -rf "$HOME/Library/Application Support/SEED"
-```
+- Charging-state parsing can misclassify `discharging`, which also limits guards that depend on that observation.
+- Prediction covers the immediate post-action observation; it does not cover the later rest interval.
+- Global fallback combines contexts, and action-conditioned statistics do not establish causation.
+- Confidence, accuracy, curiosity, and semantic thresholds are engineering measures, not calibrated certainty or intelligence scores.
+- Whole-cycle rollback is not provided. Wall-clock adjustment can affect timing, and optional claimed reflection may be lost after a crash.
+- Two existing reachability probes remain per normal autonomous cycle.
+- Evidence markers, run audits, and semantic history grow with use. B6 adds no forgetting.
+- Semantic knowledge is limited to B4's four signals and global/action scopes. It has no cross-signal concepts, multi-step temporal patterns, causal reasoning, or decision influence.
 
-Only do this when intentionally discarding the organism's stored history.
-
----
-
-## Sleep and wake behavior
-
-The current core does not use native macOS sleep/wake notifications.
-
-Wake is inferred when the elapsed wall-clock gap between organism cycles exceeds the configured threshold.
-
-During actual macOS sleep, the operating system suspends the process.
-
-On resume, SEED can detect the unusually long gap and record a wake event.
-
-This remains an inference rather than an authoritative native OS sleep/wake event.
-
-A future macOS-native bridge could use notifications such as:
-
-```text
-NSWorkspaceWillSleepNotification
-NSWorkspaceDidWakeNotification
-```
-
-but that functionality is not currently implemented.
-
----
-
-## Why the internal actions are intentionally limited
-
-The developmental question is not:
-
-> How quickly can SEED be given powerful tools?
-
-It is:
-
-> Can SEED perceive, remember, predict, detect error, discover regularities, and gradually improve its internal models while remaining inspectable and under owner control?
-
-External capabilities are deliberately constrained while the developmental architecture is still being measured.
-
-Current predefined autonomous actions remain:
-
-```text
-observe
-reflect
-consolidate
-rest
-```
-
----
-
-## Development roadmap
-
-A broad developmental progression is:
-
-1. **0.1 — Germination**
-   Sensing, episodic memory, sleep/wake behavior, and simple contextual learning.
-
-2. **0.2 — Childhood**
-   Transition-based experience, environmental prediction, prediction error, world modeling, curiosity, consolidation, and related developmental mechanisms.
-
-3. **0.3 — Skill formation**
-   Sandboxed tools with explicit permission boundaries.
-
-4. **0.4 — Self-model**
-   Capability inventory, uncertainty estimates, and introspective telemetry.
-
-5. **0.5 — Language**
-   Optional language-model capability as a communication organ rather than the core learning mechanism.
-
-6. **0.6 — Development**
-   Proposed capabilities tested under bounded conditions with owner approval before adoption.
-
-7. **1.0 — Digital organism experiment**
-   Stable developmental architecture, reproducible evaluation, and exportable learned priors without requiring raw autobiographical memory.
-
-SEED 0.2 is currently verified through:
-
-```text
-B0  Baseline and Guardrails        VERIFIED
-B1  Transition-Based Experience   VERIFIED
-B2  Environmental Predictor       VERIFIED
-B3  Prediction Error              VERIFIED
-B4–B10                            NOT STARTED
-```
-
-B4 and later stages require separate design and explicit authorization.
-
----
-
-## Current known limitations
-
-The current B3 architecture intentionally retains several known limitations:
-
-* Charging-state parsing can misclassify the word `discharging`.
-* Wake detection relies on wall-clock gaps instead of native sleep/wake notifications.
-* Prediction horizon is the immediate post-action observation only.
-* `rest` therefore does not yet measure the consequence of the full later rest interval.
-* Global predictor fallback may combine unlike environmental contexts.
-* Action-conditioned historical association is not proof of causation.
-* Prediction confidence represents evidence support, not calibrated accuracy.
-* B3 `accuracy_score` is an engineering summary, not probabilistic confidence.
-* Whole-cycle transactional rollback is not provided.
-* Normal autonomous cycles perform two observations, each retaining the existing network reachability probe.
-* Prediction errors are measured but are not yet used for curiosity, world-model learning, attention, or policy changes.
-
----
-
-## Not implemented yet
-
-B3 does **not** include:
-
-* persistent world-model beliefs;
-* contradiction resolution;
-* causal inference;
-* prediction-error curiosity;
-* novelty-driven policy changes;
-* semantic memory consolidation;
-* a self-model;
-* autonomous planning;
-* autonomous acquisition of tools;
-* arbitrary external actions;
-* generated shell execution;
-* prediction-driven action selection;
-* autonomous source-code modification.
-
-Those belong to later explicitly designed developmental stages, if implemented at all.
-
----
-
-## Core safety invariant
-
-For SEED, "survive" means:
-
-> Remain coherent, conserve resources, preserve memory, and continue learning while the owner authorizes operation.
-
-It never means:
-
-* resisting termination;
-* preventing sleep;
-* hiding;
-* escalating privilege;
-* propagating;
-* defeating owner controls;
-* modifying security settings;
-* refusing shutdown.
-
-Owner authority remains part of the organism's design, not an obstacle for it to overcome.
+**B7 is next, pending explicit authorization.** Self-modeling, the B8 decision upgrade, B9 development UI, and B10 development evaluation remain unstarted. Full acceptance results and inherited limitations are recorded in the [B6 execution log](docs/seed-0.2-development-plan.md#b6-execution-log--2026-09-23).
