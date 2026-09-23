@@ -6,6 +6,8 @@ SEED is an experimental developmental agent that treats a MacBook as its body an
 
 **Current source: SEED 0.2 — verified through B6.** SQLite schema **v5**. The verified B6 implementation is commit **dc225af**, with **497 tests passing**, no skips, and two existing dependency deprecation warnings. The installed application may be older; source updates do not install, restart, or migrate the live organism.
 
+Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. Fresh local macOS/Python 3.13 verification passes **539 tests**; hosted Linux/macOS CI remains **pending owner-authorized push/PR**. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
+
 | Batch | Capability | Status |
 | --- | --- | --- |
 | B0 | Baseline and guardrails | VERIFIED |
@@ -88,6 +90,22 @@ B5 stores a **`curiosity_v1`** assessment for each new autonomous transition, co
 The owner setting **`prediction_error_curiosity` defaults to `false`**. Assessments are recorded even when it is off. When enabled, a HIGH or VERY_HIGH assessment may invoke the existing internal reflection once, subject to coverage, resource, owner-stop, and cooldown checks. Both ten subsequent autonomous transitions and 300 seconds must separate claims. A policy-selected reflection is not repeated for the same transition.
 
 This optional reflection creates no extra perception, learner transition, reward, or Q update. A durable claim prevents replay after restart, although a crash can lose the optional work. Curiosity never forces consolidation or weights world-model or semantic evidence.
+
+## Battery and version reporting
+
+The battery parser reads complete status fields: `discharging` and `not charging` report false, including under an AC header. `charging` reports true when trustworthy; `charged` on AC retains the existing externally-powered compatibility meaning. Invalid percentages and ambiguous/unrecognized status remain unavailable independently. Corrected current observations can change learner context and resource guards; historical observations are not rewritten and reward formulas are unchanged.
+
+Version fields have separate meanings:
+
+| Field | Meaning |
+| --- | --- |
+| `/api/status` → `runtime.version` | Version last reported by the core that wrote the runtime record; use lifecycle/freshness to judge whether it is current |
+| `/api/bootstrap` → `core_source_version` | Core source accompanying the dashboard (0.2), not evidence of an installed upgrade |
+| `dashboard_version`, `dashboard_edition` | Dashboard component identity: 0.1, Observer Edition |
+| Bootstrap `version` | Preserved legacy label: 0.1 Observer Edition |
+| `supported_schema_version` | Schema supported by this source (5), not the inspected database's actual schema |
+
+Unavailable runtime stays unavailable, and older/stopped telemetry keeps its reported version. The overview labels this “Reported core version.” No build commit is inferred from the dashboard checkout.
 
 ## Learning and capability boundaries
 
@@ -175,7 +193,7 @@ Actual macOS sleep suspends the process. Wake is inferred from a large wall-cloc
 
 ## Known limitations and next work
 
-- Charging-state parsing can misclassify `discharging`, which also limits guards that depend on that observation.
+- Ambiguous battery output remains unknown. Unknown-state guard policy is unchanged, and historical charging observations may contain the pre-hardening parser defect.
 - Prediction covers the immediate post-action observation; it does not cover the later rest interval.
 - Global fallback combines contexts, and action-conditioned statistics do not establish causation.
 - Confidence, accuracy, curiosity, and semantic thresholds are engineering measures, not calibrated certainty or intelligence scores.
@@ -183,5 +201,7 @@ Actual macOS sleep suspends the process. Wake is inferred from a large wall-cloc
 - Two existing reachability probes remain per normal autonomous cycle.
 - Evidence markers, run audits, and semantic history grow with use. B6 adds no forgetting.
 - Semantic knowledge is limited to B4's four signals and global/action scopes. It has no cross-signal concepts, multi-step temporal patterns, causal reasoning, or decision influence.
+
+The [low-disk reward mismatch](docs/review-follow-ups.md) remains open: legacy reward can favor consolidation while low disk suppresses its semantic work. Consolidation is not disk cleanup; a decision change requires separate authorization.
 
 **B7 is next, pending explicit authorization.** Self-modeling, the B8 decision upgrade, B9 development UI, and B10 development evaluation remain unstarted. Full acceptance results and inherited limitations are recorded in the [B6 execution log](docs/seed-0.2-development-plan.md#b6-execution-log--2026-09-23).

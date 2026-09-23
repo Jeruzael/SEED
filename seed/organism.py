@@ -10,6 +10,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .body import Body
+from .version import CORE_VERSION
 from .learner import Learner
 from .predictor import Predictor
 from .prediction_error import evaluate_prediction
@@ -62,7 +63,7 @@ class SeedOrganism:
             self.apply_settings()
             self.telemetry.runtime(session_id=self.session_id, pid=os.getpid(), started_at=time.time(),
                                    heartbeat=time.time(), lifecycle='STARTING', activity='starting',
-                                   action_started_at=time.time(), last_error=None, version='0.1')
+                                   action_started_at=time.time(), last_error=None, version=CORE_VERSION)
         except BaseException:
             if hasattr(self, 'memory'):
                 self.memory.close()

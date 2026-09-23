@@ -6,11 +6,11 @@ from seed import body
 @pytest.mark.parametrize('output,expected',[
     ('',(None,None)),
     ("Now drawing from 'AC Power'\n-InternalBattery-0 80%; charging;",(80,True)),
-    ("Now drawing from 'Battery Power'\n-InternalBattery-0 70%; discharging;",(70,True)),
+    ("Now drawing from 'Battery Power'\n-InternalBattery-0 70%; discharging;",(70,False)),
 ])
-def test_current_battery_parser_including_known_discharge_false_positive(monkeypatch,output,expected):
-    # Current parser treats the substring 'charging' in 'discharging' as true.
-    # Documented B0 limitation, not a claim that the boolean is accurate.
+def test_battery_parser_after_post_b6_discharge_correction(monkeypatch,output,expected):
+    # B0 deliberately characterized the inherited discharge false positive.
+    # Post-B6 hardening corrects current observations; historical artifacts stay intact.
     monkeypatch.setattr(body,'_run',lambda *args:output)
     assert body.battery_state()==expected
 

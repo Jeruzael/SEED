@@ -13,6 +13,10 @@ from .command_broker.broker import CommandBroker
 from .services.settings import SettingsStore
 from .services.backups import BackupStore
 from seed.migrations import VERSION
+from seed.version import CORE_VERSION
+
+DASHBOARD_VERSION = '0.1'
+DASHBOARD_EDITION = 'Observer Edition'
 
 
 def create_app(home: Path, port: int = 8765, operator: bool = False) -> FastAPI:
@@ -46,7 +50,10 @@ def create_app(home: Path, port: int = 8765, operator: bool = False) -> FastAPI:
         return JSONResponse({'error':{'code':'invalid_request','message':'Invalid request fields or query values.'}},status_code=422)
     @app.get('/api/bootstrap')
     def bootstrap():
-        return {'token':token,'operator':operator,'version':'0.1 Observer Edition','refresh_seconds':5}
+        return {'token':token,'operator':operator,
+                'version':f'{DASHBOARD_VERSION} {DASHBOARD_EDITION}','refresh_seconds':5,
+                'core_source_version':CORE_VERSION,'dashboard_version':DASHBOARD_VERSION,
+                'dashboard_edition':DASHBOARD_EDITION,'supported_schema_version':VERSION}
     app.include_router(observer_router(service, StreamSlots()))
     @app.get('/api/settings')
     def settings(): return SettingsStore(service.home).get()

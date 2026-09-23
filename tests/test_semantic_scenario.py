@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 import pytest
 
@@ -38,4 +39,10 @@ def test_b5_compatibility_and_saved_b6_artifact(tmp_path):
         for key,value in case.items():
             if key!='schema_version':assert result['evaluation_snapshot']['cases'][name][key]==value
     saved=Path(__file__).parents[1]/'docs/baselines/seed-0.2-b6-comparison.json'
-    assert result==json.loads(saved.read_text())
+    expected=json.loads(saved.read_text())
+    # Post-B6 authorizes a body parser correction, not upstream model changes.
+    # Keep every behavioral field and the other eleven source hashes exact.
+    expected['source_sha256']=expected.pop('unchanged_b5_source_sha256')
+    expected['source_sha256']['body.py']=hashlib.sha256(
+        (Path(__file__).parents[1]/'seed/body.py').read_bytes()).hexdigest()
+    assert result==expected

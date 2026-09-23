@@ -186,3 +186,45 @@ def test_published_belief_contradiction_uses_prior_direction_and_exact_component
         assert belief(core.memory)['value']['mean_delta']==pytest.approx(-15.2)
         assert belief(core.memory)['evidence_count']==5 and belief(core.memory)['contradiction_count']==1
     finally:core.close()
+
+
+def test_raw_discharging_cycle_suppresses_attention_without_extra_observations(home, monkeypatch):
+    from types import SimpleNamespace
+    from seed import body
+    from tests.test_battery_regression import sensor_boundaries, output
+    deny_io(monkeypatch)
+    calls = sensor_boundaries(monkeypatch, output())
+    raw = iter([output('100','charging','AC Power'), output('15','discharging')])
+    disks, loads, reachable = iter([100,10]), iter([1e300,0]), iter([False,True])
+    def run(*args):
+        calls['battery'] += 1
+        return next(raw)
+    def network():
+        calls['network'] += 1
+        return next(reachable)
+    monkeypatch.setattr(body, '_run', run)
+    monkeypatch.setattr(body, 'network_reachable', network)
+    monkeypatch.setattr(body.shutil, 'disk_usage', lambda _: SimpleNamespace(total=100,free=next(disks)))
+    monkeypatch.setattr(body.os, 'getloadavg', lambda: (next(loads),0,0))
+    core = SeedOrganism(home)
+    try:
+        enable(core)
+        core.memory.set_q(state_key(BEFORE),'observe',.7,4)
+        assert core.cycle() == 8
+        transition = core.memory.db.execute('SELECT * FROM transitions').fetchone()
+        after = json.loads(transition['state_after_json'])
+        assert (after['battery_pct'],after['charging']) == (15,False)
+        assert state_key(after) == 'low|calm|ok|day'
+        assessment = row(core.memory,transition['id'])
+        assert assessment['score'] == pytest.approx(.9375)
+        assert assessment['level'] == 'VERY_HIGH' and assessment['coverage'] == 1
+        assert assessment['suppression_reason'] == 'low_battery'
+        assert assessment['reflection_claimed'] == assessment['reflection_completed'] == 0
+        assert calls == {'battery':2,'network':2}
+        for table in ('episodes','transitions','curiosity_assessments','q_values'):
+            assert core.memory.db.execute(f'SELECT count(*) FROM {table}').fetchone()[0] == 1
+        assert core.memory.get_q(state_key(BEFORE),'observe') == pytest.approx((.502,5))
+        assert core.memory.db.execute("SELECT count(*) FROM events WHERE category='PERCEPTION'").fetchone()[0] == 2
+        assert not core.memory.db.execute("SELECT 1 FROM events WHERE category='REFLECTION'").fetchone()
+    finally:
+        core.close()
