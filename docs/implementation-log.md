@@ -19,7 +19,7 @@ This is a navigation index. The [development tracker](seed-0.2-development-plan.
 
 ## Post-B6 hardening — separate from B7
 
-The [2026-09-23 hardening record](reviews/2026-09-23-post-b6-hardening.md) covers the corrected battery parser, explicit source/runtime/dashboard/schema metadata, and a pinned least-privilege CI workflow. Fresh local macOS/Python 3.13 verification passes **539 tests** and all five scenarios. Historical B0–B6 counts and artifacts are preserved.
+The [2026-09-23 hardening record](reviews/2026-09-23-post-b6-hardening.md) covers the corrected battery parser, explicit source/runtime/dashboard/schema metadata, and a pinned least-privilege CI workflow. The pre-B7 wording follow-up passes **540 tests** locally on macOS/Python 3.13 and all five scenarios. Historical B0–B6 counts and artifacts are preserved.
 
 [Verification instructions](verification.md) document reproducible evidence, pending hosted matrix checks and owner-controlled merge settings. The [low-disk decision mismatch](review-follow-ups.md) remains **OPEN: separate owner authorization required**. No B7–B10 or deployment work is included.
 

@@ -75,6 +75,12 @@ entry does not cancel the others. No failure is made non-blocking.
 | linux-py313 | ubuntu-24.04 | 3.13 | Same checks plus five standalone scenario commands and JSON validation |
 | macos-py313 | macos-15 | 3.13 | Same checks plus five standalone scenario commands and JSON validation |
 
+PR runs explicitly check out `github.event.pull_request.head.sha`; push/manual
+runs use `github.sha`. This satisfies the closure requirement that artifact
+checked_out_sha equals the PR head, rather than GitHub's synthetic merge SHA.
+The event SHA is recorded separately. See the official
+[checkout head example](https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit).
+
 Labels were checked against the official [runner-image inventory](https://github.com/actions/runner-images#available-images).
 Each run records its exact Python/platform/machine, runner image identifiers,
 checked-out SHA, event SHA, dirty-tree status and lock SHA-256. A matrix label is
@@ -118,8 +124,9 @@ retention is 14 days. No evidence artifact is a deployment package.
 ## Status and owner-controlled merge checks
 
 Local macOS/Python 3.13 verification does not establish Linux, Python 3.11 or
-GitHub-hosted macOS results. **Hosted CI is pending owner-authorized push/PR.**
-No hosted run was triggered during hardening. YAML/structure and shell validation
+GitHub-hosted macOS results. **Pre-B7 hosted CI is pending execution on the final PR head.**
+No hosted run was triggered during the initial H0–H5 hardening. The owner has
+now authorized the pre-B7 push/PR and artifact inspection. YAML/structure and shell validation
 are local checks, not a claim that GitHub has executed the workflow. actionlint
 was unavailable locally; the checked YAML was parsed with Ruby Psych and its run
 scripts checked with bash -n.

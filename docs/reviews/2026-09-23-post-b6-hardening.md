@@ -250,3 +250,49 @@ Final independent review also remains incomplete as described above. Source
 readiness is not deployment readiness. Low-disk policy correction, live-device
 installation validation and B7–B10 remain outside this handoff. Stop here; no
 automatic push, PR, merge, release, installation or next-batch implementation.
+
+
+## Pre-B7 closure — authorized follow-up
+
+This section supersedes the earlier local-only handoff for the closure work. The
+owner explicitly authorized SEED_Pre_B7_Closure_Instructions.md and proceeding
+with the branch push, PR and hosted verification; no merge or live deployment.
+P0 observed clean seed-0.2-post-b6-hardening at
+08dd9d357ba39fc11a092bf3b81181e3b0221c37, merge base with master
+f18ed31bc622ed219558a1f0aa7f4c4566cc0d56. Remote tracking already pointed to the
+reviewed hardening commit; no reset or unrelated change was needed.
+
+P1/P2: dashboard/static/views/overview.js changes only On battery to Not charging
+for charging===false. True remains Charging; missing/null/other remain Charging
+state unavailable. The HTTP asset regression in tests/test_version_metadata.py
+failed first on the old label (one failure, exit 1), then passed with the fix.
+The existing synthetic Node harness also executed the actual overview/API modules
+for true, false, missing, null and string values; all intended labels passed.
+No Node/npm dependency was introduced. Parser and core code remain unchanged.
+
+P7 preparation found the workflow's default checkout would test GitHub's synthetic
+merge commit, contradicting the required artifact checked_out_sha=PR head.
+The smallest correction sets checkout ref to
+`${{ github.event.pull_request.head.sha || github.sha }}`. This is verification
+identity handling, with the same pins, permissions, matrix and tests. Official
+[checkout guidance](https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit)
+confirms the distinction. No event payload is interpolated into a shell command.
+
+P3 fresh local evidence lives in ignored `.review-artifacts/pre-b7/`:
+
+- `.venv/bin/python -m pytest -q tests/test_version_metadata.py tests/test_battery_regression.py tests/test_baseline_environment.py tests/test_curiosity_cycle.py`: exit 0, 60 passed.
+- `.venv/bin/python -m pytest -q --junitxml=.review-artifacts/pre-b7/pytest.xml`: exit 0, 540 passed, zero failures/skips, two existing warnings.
+- `.venv/bin/python -m tests.baseline_scenario`, `.venv/bin/python -m tests.prediction_error_scenario`, `.venv/bin/python -m tests.world_model_scenario`, `.venv/bin/python -m tests.curiosity_scenario`, `.venv/bin/python -m tests.semantic_scenario`: each exit 0, valid JSON and exactly equal to the prior H5 output, including current source metadata.
+- `/opt/homebrew/bin/node .review-artifacts/pre-b7/overview-battery.mjs`: exit 0.
+- `git diff --check`: exit 0. All seven historical baseline hashes unchanged.
+
+Python 3.13.15 / macOS 26.5.1 arm64, same locked dependencies. Runtime and
+persistence tests used a new temporary synthetic SEED_HOME. local-results.json
+records exact commands/exits and platform; red.log preserves the initial failure.
+The two warnings are the same Starlette/httpx and AnyIO deprecations.
+
+P4–P8 checkpoint: documentation reflects the 540-test follow-up without changing
+historical B0–B6 counts. Final independent review is requested. Push/PR, final-head
+hosted jobs and artifact inspection remain pending here; no closure VERIFIED
+claim is made before those gates pass. Low-disk mismatch remains OPEN, installed
+organism untouched, and B7–B10 NOT STARTED.

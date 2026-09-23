@@ -1734,3 +1734,22 @@ protection inspection was restricted; exact required-check names await real runs
 [Verification guide](verification.md) and [deferred decision issue](review-follow-ups.md)
 record follow-ups. Low-disk reward versus consolidation suppression remains OPEN
 for B8 or a separately authorized change; no reward correction is implemented here.
+
+
+## Pre-B7 closure — 2026-09-23
+
+The owner authorized SEED_Pre_B7_Closure_Instructions.md, including a narrow
+wording fix, push, PR and hosted artifact inspection. This supersedes the earlier
+local-only handoff boundary; merging and deployment remain unauthorized.
+Starting HEAD 08dd9d357ba39fc11a092bf3b81181e3b0221c37 and base
+f18ed31bc622ed219558a1f0aa7f4c4566cc0d56 were confirmed with a clean tree on
+seed-0.2-post-b6-hardening.
+
+The dashboard now displays Not charging for charging=false without inferring
+battery power. One committed asset regression covers the three label branches.
+CI checkout explicitly selects the PR head to meet the exact-SHA artifact gate.
+Fresh local results: 60 focused and 540 full-suite tests passed, zero failures or
+skips, two existing warnings; all five scenarios and historical baseline hashes
+unchanged. Hosted CI and final independent review are pending at this checkpoint.
+The [hardening review](reviews/2026-09-23-post-b6-hardening.md) records closure
+progress. Low-disk mismatch stays OPEN; B7–B10 remain NOT STARTED.

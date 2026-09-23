@@ -93,3 +93,13 @@ assert not any(name in sys.modules for name in ('sqlite3','socket','subprocess',
                             env=dict(os.environ,SEED_HOME=str(tmp_path/'uncreated')),timeout=5)
     assert result.returncode == 0, result.stderr
     assert not (tmp_path/'uncreated').exists()
+
+
+def test_overview_battery_labels_do_not_infer_power_source(home):
+    # False also represents 'not charging' on AC; the asset must not say 'On battery'.
+    with TestClient(create_app(home),base_url=ORIGIN) as c:
+        response = c.get('/static/views/overview.js')
+        assert response.status_code == 200
+        asset = response.text
+        assert "state.charging===true?'Charging':state.charging===false?'Not charging':'Charging state unavailable'" in asset
+        assert "state.charging===false?'On battery'" not in asset
