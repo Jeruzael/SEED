@@ -30,7 +30,7 @@ def test_real_b5_scenario_and_b4_compatibility(tmp_path):
     current_world=world(tmp_path/'world')
     for key,value in reference['world_model'].items():
         if key!='schema_version':assert current_world[key]==value
-    assert current_world['schema_version']==4
+    assert current_world['schema_version']==5
     current=baseline(tmp_path/'baseline')
     for key,value in reference['control'].items():
         if key not in ('database_footprint','database_page_count'):assert current[key]==value

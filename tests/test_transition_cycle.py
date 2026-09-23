@@ -45,11 +45,11 @@ def test_cycle_observes_outcome_before_legacy_learning(home, monkeypatch, action
         monkeypatch.setattr(core.learner, 'reward', reward_traced)
         monkeypatch.setattr(core.learner, 'update', update_traced)
         perform = getattr(core, 'perform_action', None)
-        def action_traced(selected):
+        def action_traced(selected, state=None):
             trace.append('action')
             assert selected == action
             assert core.memory.get_q(state_key(BEFORE), action) == (.7,4)
-            return perform(selected)
+            return perform(selected, state=state)
         monkeypatch.setattr(core, 'perform_action', action_traced, raising=False)
         assert core.cycle() == delay
         assert trace == ['before','choose','action','after','reward','update']

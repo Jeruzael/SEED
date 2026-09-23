@@ -1,0 +1,2504 @@
+{
+  "b5_artifact_sha256": "01d98f21c2108e46cb676b52d27cafeb958b7e222964e13484a69620921a6896",
+  "baseline_commit": "ad83ea6",
+  "batch": "B6",
+  "branch_base": "2ddad70",
+  "command": ".venv/bin/python -m tests.semantic_scenario",
+  "control": {
+    "action_distribution": {
+      "consolidate": 1,
+      "observe": 4,
+      "reflect": 1,
+      "rest": 2
+    },
+    "action_sequence": [
+      "observe",
+      "observe",
+      "observe",
+      "observe",
+      "reflect",
+      "consolidate",
+      "rest",
+      "rest"
+    ],
+    "autonomous_perception_count": 16,
+    "concept_count": 0,
+    "context_coverage": 2,
+    "database_footprint": {
+      "main_bytes": 311296,
+      "shm_bytes": 0,
+      "wal_bytes": 0
+    },
+    "database_page_count": 76,
+    "database_page_size": 4096,
+    "lifecycle_counts": {
+      "experience": 8,
+      "sleep": 1,
+      "wake": 1
+    },
+    "observation_count": 8,
+    "policy_coverage": 5,
+    "prediction_structure": {
+      "available": 32,
+      "coverage_pct": 100.0,
+      "evidence_counts": {
+        "battery_pct": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "disk_free_pct": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "load_ratio": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "network_reachable": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      "method_groups": {
+        "action_specific": 8,
+        "global": 16,
+        "persistence": 8
+      },
+      "prediction_count": 8,
+      "prediction_error_count": 8,
+      "unavailable": 0
+    },
+    "q_values": [
+      {
+        "action": "observe",
+        "state_key": "charging|calm|ok|day",
+        "value": 0.2018844,
+        "visits": 3
+      },
+      {
+        "action": "consolidate",
+        "state_key": "low|busy|tight|night",
+        "value": -0.036,
+        "visits": 1
+      },
+      {
+        "action": "observe",
+        "state_key": "low|busy|tight|night",
+        "value": -0.216,
+        "visits": 1
+      },
+      {
+        "action": "reflect",
+        "state_key": "low|busy|tight|night",
+        "value": -0.216,
+        "visits": 1
+      },
+      {
+        "action": "rest",
+        "state_key": "low|busy|tight|night",
+        "value": 0.6552,
+        "visits": 2
+      }
+    ],
+    "returned_intervals_seconds": [
+      8,
+      8,
+      8,
+      8,
+      12,
+      20,
+      35,
+      35
+    ],
+    "transition_count": 8
+  },
+  "curiosity": {
+    "cases": {
+      "high_allowed": {
+        "action": "observe",
+        "assessment": {
+          "claimed_at": 1000.0,
+          "completed_at": 1000.0,
+          "components": {
+            "signals": {
+              "battery_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -80.0,
+                "uncertainty": 1.0
+              },
+              "disk_free_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -90.0,
+                "uncertainty": 1.0
+              },
+              "load_ratio": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -1e+300,
+                "uncertainty": 1.0
+              },
+              "network_reachable": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": true,
+                "uncertainty": 1.0
+              }
+            }
+          },
+          "coverage": 1.0,
+          "created_at": 1000.0,
+          "failure_reason": null,
+          "level": "VERY_HIGH",
+          "model": "curiosity_v1",
+          "model_version": 1,
+          "novelty": 1.0,
+          "prediction_surprise": 0.925,
+          "reflection_claimed": 1,
+          "reflection_completed": 1,
+          "reflection_eligible": 1,
+          "score": 0.925,
+          "status": "evaluated",
+          "suppression_reason": null,
+          "transition_id": 1,
+          "uncertainty": 1.0
+        },
+        "assessment_count": 1,
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 0.07499999999999996,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.925,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 80.0,
+              "actual": 20.0,
+              "normalized_error": 0.8,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -80.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 90.0,
+              "actual": 10.0,
+              "normalized_error": 0.9,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -90.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 1e+300,
+              "actual": 0.0,
+              "normalized_error": 1.0,
+              "predicted": 1e+300,
+              "scoring_method": "bounded_relative",
+              "signed_error": -1e+300,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": true,
+              "classification_error": 1,
+              "correct": false,
+              "normalized_error": 1,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        },
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 1e+300
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        "q_value": 0.502,
+        "reflection_provenance": [
+          "curiosity_triggered"
+        ],
+        "reward": -0.4,
+        "transition_count": 1,
+        "world_processed": 1
+      },
+      "high_load": {
+        "action": "observe",
+        "assessment": {
+          "claimed_at": null,
+          "completed_at": null,
+          "components": {
+            "signals": {
+              "battery_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -80.0,
+                "uncertainty": 1.0
+              },
+              "disk_free_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -90.0,
+                "uncertainty": 1.0
+              },
+              "load_ratio": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -1e+300,
+                "uncertainty": 1.0
+              },
+              "network_reachable": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": true,
+                "uncertainty": 1.0
+              }
+            }
+          },
+          "coverage": 1.0,
+          "created_at": 1000.0,
+          "failure_reason": null,
+          "level": "VERY_HIGH",
+          "model": "curiosity_v1",
+          "model_version": 1,
+          "novelty": 1.0,
+          "prediction_surprise": 0.925,
+          "reflection_claimed": 0,
+          "reflection_completed": 0,
+          "reflection_eligible": 0,
+          "score": 0.925,
+          "status": "evaluated",
+          "suppression_reason": "high_load",
+          "transition_id": 1,
+          "uncertainty": 1.0
+        },
+        "assessment_count": 1,
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 0.07499999999999996,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.925,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 80.0,
+              "actual": 20.0,
+              "normalized_error": 0.8,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -80.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 90.0,
+              "actual": 10.0,
+              "normalized_error": 0.9,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -90.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 1e+300,
+              "actual": 1.0,
+              "normalized_error": 1.0,
+              "predicted": 1e+300,
+              "scoring_method": "bounded_relative",
+              "signed_error": -1e+300,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": true,
+              "classification_error": 1,
+              "correct": false,
+              "normalized_error": 1,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        },
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 1e+300
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        "q_value": 0.502,
+        "reflection_provenance": [],
+        "reward": -0.4,
+        "transition_count": 1,
+        "world_processed": 1
+      },
+      "low_battery": {
+        "action": "observe",
+        "assessment": {
+          "claimed_at": null,
+          "completed_at": null,
+          "components": {
+            "signals": {
+              "battery_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -90.0,
+                "uncertainty": 1.0
+              },
+              "disk_free_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -90.0,
+                "uncertainty": 1.0
+              },
+              "load_ratio": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -1e+300,
+                "uncertainty": 1.0
+              },
+              "network_reachable": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": true,
+                "uncertainty": 1.0
+              }
+            }
+          },
+          "coverage": 1.0,
+          "created_at": 1000.0,
+          "failure_reason": null,
+          "level": "VERY_HIGH",
+          "model": "curiosity_v1",
+          "model_version": 1,
+          "novelty": 1.0,
+          "prediction_surprise": 0.95,
+          "reflection_claimed": 0,
+          "reflection_completed": 0,
+          "reflection_eligible": 0,
+          "score": 0.95,
+          "status": "evaluated",
+          "suppression_reason": "low_battery",
+          "transition_id": 1,
+          "uncertainty": 1.0
+        },
+        "assessment_count": 1,
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 0.050000000000000044,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.95,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 90.0,
+              "actual": 10.0,
+              "normalized_error": 0.9,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -90.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 90.0,
+              "actual": 10.0,
+              "normalized_error": 0.9,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -90.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 1e+300,
+              "actual": 0.0,
+              "normalized_error": 1.0,
+              "predicted": 1e+300,
+              "scoring_method": "bounded_relative",
+              "signed_error": -1e+300,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": true,
+              "classification_error": 1,
+              "correct": false,
+              "normalized_error": 1,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        },
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 1e+300
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        "q_value": 0.502,
+        "reflection_provenance": [],
+        "reward": -0.4,
+        "transition_count": 1,
+        "world_processed": 1
+      },
+      "low_disk": {
+        "action": "observe",
+        "assessment": {
+          "claimed_at": null,
+          "completed_at": null,
+          "components": {
+            "signals": {
+              "battery_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -80.0,
+                "uncertainty": 1.0
+              },
+              "disk_free_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -95.0,
+                "uncertainty": 1.0
+              },
+              "load_ratio": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -1e+300,
+                "uncertainty": 1.0
+              },
+              "network_reachable": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": true,
+                "uncertainty": 1.0
+              }
+            }
+          },
+          "coverage": 1.0,
+          "created_at": 1000.0,
+          "failure_reason": null,
+          "level": "VERY_HIGH",
+          "model": "curiosity_v1",
+          "model_version": 1,
+          "novelty": 1.0,
+          "prediction_surprise": 0.9375,
+          "reflection_claimed": 0,
+          "reflection_completed": 0,
+          "reflection_eligible": 0,
+          "score": 0.9375,
+          "status": "evaluated",
+          "suppression_reason": "low_disk",
+          "transition_id": 1,
+          "uncertainty": 1.0
+        },
+        "assessment_count": 1,
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 0.0625,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.9375,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 80.0,
+              "actual": 20.0,
+              "normalized_error": 0.8,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -80.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 95.0,
+              "actual": 5.0,
+              "normalized_error": 0.95,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -95.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 1e+300,
+              "actual": 0.0,
+              "normalized_error": 1.0,
+              "predicted": 1e+300,
+              "scoring_method": "bounded_relative",
+              "signed_error": -1e+300,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": true,
+              "classification_error": 1,
+              "correct": false,
+              "normalized_error": 1,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        },
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 1e+300
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        "q_value": 0.502,
+        "reflection_provenance": [],
+        "reward": -0.4,
+        "transition_count": 1,
+        "world_processed": 1
+      },
+      "owner_disabled": {
+        "action": "observe",
+        "assessment": {
+          "claimed_at": null,
+          "completed_at": null,
+          "components": {
+            "signals": {
+              "battery_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -80.0,
+                "uncertainty": 1.0
+              },
+              "disk_free_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -90.0,
+                "uncertainty": 1.0
+              },
+              "load_ratio": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -1e+300,
+                "uncertainty": 1.0
+              },
+              "network_reachable": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": true,
+                "uncertainty": 1.0
+              }
+            }
+          },
+          "coverage": 1.0,
+          "created_at": 1000.0,
+          "failure_reason": null,
+          "level": "VERY_HIGH",
+          "model": "curiosity_v1",
+          "model_version": 1,
+          "novelty": 1.0,
+          "prediction_surprise": 0.925,
+          "reflection_claimed": 0,
+          "reflection_completed": 0,
+          "reflection_eligible": 0,
+          "score": 0.925,
+          "status": "evaluated",
+          "suppression_reason": "disabled_by_owner",
+          "transition_id": 1,
+          "uncertainty": 1.0
+        },
+        "assessment_count": 1,
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 0.07499999999999996,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.925,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 80.0,
+              "actual": 20.0,
+              "normalized_error": 0.8,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -80.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 90.0,
+              "actual": 10.0,
+              "normalized_error": 0.9,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -90.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 1e+300,
+              "actual": 0.0,
+              "normalized_error": 1.0,
+              "predicted": 1e+300,
+              "scoring_method": "bounded_relative",
+              "signed_error": -1e+300,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": true,
+              "classification_error": 1,
+              "correct": false,
+              "normalized_error": 1,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        },
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 1e+300
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        "q_value": 0.502,
+        "reflection_provenance": [],
+        "reward": -0.4,
+        "transition_count": 1,
+        "world_processed": 1
+      },
+      "partial": {
+        "action": "observe",
+        "assessment": {
+          "claimed_at": null,
+          "completed_at": null,
+          "components": {
+            "signals": {
+              "network_reachable": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": true,
+                "uncertainty": 1.0
+              }
+            }
+          },
+          "coverage": 0.25,
+          "created_at": 1000.0,
+          "failure_reason": null,
+          "level": "NOTABLE",
+          "model": "curiosity_v1",
+          "model_version": 1,
+          "novelty": 1.0,
+          "prediction_surprise": 0.25,
+          "reflection_claimed": 0,
+          "reflection_completed": 0,
+          "reflection_eligible": 0,
+          "score": 0.25,
+          "status": "evaluated",
+          "suppression_reason": "below_threshold",
+          "transition_id": 1,
+          "uncertainty": 1.0
+        },
+        "assessment_count": 1,
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 0.0,
+            "coverage": 0.25,
+            "evaluated_signals": 1,
+            "mean_normalized_error": 1.0,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "disk_free_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "load_ratio": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "network_reachable": {
+              "actual": true,
+              "classification_error": 1,
+              "correct": false,
+              "normalized_error": 1,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        },
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 1e+300
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        "q_value": 0.502,
+        "reflection_provenance": [],
+        "reward": -0.4,
+        "transition_count": 1,
+        "world_processed": 1
+      },
+      "policy_reflect": {
+        "action": "reflect",
+        "assessment": {
+          "claimed_at": null,
+          "completed_at": null,
+          "components": {
+            "signals": {
+              "battery_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -80.0,
+                "uncertainty": 1.0
+              },
+              "disk_free_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -90.0,
+                "uncertainty": 1.0
+              },
+              "load_ratio": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": -1e+300,
+                "uncertainty": 1.0
+              },
+              "network_reachable": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": true,
+                "uncertainty": 1.0
+              }
+            }
+          },
+          "coverage": 1.0,
+          "created_at": 1000.0,
+          "failure_reason": null,
+          "level": "VERY_HIGH",
+          "model": "curiosity_v1",
+          "model_version": 1,
+          "novelty": 1.0,
+          "prediction_surprise": 0.925,
+          "reflection_claimed": 0,
+          "reflection_completed": 0,
+          "reflection_eligible": 0,
+          "score": 0.925,
+          "status": "evaluated",
+          "suppression_reason": "already_reflected",
+          "transition_id": 1,
+          "uncertainty": 1.0
+        },
+        "assessment_count": 1,
+        "delay": 12,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 0.07499999999999996,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.925,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 80.0,
+              "actual": 20.0,
+              "normalized_error": 0.8,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -80.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 90.0,
+              "actual": 10.0,
+              "normalized_error": 0.9,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -90.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 1e+300,
+              "actual": 0.0,
+              "normalized_error": 1.0,
+              "predicted": 1e+300,
+              "scoring_method": "bounded_relative",
+              "signed_error": -1e+300,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": true,
+              "classification_error": 1,
+              "correct": false,
+              "normalized_error": 1,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        },
+        "perceptions": 2,
+        "prediction": {
+          "action": "reflect",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 1e+300
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        "q_value": 0.502,
+        "reflection_provenance": [
+          "policy_selected"
+        ],
+        "reward": -0.4,
+        "transition_count": 1,
+        "world_processed": 1
+      },
+      "unavailable": {
+        "action": "observe",
+        "assessment": {
+          "claimed_at": null,
+          "completed_at": null,
+          "components": {
+            "signals": {}
+          },
+          "coverage": null,
+          "created_at": 1000.0,
+          "failure_reason": null,
+          "level": "UNAVAILABLE",
+          "model": "curiosity_v1",
+          "model_version": 1,
+          "novelty": null,
+          "prediction_surprise": null,
+          "reflection_claimed": 0,
+          "reflection_completed": 0,
+          "reflection_eligible": 0,
+          "score": null,
+          "status": "unavailable",
+          "suppression_reason": "unavailable_evaluation",
+          "transition_id": 1,
+          "uncertainty": null
+        },
+        "assessment_count": 1,
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": null,
+            "coverage": 0.0,
+            "evaluated_signals": 0,
+            "mean_normalized_error": null,
+            "status": "unavailable",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "disk_free_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "load_ratio": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "network_reachable": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            }
+          }
+        },
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 1e+300
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        "q_value": 0.502,
+        "reflection_provenance": [],
+        "reward": -0.4,
+        "transition_count": 1,
+        "world_processed": 1
+      },
+      "zero_error": {
+        "action": "observe",
+        "assessment": {
+          "claimed_at": null,
+          "completed_at": null,
+          "components": {
+            "signals": {
+              "battery_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": 0.0,
+                "uncertainty": 1.0
+              },
+              "disk_free_pct": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": 0.0,
+                "uncertainty": 1.0
+              },
+              "load_ratio": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": 0.0,
+                "uncertainty": 1.0
+              },
+              "network_reachable": {
+                "contradictory": false,
+                "novelty": 1.0,
+                "prior_belief": null,
+                "sample": false,
+                "uncertainty": 1.0
+              }
+            }
+          },
+          "coverage": 1.0,
+          "created_at": 1000.0,
+          "failure_reason": null,
+          "level": "LOW",
+          "model": "curiosity_v1",
+          "model_version": 1,
+          "novelty": 1.0,
+          "prediction_surprise": 0.0,
+          "reflection_claimed": 0,
+          "reflection_completed": 0,
+          "reflection_eligible": 0,
+          "score": 0.0,
+          "status": "evaluated",
+          "suppression_reason": "below_threshold",
+          "transition_id": 1,
+          "uncertainty": 1.0
+        },
+        "assessment_count": 1,
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 1.0,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.0,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 0.0,
+              "actual": 100.0,
+              "normalized_error": 0.0,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 0.0,
+              "actual": 100.0,
+              "normalized_error": 0.0,
+              "predicted": 100.0,
+              "scoring_method": "percentage_range",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 0.0,
+              "actual": 1e+300,
+              "normalized_error": 0.0,
+              "predicted": 1e+300,
+              "scoring_method": "bounded_relative",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": false,
+              "classification_error": 0,
+              "correct": true,
+              "normalized_error": 0,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        },
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 100.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 1e+300
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        "q_value": 0.502,
+        "reflection_provenance": [],
+        "reward": -0.4,
+        "transition_count": 1,
+        "world_processed": 1
+      }
+    },
+    "fixture": "SEED 0.2 B5 deterministic computational curiosity",
+    "schema_version": 5
+  },
+  "evaluation_snapshot": {
+    "cases": {
+      "full": {
+        "actual": {
+          "battery_pct": 71,
+          "charging": true,
+          "disk_free_pct": 48,
+          "hostname": "synthetic",
+          "load_5m_ratio": 0.2,
+          "load_ratio": 0.6,
+          "local_hour": 12,
+          "machine": "synthetic",
+          "macos": "synthetic",
+          "network": false,
+          "wall_time": 1000
+        },
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 0.88,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.12,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 2.0,
+              "actual": 71.0,
+              "normalized_error": 0.02,
+              "predicted": 73.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -2.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 1.0,
+              "actual": 48.0,
+              "normalized_error": 0.01,
+              "predicted": 49.0,
+              "scoring_method": "percentage_range",
+              "signed_error": -1.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 0.19999999999999996,
+              "actual": 0.6,
+              "normalized_error": 0.19999999999999996,
+              "predicted": 0.4,
+              "scoring_method": "bounded_relative",
+              "signed_error": 0.19999999999999996,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": false,
+              "brier_error": 0.25,
+              "classification_error": 1,
+              "correct": false,
+              "normalized_error": 0.25,
+              "predicted": true,
+              "probability_true": 0.5,
+              "scoring_method": "boolean_brier",
+              "status": "evaluated"
+            }
+          }
+        },
+        "historical_errors_unchanged": true,
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 73.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 49.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 0.4
+            },
+            "network_reachable": {
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_boolean_frequency",
+              "probability_true": 0.5,
+              "status": "predicted",
+              "value": true
+            }
+          }
+        },
+        "prediction_calls": 1,
+        "q_value": 0.6549999999999999,
+        "q_visits": 5,
+        "schema_version": 5
+      },
+      "partial": {
+        "actual": {
+          "battery_pct": 73
+        },
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": 1.0,
+            "coverage": 0.25,
+            "evaluated_signals": 1,
+            "mean_normalized_error": 0.0,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 0.0,
+              "actual": 73.0,
+              "normalized_error": 0.0,
+              "predicted": 73.0,
+              "scoring_method": "percentage_range",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "load_ratio": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "network_reachable": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            }
+          }
+        },
+        "historical_errors_unchanged": true,
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 73.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 49.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 0.4
+            },
+            "network_reachable": {
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_boolean_frequency",
+              "probability_true": 0.5,
+              "status": "predicted",
+              "value": true
+            }
+          }
+        },
+        "prediction_calls": 1,
+        "q_value": 0.6549999999999999,
+        "q_visits": 5,
+        "schema_version": 5
+      },
+      "unavailable": {
+        "actual": {
+          "battery_pct": null,
+          "network": null
+        },
+        "delay": 8,
+        "evaluation": {
+          "aggregate": {
+            "accuracy_score": null,
+            "coverage": 0.0,
+            "evaluated_signals": 0,
+            "mean_normalized_error": null,
+            "status": "unavailable",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "disk_free_pct": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "load_ratio": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            },
+            "network_reachable": {
+              "reason": "actual_unavailable",
+              "status": "not_evaluated"
+            }
+          }
+        },
+        "historical_errors_unchanged": true,
+        "perceptions": 2,
+        "prediction": {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 73.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 49.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_mean_delta",
+              "status": "predicted",
+              "value": 0.4
+            },
+            "network_reachable": {
+              "confidence": 0.1,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 2,
+              "method": "action_boolean_frequency",
+              "probability_true": 0.5,
+              "status": "predicted",
+              "value": true
+            }
+          }
+        },
+        "prediction_calls": 1,
+        "q_value": 0.6549999999999999,
+        "q_visits": 5,
+        "schema_version": 5
+      }
+    },
+    "fixture": "SEED 0.2 B3 deterministic evaluation",
+    "metrics": {
+      "mean_accuracy_score": 0.94,
+      "mean_coverage": 0.41666666666666663,
+      "mean_normalized_error": 0.06,
+      "network_classification_accuracy": {
+        "samples": 1,
+        "value": 0.0
+      },
+      "network_mean_brier_error": {
+        "samples": 1,
+        "value": 0.25
+      },
+      "numeric_mae": {
+        "battery_pct": {
+          "samples": 2,
+          "value": 1.0
+        },
+        "disk_free_pct": {
+          "samples": 1,
+          "value": 1.0
+        },
+        "load_ratio": {
+          "samples": 1,
+          "value": 0.19999999999999996
+        }
+      },
+      "scored_transitions": 2,
+      "transitions": 3
+    }
+  },
+  "semantic_memory": {
+    "fixture": "SEED 0.2 B6 deterministic semantic revision",
+    "history": [
+      {
+        "confidence": 0.4,
+        "contradiction_count": 0,
+        "created_at": 100.0,
+        "evidence_count": 8,
+        "id": 1,
+        "model": "semantic_v1",
+        "model_version": 1,
+        "payload_json": "{\"interpretation\": \"observed_transition_delta\", \"max_delta\": 1.0, \"mean_absolute_delta\": 1.0, \"mean_delta\": 1.0, \"min_delta\": 1.0}",
+        "revision": 1,
+        "scope": "global",
+        "scope_value": "",
+        "semantic_key": "numeric_delta_summary:battery_pct:global::v1",
+        "semantic_type": "numeric_delta_summary",
+        "signal": "battery_pct",
+        "source_belief_id": 1,
+        "source_belief_model_version": 1,
+        "source_belief_updated_at": 8.0,
+        "source_fingerprint": "3ada0ebb6a832f4dfd09c4c1917ce602b17b11b8a0da7973a8c1dbf0af200798",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 8,
+        "status": "active",
+        "updated_at": 100.0
+      },
+      {
+        "confidence": 0.2923076923076923,
+        "contradiction_count": 18,
+        "created_at": 100.0,
+        "evidence_count": 26,
+        "id": 1,
+        "model": "semantic_v1",
+        "model_version": 1,
+        "payload_json": "{\"interpretation\": \"observed_transition_delta\", \"max_delta\": 100.0, \"mean_absolute_delta\": 69.53846153846153, \"mean_delta\": 0.3076923076923088, \"min_delta\": -100.0}",
+        "revision": 2,
+        "scope": "global",
+        "scope_value": "",
+        "semantic_key": "numeric_delta_summary:battery_pct:global::v1",
+        "semantic_type": "numeric_delta_summary",
+        "signal": "battery_pct",
+        "source_belief_id": 1,
+        "source_belief_model_version": 1,
+        "source_belief_updated_at": 26.0,
+        "source_fingerprint": "1259fd0b6a61b720eb62f1160f15cd97f7d7c1f49ddf0b20d53e4421ee4c5083",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 26,
+        "status": "weakened",
+        "updated_at": 102.0
+      },
+      {
+        "confidence": 0.4,
+        "contradiction_count": 0,
+        "created_at": 100.0,
+        "evidence_count": 8,
+        "id": 2,
+        "model": "semantic_v1",
+        "model_version": 1,
+        "payload_json": "{\"interpretation\": \"observed_transition_delta\", \"max_delta\": 1.0, \"mean_absolute_delta\": 1.0, \"mean_delta\": 1.0, \"min_delta\": 1.0}",
+        "revision": 1,
+        "scope": "action",
+        "scope_value": "observe",
+        "semantic_key": "numeric_delta_summary:battery_pct:action:observe:v1",
+        "semantic_type": "numeric_delta_summary",
+        "signal": "battery_pct",
+        "source_belief_id": 2,
+        "source_belief_model_version": 1,
+        "source_belief_updated_at": 8.0,
+        "source_fingerprint": "08b5e09224eebd3f6915e36efaff3916157f1c1be54ad483f144a6e26d68ae39",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 8,
+        "status": "active",
+        "updated_at": 100.0
+      },
+      {
+        "confidence": 0.2923076923076923,
+        "contradiction_count": 18,
+        "created_at": 100.0,
+        "evidence_count": 26,
+        "id": 2,
+        "model": "semantic_v1",
+        "model_version": 1,
+        "payload_json": "{\"interpretation\": \"observed_transition_delta\", \"max_delta\": 100.0, \"mean_absolute_delta\": 69.53846153846153, \"mean_delta\": 0.3076923076923088, \"min_delta\": -100.0}",
+        "revision": 2,
+        "scope": "action",
+        "scope_value": "observe",
+        "semantic_key": "numeric_delta_summary:battery_pct:action:observe:v1",
+        "semantic_type": "numeric_delta_summary",
+        "signal": "battery_pct",
+        "source_belief_id": 2,
+        "source_belief_model_version": 1,
+        "source_belief_updated_at": 26.0,
+        "source_fingerprint": "e49445816f45975c042428a3ea8cefd5876996bc82da7979e3ade5a6fa0c29d6",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 26,
+        "status": "weakened",
+        "updated_at": 102.0
+      }
+    ],
+    "retained": {
+      "episodes": 27,
+      "semantic_memories": 2,
+      "semantic_memory_history": 4,
+      "transitions": 27,
+      "world_beliefs": 2,
+      "world_model_processed": 27
+    },
+    "schema_version": 5,
+    "stages": [
+      {
+        "memories": [
+          {
+            "confidence": 0.4,
+            "contradiction_count": 0,
+            "created_at": 100.0,
+            "evidence_count": 8,
+            "id": 1,
+            "model": "semantic_v1",
+            "model_version": 1,
+            "payload": {
+              "interpretation": "observed_transition_delta",
+              "max_delta": 1.0,
+              "mean_absolute_delta": 1.0,
+              "mean_delta": 1.0,
+              "min_delta": 1.0
+            },
+            "revision": 1,
+            "scope": "global",
+            "scope_value": "",
+            "semantic_key": "numeric_delta_summary:battery_pct:global::v1",
+            "semantic_type": "numeric_delta_summary",
+            "signal": "battery_pct",
+            "source_belief_id": 1,
+            "source_belief_model_version": 1,
+            "source_belief_updated_at": 8.0,
+            "source_fingerprint": "3ada0ebb6a832f4dfd09c4c1917ce602b17b11b8a0da7973a8c1dbf0af200798",
+            "source_first_transition_id": 1,
+            "source_last_transition_id": 8,
+            "status": "active",
+            "updated_at": 100.0
+          },
+          {
+            "confidence": 0.4,
+            "contradiction_count": 0,
+            "created_at": 100.0,
+            "evidence_count": 8,
+            "id": 2,
+            "model": "semantic_v1",
+            "model_version": 1,
+            "payload": {
+              "interpretation": "observed_transition_delta",
+              "max_delta": 1.0,
+              "mean_absolute_delta": 1.0,
+              "mean_delta": 1.0,
+              "min_delta": 1.0
+            },
+            "revision": 1,
+            "scope": "action",
+            "scope_value": "observe",
+            "semantic_key": "numeric_delta_summary:battery_pct:action:observe:v1",
+            "semantic_type": "numeric_delta_summary",
+            "signal": "battery_pct",
+            "source_belief_id": 2,
+            "source_belief_model_version": 1,
+            "source_belief_updated_at": 8.0,
+            "source_fingerprint": "08b5e09224eebd3f6915e36efaff3916157f1c1be54ad483f144a6e26d68ae39",
+            "source_first_transition_id": 1,
+            "source_last_transition_id": 8,
+            "status": "active",
+            "updated_at": 100.0
+          }
+        ],
+        "name": "promoted",
+        "run": {
+          "completed_at": 100.0,
+          "created_count": 2,
+          "eligible_beliefs": 2,
+          "failed_count": 0,
+          "id": 1,
+          "model": "semantic_v1",
+          "model_version": 1,
+          "provenance": "policy_selected",
+          "result": {
+            "examined_ids": [
+              1,
+              2
+            ],
+            "failures": [],
+            "reason": null
+          },
+          "revised_count": 0,
+          "source_beliefs_examined": 2,
+          "started_at": 100.0,
+          "status": "completed",
+          "unchanged_count": 0,
+          "weakened_count": 0
+        }
+      },
+      {
+        "memories": [
+          {
+            "confidence": 0.4,
+            "contradiction_count": 0,
+            "created_at": 100.0,
+            "evidence_count": 8,
+            "id": 1,
+            "model": "semantic_v1",
+            "model_version": 1,
+            "payload": {
+              "interpretation": "observed_transition_delta",
+              "max_delta": 1.0,
+              "mean_absolute_delta": 1.0,
+              "mean_delta": 1.0,
+              "min_delta": 1.0
+            },
+            "revision": 1,
+            "scope": "global",
+            "scope_value": "",
+            "semantic_key": "numeric_delta_summary:battery_pct:global::v1",
+            "semantic_type": "numeric_delta_summary",
+            "signal": "battery_pct",
+            "source_belief_id": 1,
+            "source_belief_model_version": 1,
+            "source_belief_updated_at": 8.0,
+            "source_fingerprint": "3ada0ebb6a832f4dfd09c4c1917ce602b17b11b8a0da7973a8c1dbf0af200798",
+            "source_first_transition_id": 1,
+            "source_last_transition_id": 8,
+            "status": "active",
+            "updated_at": 100.0
+          },
+          {
+            "confidence": 0.4,
+            "contradiction_count": 0,
+            "created_at": 100.0,
+            "evidence_count": 8,
+            "id": 2,
+            "model": "semantic_v1",
+            "model_version": 1,
+            "payload": {
+              "interpretation": "observed_transition_delta",
+              "max_delta": 1.0,
+              "mean_absolute_delta": 1.0,
+              "mean_delta": 1.0,
+              "min_delta": 1.0
+            },
+            "revision": 1,
+            "scope": "action",
+            "scope_value": "observe",
+            "semantic_key": "numeric_delta_summary:battery_pct:action:observe:v1",
+            "semantic_type": "numeric_delta_summary",
+            "signal": "battery_pct",
+            "source_belief_id": 2,
+            "source_belief_model_version": 1,
+            "source_belief_updated_at": 8.0,
+            "source_fingerprint": "08b5e09224eebd3f6915e36efaff3916157f1c1be54ad483f144a6e26d68ae39",
+            "source_first_transition_id": 1,
+            "source_last_transition_id": 8,
+            "status": "active",
+            "updated_at": 100.0
+          }
+        ],
+        "name": "unchanged",
+        "run": {
+          "completed_at": 101.0,
+          "created_count": 0,
+          "eligible_beliefs": 2,
+          "failed_count": 0,
+          "id": 2,
+          "model": "semantic_v1",
+          "model_version": 1,
+          "provenance": "policy_selected",
+          "result": {
+            "examined_ids": [
+              1,
+              2
+            ],
+            "failures": [],
+            "reason": null
+          },
+          "revised_count": 0,
+          "source_beliefs_examined": 2,
+          "started_at": 101.0,
+          "status": "completed",
+          "unchanged_count": 2,
+          "weakened_count": 0
+        }
+      },
+      {
+        "memories": [
+          {
+            "confidence": 0.2923076923076923,
+            "contradiction_count": 18,
+            "created_at": 100.0,
+            "evidence_count": 26,
+            "id": 1,
+            "model": "semantic_v1",
+            "model_version": 1,
+            "payload": {
+              "interpretation": "observed_transition_delta",
+              "max_delta": 100.0,
+              "mean_absolute_delta": 69.53846153846153,
+              "mean_delta": 0.3076923076923088,
+              "min_delta": -100.0
+            },
+            "revision": 2,
+            "scope": "global",
+            "scope_value": "",
+            "semantic_key": "numeric_delta_summary:battery_pct:global::v1",
+            "semantic_type": "numeric_delta_summary",
+            "signal": "battery_pct",
+            "source_belief_id": 1,
+            "source_belief_model_version": 1,
+            "source_belief_updated_at": 26.0,
+            "source_fingerprint": "1259fd0b6a61b720eb62f1160f15cd97f7d7c1f49ddf0b20d53e4421ee4c5083",
+            "source_first_transition_id": 1,
+            "source_last_transition_id": 26,
+            "status": "weakened",
+            "updated_at": 102.0
+          },
+          {
+            "confidence": 0.2923076923076923,
+            "contradiction_count": 18,
+            "created_at": 100.0,
+            "evidence_count": 26,
+            "id": 2,
+            "model": "semantic_v1",
+            "model_version": 1,
+            "payload": {
+              "interpretation": "observed_transition_delta",
+              "max_delta": 100.0,
+              "mean_absolute_delta": 69.53846153846153,
+              "mean_delta": 0.3076923076923088,
+              "min_delta": -100.0
+            },
+            "revision": 2,
+            "scope": "action",
+            "scope_value": "observe",
+            "semantic_key": "numeric_delta_summary:battery_pct:action:observe:v1",
+            "semantic_type": "numeric_delta_summary",
+            "signal": "battery_pct",
+            "source_belief_id": 2,
+            "source_belief_model_version": 1,
+            "source_belief_updated_at": 26.0,
+            "source_fingerprint": "e49445816f45975c042428a3ea8cefd5876996bc82da7979e3ade5a6fa0c29d6",
+            "source_first_transition_id": 1,
+            "source_last_transition_id": 26,
+            "status": "weakened",
+            "updated_at": 102.0
+          }
+        ],
+        "name": "weakened",
+        "run": {
+          "completed_at": 102.0,
+          "created_count": 0,
+          "eligible_beliefs": 0,
+          "failed_count": 0,
+          "id": 3,
+          "model": "semantic_v1",
+          "model_version": 1,
+          "provenance": "policy_selected",
+          "result": {
+            "examined_ids": [
+              1,
+              2
+            ],
+            "failures": [],
+            "reason": null
+          },
+          "revised_count": 0,
+          "source_beliefs_examined": 2,
+          "started_at": 102.0,
+          "status": "completed",
+          "unchanged_count": 0,
+          "weakened_count": 2
+        }
+      },
+      {
+        "memories": [
+          {
+            "confidence": 0.3166666666666667,
+            "contradiction_count": 18,
+            "created_at": 100.0,
+            "evidence_count": 27,
+            "id": 1,
+            "model": "semantic_v1",
+            "model_version": 1,
+            "payload": {
+              "interpretation": "observed_transition_delta",
+              "max_delta": 100.0,
+              "mean_absolute_delta": 67.0,
+              "mean_delta": 0.3333333333333344,
+              "min_delta": -100.0
+            },
+            "revision": 3,
+            "scope": "global",
+            "scope_value": "",
+            "semantic_key": "numeric_delta_summary:battery_pct:global::v1",
+            "semantic_type": "numeric_delta_summary",
+            "signal": "battery_pct",
+            "source_belief_id": 1,
+            "source_belief_model_version": 1,
+            "source_belief_updated_at": 27.0,
+            "source_fingerprint": "2a30ebd19a3c8bdbc4f7638565d10b04ac1a07e5c02c0e7834508efe875833b5",
+            "source_first_transition_id": 1,
+            "source_last_transition_id": 27,
+            "status": "active",
+            "updated_at": 103.0
+          },
+          {
+            "confidence": 0.3166666666666667,
+            "contradiction_count": 18,
+            "created_at": 100.0,
+            "evidence_count": 27,
+            "id": 2,
+            "model": "semantic_v1",
+            "model_version": 1,
+            "payload": {
+              "interpretation": "observed_transition_delta",
+              "max_delta": 100.0,
+              "mean_absolute_delta": 67.0,
+              "mean_delta": 0.3333333333333344,
+              "min_delta": -100.0
+            },
+            "revision": 3,
+            "scope": "action",
+            "scope_value": "observe",
+            "semantic_key": "numeric_delta_summary:battery_pct:action:observe:v1",
+            "semantic_type": "numeric_delta_summary",
+            "signal": "battery_pct",
+            "source_belief_id": 2,
+            "source_belief_model_version": 1,
+            "source_belief_updated_at": 27.0,
+            "source_fingerprint": "bbfaf4f9cdaf43a9227f6ae470add94b5726bdfa24fd9f5cfa07c736cc1b9de7",
+            "source_first_transition_id": 1,
+            "source_last_transition_id": 27,
+            "status": "active",
+            "updated_at": 103.0
+          }
+        ],
+        "name": "reactivated",
+        "run": {
+          "completed_at": 103.0,
+          "created_count": 0,
+          "eligible_beliefs": 2,
+          "failed_count": 0,
+          "id": 4,
+          "model": "semantic_v1",
+          "model_version": 1,
+          "provenance": "policy_selected",
+          "result": {
+            "examined_ids": [
+              1,
+              2
+            ],
+            "failures": [],
+            "reason": null
+          },
+          "revised_count": 2,
+          "source_beliefs_examined": 2,
+          "started_at": 103.0,
+          "status": "completed",
+          "unchanged_count": 0,
+          "weakened_count": 0
+        }
+      }
+    ]
+  },
+  "unchanged_b5_source_sha256": {
+    "body.py": "9403c5a873478ae37804a5d394f7a612a41468ac869cd5e79e2aefdd0faa6810",
+    "commands.py": "9eac421c1bade0e927dd1e76efc0f75ceb6e59a8d925bac0b91a64ba67e64116",
+    "config.py": "57652831fcaf2cdaa333e1b4a2d3f5204aad30ab196f5eddf809032cfe9cb5ba",
+    "curiosity.py": "0ca24892b12125dd71bc1649b3a0ab617beefcac0248cd541abedd7faf4cd514",
+    "curiosity_attention.py": "b1482286ed70e4c1cf6f613ee1f1a5617fa419c54002deeeb427f7b8d4e7d9c2",
+    "learner.py": "8d51bac92532ef77420b1b43388ff0af3e2b9fa7837d8ad4284e6081a00e8a3a",
+    "prediction_error.py": "c8912987e4a405d7037f0868554c479663a7bcb8a1c1ea78a42c599f7751af7f",
+    "predictor.py": "72ff380a93fc1adb56c782d6041e5f23ee45044cc6c70009d4b863a1d601f7f9",
+    "runtime.py": "24c6563555656a377062d507112a05fafd0f1a1d9cd67a8c67c39c316c0ce998",
+    "telemetry.py": "ed73518919f5f6dc9a5864fdc251210f10b99c06d37e6cf9641b273125b0e941",
+    "transitions.py": "fd288537d490a16f7ccf784354347a8d3a5c819cf241b3ce9dde308b05e8d945",
+    "world_model.py": "46d8a4f1bf640f8f4fce359564448159ac485c316316afd4f5a044efad5b95cb"
+  },
+  "world_model": {
+    "beliefs": [
+      {
+        "belief_key": "1:battery_pct:action:observe:numeric_delta",
+        "belief_type": "numeric_delta",
+        "confidence": 0.8636363636363635,
+        "contradiction_count": 2,
+        "evidence_count": 22,
+        "model_version": 1,
+        "scope": "action",
+        "scope_value": "observe",
+        "signal": "battery_pct",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 22,
+        "value": {
+          "confidence_kind": "evidence_consistency",
+          "max_delta": 1.0,
+          "mean_absolute_delta": 1.0,
+          "mean_delta": 0.8181818181818181,
+          "min_delta": -1.0
+        }
+      },
+      {
+        "belief_key": "1:battery_pct:global::numeric_delta",
+        "belief_type": "numeric_delta",
+        "confidence": 0.8636363636363635,
+        "contradiction_count": 2,
+        "evidence_count": 22,
+        "model_version": 1,
+        "scope": "global",
+        "scope_value": "",
+        "signal": "battery_pct",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 22,
+        "value": {
+          "confidence_kind": "evidence_consistency",
+          "max_delta": 1.0,
+          "mean_absolute_delta": 1.0,
+          "mean_delta": 0.8181818181818181,
+          "min_delta": -1.0
+        }
+      },
+      {
+        "belief_key": "1:disk_free_pct:action:observe:numeric_delta",
+        "belief_type": "numeric_delta",
+        "confidence": 0.8636363636363635,
+        "contradiction_count": 2,
+        "evidence_count": 22,
+        "model_version": 1,
+        "scope": "action",
+        "scope_value": "observe",
+        "signal": "disk_free_pct",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 22,
+        "value": {
+          "confidence_kind": "evidence_consistency",
+          "max_delta": 1.0,
+          "mean_absolute_delta": 1.0,
+          "mean_delta": 0.8181818181818181,
+          "min_delta": -1.0
+        }
+      },
+      {
+        "belief_key": "1:disk_free_pct:global::numeric_delta",
+        "belief_type": "numeric_delta",
+        "confidence": 0.8636363636363635,
+        "contradiction_count": 2,
+        "evidence_count": 22,
+        "model_version": 1,
+        "scope": "global",
+        "scope_value": "",
+        "signal": "disk_free_pct",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 22,
+        "value": {
+          "confidence_kind": "evidence_consistency",
+          "max_delta": 1.0,
+          "mean_absolute_delta": 1.0,
+          "mean_delta": 0.8181818181818181,
+          "min_delta": -1.0
+        }
+      },
+      {
+        "belief_key": "1:load_ratio:action:observe:numeric_delta",
+        "belief_type": "numeric_delta",
+        "confidence": 0.8636363636363635,
+        "contradiction_count": 2,
+        "evidence_count": 22,
+        "model_version": 1,
+        "scope": "action",
+        "scope_value": "observe",
+        "signal": "load_ratio",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 22,
+        "value": {
+          "confidence_kind": "evidence_consistency",
+          "max_delta": 1.0,
+          "mean_absolute_delta": 1.0,
+          "mean_delta": 0.8181818181818181,
+          "min_delta": -1.0
+        }
+      },
+      {
+        "belief_key": "1:load_ratio:global::numeric_delta",
+        "belief_type": "numeric_delta",
+        "confidence": 0.8636363636363635,
+        "contradiction_count": 2,
+        "evidence_count": 22,
+        "model_version": 1,
+        "scope": "global",
+        "scope_value": "",
+        "signal": "load_ratio",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 22,
+        "value": {
+          "confidence_kind": "evidence_consistency",
+          "max_delta": 1.0,
+          "mean_absolute_delta": 1.0,
+          "mean_delta": 0.8181818181818181,
+          "min_delta": -1.0
+        }
+      },
+      {
+        "belief_key": "1:network_reachable:action:observe:boolean_frequency",
+        "belief_type": "boolean_frequency",
+        "confidence": 0.8636363636363635,
+        "contradiction_count": 2,
+        "evidence_count": 22,
+        "model_version": 1,
+        "scope": "action",
+        "scope_value": "observe",
+        "signal": "network_reachable",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 22,
+        "value": {
+          "confidence_kind": "evidence_consistency",
+          "false_count": 2,
+          "probability_true": 0.9090909090909091,
+          "true_count": 20
+        }
+      },
+      {
+        "belief_key": "1:network_reachable:global::boolean_frequency",
+        "belief_type": "boolean_frequency",
+        "confidence": 0.8636363636363635,
+        "contradiction_count": 2,
+        "evidence_count": 22,
+        "model_version": 1,
+        "scope": "global",
+        "scope_value": "",
+        "signal": "network_reachable",
+        "source_first_transition_id": 1,
+        "source_last_transition_id": 22,
+        "value": {
+          "confidence_kind": "evidence_consistency",
+          "false_count": 2,
+          "probability_true": 0.9090909090909091,
+          "true_count": 20
+        }
+      }
+    ],
+    "established_confidence": 0.95,
+    "fixture": "SEED 0.2 B4 deterministic world-model revision",
+    "metrics": {
+      "belief_count": 8,
+      "beliefs_by_scope": {
+        "action": 4,
+        "global": 4
+      },
+      "beliefs_by_signal": {
+        "battery_pct": 2,
+        "disk_free_pct": 2,
+        "load_ratio": 2,
+        "network_reachable": 2
+      },
+      "mean_confidence": 0.8636363636363635,
+      "processed_transitions": 22,
+      "scoped_evidence_count": 176,
+      "total_scoped_contradictions": 16,
+      "unprocessed_eligible_transitions": 0,
+      "valid_signal_samples": 88
+    },
+    "one_sample": {
+      "beliefs": 0,
+      "pending": 8
+    },
+    "schema_version": 5
+  }
+}

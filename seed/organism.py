@@ -14,6 +14,7 @@ from .learner import Learner
 from .predictor import Predictor
 from .prediction_error import evaluate_prediction
 from .world_model import WorldModel
+from .semantic_memory import Consolidator
 from .curiosity import assess_curiosity
 from .curiosity_attention import CuriosityAttention, summary as curiosity_summary
 from .memory import Memory
@@ -39,6 +40,7 @@ class SeedOrganism:
             self.world_model = WorldModel(self.memory)
             self.world_model.recover()
             self.curiosity_attention = CuriosityAttention(self.memory)
+            self.consolidator = Consolidator(self.memory)
             self.telemetry = Telemetry(self.memory)
             self.stop_event = threading.Event()
             self.last_tick_wall = time.time()
@@ -141,16 +143,21 @@ class SeedOrganism:
                                  'evidence': len(samples), 'payload': payload,
                                  'provenance': provenance, 'transition_id': transition_id})
 
-    def consolidate(self):
-        self.memory.set_meta('last_consolidation', {'at': time.time(), **self.memory.stats()})
-        self.telemetry.emit('MEMORY', 'organism', 'Consolidation checkpoint recorded; memories preserved', {})
+    def consolidate(self, state=None, provenance='policy_selected'):
+        if state is None:
+            state = self.memory.get_meta('last_state', {})
+        run = self.consolidator.run(state, provenance)
+        summary = {'run_id': run['id'], 'status': run['status']}
+        self.memory.set_meta('last_consolidation', {'at': time.time(), **self.memory.stats(), **summary})
+        self.telemetry.emit('MEMORY', 'organism', 'Consolidation checkpoint recorded; memories preserved', summary)
+        return run
 
-    def perform_action(self, action):
+    def perform_action(self, action, state=None):
         # Observe/rest have no additional internal processing. Rest's wait is later.
         if action == 'reflect':
             self.reflect()
         elif action == 'consolidate':
-            self.consolidate()
+            self.consolidate(state=state)
 
     def cycle(self):
         self.apply_settings()
@@ -171,7 +178,7 @@ class SeedOrganism:
                                last_decision=asdict(decision))
         self.telemetry.emit('ACTION', 'organism', f'Started {decision.action}',
                             {'action': decision.action, 'phase': 'start'})
-        self.perform_action(decision.action)
+        self.perform_action(decision.action, state=state_before)
         self.telemetry.emit('ACTION', 'organism', f'Completed {decision.action}',
                             {'action': decision.action, 'phase': 'complete'})
         self.telemetry.runtime(activity='observing', current_action=None,
@@ -237,8 +244,9 @@ class SeedOrganism:
                 self.reflect(provenance='owner_requested')
                 result = {'message':'Reflection completed'}
             elif name == 'consolidate':
-                self.consolidate()
-                result = {'message':'Checkpoint recorded; all memories preserved'}
+                run = self.consolidate(provenance='owner_requested')
+                result = {'message':'Checkpoint recorded; all memories preserved',
+                          'run_id':run['id'], 'status':run['status']}
             elif name == 'rotate_logs':
                 handlers = [h for h in log.handlers if hasattr(h, 'doRollover')]
                 if not handlers:

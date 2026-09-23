@@ -1,6 +1,6 @@
 # SEED Current Architecture
 
-> **B5 update (2026-09-23):** Bounded curiosity assessments and schema v4 are verified. Auxiliary reflection uses the existing owner setting, default off. See [the B5 execution record](seed-0.2-development-plan.md#b5-execution-log--2026-09-22) for current behavior, tests and limits. The detailed text below is the preserved B3 reference snapshot; its status and not-yet-implemented statements describe that earlier state.
+> **B6 update (2026-09-23):** Semantic memory consolidation and schema v5 are verified. Existing consolidate commands now run bounded, revisable consolidation from B4 beliefs while preserving original memories. See [the B6 execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23) for behavior, tests and limits. The detailed text below is the preserved B3 reference snapshot; its status and not-yet-implemented statements describe that earlier state.
 
 **Current verified development state: SEED 0.2 B3**
 

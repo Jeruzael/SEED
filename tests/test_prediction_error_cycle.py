@@ -34,8 +34,8 @@ def test_error_order_original_prediction_once_and_exact_persistence(home,monkeyp
             result=predict(state,action)
             predictions.append(result.to_dict())
             return result
-        def act_spy(action):
-            trace.append('action');return act(action)
+        def act_spy(action, state=None):
+            trace.append('action');return act(action, state=state)
         def outcome_spy(before,after):
             trace.append('outcome');return outcome(before,after)
         def error_spy(prediction,actual):
@@ -123,5 +123,5 @@ def test_evaluation_pair_rollback_and_historical_b1_b2_integrity(home):
         assert rows[0]['prediction_json'] is None and rows[0]['prediction_error_json'] is None
         assert rows[1]['prediction_json'] is not None and rows[1]['prediction_error_json'] is None
         assert json.loads(rows[2]['prediction_error_json'])==evaluation
-        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0]==4
+        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0]==5
     finally:core.close()
