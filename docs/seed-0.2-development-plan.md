@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B6 — Semantic Memory Consolidation, explicitly authorized on 2026-09-23. B0–B6 are VERIFIED. B7–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
+**Current authorization: post-B6 hardening H0–H5, explicitly authorized on 2026-09-23. B0–B6 remain VERIFIED. Hardening is tracked separately below; B7–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
 
 ## Objective and architectural transition
 
@@ -1700,3 +1700,56 @@ fences and whitespace checked. This is a documentation-only change. Runtime code
 tests and baseline artifacts are unchanged; the recorded B6 result remains
 497 passed with zero skips and two existing dependency warnings. No live process,
 installed memory or migration was accessed for this refresh.
+
+## Post-B6 hardening — 2026-09-23
+
+Owner authorized the bounded H0–H5 instruction after the B6 merge. This is not B7.
+Task branch: seed-0.2-post-b6-hardening, based on reviewed master
+f18ed31bc622ed219558a1f0aa7f4c4566cc0d56. See the dated
+[hardening record](reviews/2026-09-23-post-b6-hardening.md) for exact evidence,
+findings, file purposes, resume state and owner-controlled remaining gates.
+
+Current changes correct new battery observations (complete status fields instead
+of substring charging matches), centralize core software version 0.2 and clarify
+bootstrap/source/runtime/schema metadata, and add a full-SHA-pinned read-only CI
+workflow. The existing B0 false-positive characterization is intentionally updated;
+original recorded observations and baseline artifacts remain untouched. Version
+reporting does not prove the installed organism has been upgraded.
+
+Fresh local baseline: 497 passed. Fresh post-change suite: 539 passed, zero skips,
+two existing warnings, on macOS 26.5.1 arm64 / Python 3.13.15. All five standalone
+scenario behaviors match the starting run; only expected body-source hash metadata
+changes. The seven historical artifact hashes remain identical. These counts are
+separate from B6 acceptance. Learner formulas, schema v5, model/attention bounds,
+owner controls, security and memory preservation are unchanged.
+
+H0–H2 and H4 are locally verified; H3 is implemented and locally validated.
+H5 local regression and self-review are verified; independent review supplied an
+initial no-findings assessment but could not finish because of a usage limit.
+Hosted Linux/Python 3.11 and 3.13 plus macOS/Python
+3.13 execution is pending owner-authorized push/PR. No hosted execution, merge,
+branch-rule change or installation is implied by local checks. Detailed ruleset/
+protection inspection was restricted; exact required-check names await real runs.
+
+[Verification guide](verification.md) and [deferred decision issue](review-follow-ups.md)
+record follow-ups. Low-disk reward versus consolidation suppression remains OPEN
+for B8 or a separately authorized change; no reward correction is implemented here.
+
+
+## Pre-B7 closure — 2026-09-23
+
+The owner authorized SEED_Pre_B7_Closure_Instructions.md, including a narrow
+wording fix, push, PR and hosted artifact inspection. This supersedes the earlier
+local-only handoff boundary; merging and deployment remain unauthorized.
+Starting HEAD 08dd9d357ba39fc11a092bf3b81181e3b0221c37 and base
+f18ed31bc622ed219558a1f0aa7f4c4566cc0d56 were confirmed with a clean tree on
+seed-0.2-post-b6-hardening.
+
+The dashboard now displays Not charging for charging=false without inferring
+battery power. One committed asset regression covers the three label branches.
+CI checkout explicitly selects the PR head to meet the exact-SHA artifact gate.
+Fresh local results: 60 focused and 540 full-suite tests passed, zero failures or
+skips, two existing warnings; all five scenarios and historical baseline hashes
+unchanged. Hosted CI and final independent review are pending at this checkpoint.
+The [hardening review](reviews/2026-09-23-post-b6-hardening.md) records closure
+progress. Low-disk mismatch stays OPEN; B7–B10 remain NOT STARTED.

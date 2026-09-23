@@ -2,6 +2,8 @@
 
 **SEED 0.2 — verified through B6, schema v5.** This guide describes the source implemented in B6 commit **dc225af**. Verification recorded **497 passing tests**, zero skips, and two existing dependency warnings. The [development tracker](seed-0.2-development-plan.md) is the canonical acceptance ledger; [historical artifacts](baselines/) preserve results from each batch. The installed organism is a separate deployment and may be older.
 
+The separately authorized [post-B6 hardening](reviews/2026-09-23-post-b6-hardening.md) corrects the battery parser and software metadata without changing developmental capabilities or schema. The pre-B7 wording follow-up passes 540 tests locally; hosted matrix verification remains pending.
+
 SEED studies learning from observed transitions while preserving provenance, bounded processing, and owner control. B7 self-modeling and later batches remain unstarted.
 
 ## Runtime composition
@@ -21,6 +23,23 @@ SEED studies learning from observed transitions while preserving provenance, bou
 | Dashboard | `dashboard/` | Separate local observer and explicit operator controls |
 
 `Body` observes battery/charging state, load, disk availability, local time, wall-clock time, network reachability and host identity. The existing network probe connects to `1.1.1.1:443`. There is no new sensing or network activity in B2–B6 model processing.
+
+## Sensor and version boundaries after hardening
+
+battery_state() retains its `(percentage | None, charging | None)` interface and fixed pmset command/timeout. It reads one InternalBattery record, validates a 0–100 integer percentage independently, and matches complete normalized status fields. Explicit discharging/not charging is false even on AC. Conflicting status fields, multiple battery records and unrecognized status do not invent a positive charging value. Charged on AC retains the legacy externally-powered true meaning. Historical observations are never relabeled.
+
+The source of core software identity is the side-effect-free `seed/version.py` constant CORE_VERSION=0.2. A running organism writes that value into existing runtime telemetry. The observer never constructs Memory or substitutes its own source identity when stored runtime is absent or older. Existing freshness/ownership/lifecycle checks remain authoritative.
+
+Bootstrap retains token, operator, refresh_seconds and the legacy version label, and adds:
+
+| Field | Meaning |
+| --- | --- |
+| core_source_version | Core source accompanying this dashboard, currently 0.2 |
+| dashboard_version | Dashboard component version, currently 0.1 |
+| dashboard_edition | Observer Edition, separate from operator mode |
+| supported_schema_version | Imported migration VERSION, currently 5; not an observed database schema |
+
+The actual recorded core software version remains `/api/status` → runtime.version. A stopped/stale record keeps its prior version and freshness state; no record means unavailable. The overview uses “Reported core version” and an Unavailable fallback. Bootstrap exposes no invented build SHA, and no Git subprocess is added to runtime processing.
 
 ## Autonomous cycle and ordering
 
@@ -240,14 +259,18 @@ The per-user LaunchAgent has no KeepAlive. The core uses an instance lock, honor
 
 Bounds limit model work, not total database growth. Existing checkpoint counts, retained episodes, B4 processed markers, assessments, audits and semantic history remain subject to growing storage.
 
-Inherited limitations include charging parsing of `discharging`, inferred wake, wall-clock adjustments, immediate prediction/rest horizon, mixed contexts in global fallback, legacy learner assumptions about malformed live state, and incomplete whole-cycle atomicity. Normal autonomous cycles still have two existing reachability probes.
+Inherited limitations include historical battery misclassification (corrected only for new observations), inferred wake, wall-clock adjustments, immediate prediction/rest horizon, mixed contexts in global fallback, legacy learner assumptions about malformed live state, and incomplete whole-cycle atomicity. Normal autonomous cycles still have two existing reachability probes.
 
 World beliefs and action associations are descriptive rather than causal. Predictor support, B3 accuracy, B4 consistency, B5 curiosity and B6 promotion thresholds are separate engineering measures, not calibrated certainty. Curiosity is coarse and optional work can be lost after a claim. Semantic knowledge only summarizes B4's existing signals/scopes and changes when consolidation is invoked; it has no cross-signal concepts or multi-step temporal patterns.
 
 Self-modeling, semantic-driven policy, prediction-error reward shaping, candidate-action planning, forgetting, arbitrary external tools, generated shell/code execution, autonomous source modification and LLM cognition are not implemented. B7 and later work require explicit authorization and their own acceptance evidence.
+
+The [low-disk decision mismatch](review-follow-ups.md) is reproduced and deferred to separately authorized B8 or a new owner-defined scope. No learner formula or consolidation guard is changed to resolve it in this hardening task.
 
 ## Verification
 
 The [B6 execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23) records the 497-test suite, 71 new B6 tests, independent review and corrected transaction-acquisition audit regression. Coverage includes migration/backup/rollback, material revision and idempotency, actual contradictory evidence followed by reactivation, bounded/restarted work, failure isolation, resource suppression, read-only APIs and upstream compatibility.
 
 The [B6 comparison artifact](baselines/seed-0.2-b6-comparison.json) reproduces the semantic lifecycle and checks B5 curiosity, B4 statistics, B3 evaluation and baseline policy outputs. Earlier batch artifacts remain immutable. Reproduction commands are in the [README](../README.md#development-verification); they use synthetic observations and temporary homes rather than installed memory or live sensors.
+
+For current local commands, pinned-action provenance, CI failure handling and pending hosted/merge-rule gates, use the [verification guide](verification.md). The 497-test B6 result above remains a historical acceptance record; the hardening result is recorded separately.

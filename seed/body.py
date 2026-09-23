@@ -16,14 +16,30 @@ def _run(*args: str) -> str:
 
 def battery_state() -> tuple[int | None, bool | None]:
     out = _run("/usr/bin/pmset", "-g", "batt")
-    match = re.search(r"(\d+)%", out)
-    pct = int(match.group(1)) if match else None
-    if not out:
-        charging = None
-    else:
-        low = out.lower()
-        charging = ("charging" in low) or ("ac power" in low and "discharging" not in low)
-    return pct, charging
+    # Read one battery record, not incidental percentages/status words in headers.
+    records = re.findall(r"^\s*-InternalBattery-\d+\b(?:\s+\(id=\d+\))?\s*(.*)$",
+                         out, flags=re.IGNORECASE | re.MULTILINE)
+    if len(records) != 1:
+        return None, None
+    fields = records[0].split(";")
+    percentage = re.fullmatch(r"(\d{1,3})\s*%", fields[0].strip())
+    pct = int(percentage[1]) if percentage and int(percentage[1]) <= 100 else None
+    statuses = [" ".join(field.lower().split()) for field in fields[1:]]
+    known = {"charging", "discharging", "not charging", "charged"}
+    if not statuses or statuses[0] not in known or len(set(statuses) & known) != 1:
+        return pct, None
+    status = statuses[0]
+    # Explicit negative status wins over an AC header (a plugged-in battery may
+    # be discharging or not charging). Never match 'charging' as a substring.
+    if status in ("discharging", "not charging"):
+        return pct, False
+    headers = re.findall(r"^\s*Now\s+drawing\s+from\s+['\"]([^'\"]+)['\"]\s*$",
+                         out, flags=re.IGNORECASE | re.MULTILINE)
+    powers = {" ".join(header.lower().split()) for header in headers}
+    if powers == {"ac power"} or (status == "charging" and not powers):
+        # 'charged' on AC preserves the legacy externally-powered meaning.
+        return pct, True
+    return pct, None
 
 def network_reachable() -> bool:
     # Observation only. No data is sent beyond opening a short TCP connection.

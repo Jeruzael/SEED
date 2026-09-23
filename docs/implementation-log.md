@@ -17,6 +17,12 @@ This is a navigation index. The [development tracker](seed-0.2-development-plan.
 | B6 | VERIFIED | Semantic memory consolidation | [Execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23), [comparison](baselines/seed-0.2-b6-comparison.json) |
 | B7–B10 | NOT STARTED | Self model, decision upgrade, development UI, evaluation | Separate authorization required |
 
+## Post-B6 hardening — separate from B7
+
+The [2026-09-23 hardening record](reviews/2026-09-23-post-b6-hardening.md) covers the corrected battery parser, explicit source/runtime/dashboard/schema metadata, and a pinned least-privilege CI workflow. The pre-B7 wording follow-up passes **540 tests** locally on macOS/Python 3.13 and all five scenarios. Historical B0–B6 counts and artifacts are preserved.
+
+[Verification instructions](verification.md) document reproducible evidence, pending hosted matrix checks and owner-controlled merge settings. The [low-disk decision mismatch](review-follow-ups.md) remains **OPEN: separate owner authorization required**. No B7–B10 or deployment work is included.
+
 ## Current boundaries
 
 The autonomous cycle records before/action/after experience, a prospective prediction, its evaluation, and a curiosity assessment before updating persistent world beliefs. Existing consolidate actions promote sufficiently supported beliefs into revisable semantic memory. The [architecture guide](architecture.md#autonomous-cycle-and-ordering) specifies the ordering and separate transaction boundaries.

@@ -1,0 +1,118 @@
+name: SEED verification
+
+'on':
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.id }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: linux-py311
+            os: ubuntu-24.04
+            python: '3.11'
+            scenarios: false
+          - id: linux-py313
+            os: ubuntu-24.04
+            python: '3.13'
+            scenarios: true
+          - id: macos-py313
+            os: macos-15
+            python: '3.13'
+            scenarios: true
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Closure evidence must identify the PR head, not the synthetic merge commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Record environment and isolate SEED home
+        id: environment
+        run: |
+          set -euo pipefail
+          mkdir -p .review-artifacts/ci
+          task_seed_home=$(mktemp -d "${RUNNER_TEMP}/seed-home.XXXXXX")
+          printf 'SEED_HOME=%s\n' "$task_seed_home" >> "$GITHUB_ENV"
+          python - <<'PY'
+          import hashlib, json, os, platform, subprocess, sys
+          from pathlib import Path
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          result = dict(python=sys.version, executable=sys.executable,
+                        platform=platform.platform(), machine=platform.machine(),
+                        runner_os=os.environ.get('RUNNER_OS'), runner_arch=os.environ.get('RUNNER_ARCH'),
+                        image_os=os.environ.get('ImageOS'), image_version=os.environ.get('ImageVersion'),
+                        checked_out_sha=git('rev-parse','HEAD'), event_sha=os.environ.get('GITHUB_SHA'),
+                        dirty_tree=git('status','--porcelain=v1'),
+                        lock_sha256=hashlib.sha256(Path('requirements-lock.txt').read_bytes()).hexdigest())
+          Path('.review-artifacts/ci/environment.json').write_text(json.dumps(result, indent=2)+'\n')
+          PY
+      - name: Install locked dependencies
+        id: dependencies
+        run: |
+          set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > .review-artifacts/ci/dependencies.exit; exit "$status"' EXIT
+          python -m pip install -r requirements-lock.txt 2>&1 | tee .review-artifacts/ci/dependencies.log
+          python -m pip check 2>&1 | tee .review-artifacts/ci/pip-check.log
+      - name: Run full suite
+        id: pytest
+        run: |
+          set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > .review-artifacts/ci/pytest.exit; exit "$status"' EXIT
+          python -m pytest -q --junitxml=.review-artifacts/ci/pytest.xml 2>&1 | tee .review-artifacts/ci/pytest.log
+      - name: Run deterministic scenarios
+        id: scenarios
+        if: ${{ matrix.scenarios }}
+        run: |
+          set -euo pipefail
+          trap 'status=$?; printf "%s\n" "$status" > .review-artifacts/ci/scenarios.exit; exit "$status"' EXIT
+          mkdir -p .review-artifacts/ci/scenarios
+          for scenario in baseline_scenario prediction_error_scenario world_model_scenario curiosity_scenario semantic_scenario; do
+            python -m "tests.${scenario}" > ".review-artifacts/ci/scenarios/${scenario}.json" 2> ".review-artifacts/ci/scenarios/${scenario}.stderr.log"
+            python -m json.tool ".review-artifacts/ci/scenarios/${scenario}.json" > /dev/null
+          done
+      - name: Record step outcomes
+        if: ${{ always() }}
+        env:
+          ENVIRONMENT_OUTCOME: ${{ steps.environment.outcome }}
+          DEPENDENCIES_OUTCOME: ${{ steps.dependencies.outcome }}
+          PYTEST_OUTCOME: ${{ steps.pytest.outcome }}
+          SCENARIOS_OUTCOME: ${{ steps.scenarios.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p .review-artifacts/ci
+          printf 'environment=%s\ndependencies=%s\npytest=%s\nscenarios=%s\n' \
+            "$ENVIRONMENT_OUTCOME" "$DEPENDENCIES_OUTCOME" "$PYTEST_OUTCOME" "$SCENARIOS_OUTCOME" \
+            > .review-artifacts/ci/step-outcomes.txt
+      - name: Upload verification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: seed-verification-${{ matrix.id }}-${{ github.run_attempt }}
+          path: .review-artifacts/ci/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14

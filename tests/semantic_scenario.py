@@ -60,7 +60,7 @@ def run_comparison(root):
     return dict(batch='B6',baseline_commit='ad83ea6',branch_base='2ddad70',
         b5_artifact_sha256=hashlib.sha256(baseline_path.read_bytes()).hexdigest(),
         command='.venv/bin/python -m tests.semantic_scenario',
-        unchanged_b5_source_sha256={f:hashlib.sha256((repo/'seed'/f).read_bytes()).hexdigest() for f in stable},
+        source_sha256={f:hashlib.sha256((repo/'seed'/f).read_bytes()).hexdigest() for f in stable},
         semantic_memory=run_scenario(root/'semantic'),curiosity=curiosity(root/'curiosity'),
         world_model=world(root/'world'),control=baseline(root/'control'),
         evaluation_snapshot=evaluation(root/'evaluation'))

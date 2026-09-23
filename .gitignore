@@ -31,3 +31,6 @@ backups/
 # IDE
 .vscode/
 .idea/
+
+# Local synthetic verification evidence
+.review-artifacts/
