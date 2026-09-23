@@ -309,8 +309,7 @@ documentation follow-up. This completed review supersedes the initial H5 review
 that was interrupted by a usage limit. Hosted results and real-device behavior
 were explicitly excluded from the review's verdict.
 
-P5 push is currently blocked by local Git authentication: the SSH remote returned
-Permission denied (publickey), and a direct HTTPS push with prompts disabled found
-no saved username/credentials. No remote ref was changed by these failed attempts.
-The owner was asked to restore authentication or push the verified closure branch.
-P6–P8 hosted gates remain pending; no final source/CI VERIFIED claim is made.
+P5 push completed successfully after Git authentication was restored. The
+seed-0.2-post-b6-hardening branch is now published to GitHub. P6–P8 hosted gates
+remain pending until the pull request is opened and the hosted CI matrix completes;
+no final source/CI VERIFIED claim is made yet.
