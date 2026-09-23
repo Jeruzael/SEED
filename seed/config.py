@@ -34,6 +34,9 @@ def validate_settings(data: dict) -> dict:
         elif key == 'theme':
             if value not in ('system','dark','light'):
                 raise ValueError('Unknown theme')
+        elif key == 'prediction_error_curiosity':
+            if type(value) is not bool:
+                raise ValueError('prediction_error_curiosity must be a boolean')
         elif value is not False:
             raise ValueError('This experimental capability is not implemented and must stay off')
     return result

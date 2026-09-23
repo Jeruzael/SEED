@@ -14,6 +14,8 @@ from .learner import Learner
 from .predictor import Predictor
 from .prediction_error import evaluate_prediction
 from .world_model import WorldModel
+from .curiosity import assess_curiosity
+from .curiosity_attention import CuriosityAttention, summary as curiosity_summary
 from .memory import Memory
 from .runtime import InstanceLock
 from .telemetry import Telemetry
@@ -36,6 +38,7 @@ class SeedOrganism:
             self.predictor = Predictor(self.memory)
             self.world_model = WorldModel(self.memory)
             self.world_model.recover()
+            self.curiosity_attention = CuriosityAttention(self.memory)
             self.telemetry = Telemetry(self.memory)
             self.stop_event = threading.Event()
             self.last_tick_wall = time.time()
@@ -107,7 +110,9 @@ class SeedOrganism:
             self.awaken(reason=f'resume_after_{round(gap, 1)}s_gap')
         self.last_tick_wall = now
 
-    def reflect(self):
+    def reflect(self, provenance='policy_selected', transition_id=None):
+        self.telemetry.emit('REFLECTION', 'reflection', 'Internal reflection started',
+                            {'provenance': provenance, 'transition_id': transition_id})
         states = []
         for row in self.memory.recent_episodes(80):
             try:
@@ -133,7 +138,8 @@ class SeedOrganism:
                                        (name, None if old else time.time(), time.time(), json.dumps([i for i, _ in samples])))
             self.telemetry.emit('CONCEPT', 'reflection', f'Updated {name}',
                                 {'name': name, 'confidence': confidence, 'previous_confidence': old[0] if old else None,
-                                 'evidence': len(samples), 'payload': payload})
+                                 'evidence': len(samples), 'payload': payload,
+                                 'provenance': provenance, 'transition_id': transition_id})
 
     def consolidate(self):
         self.memory.set_meta('last_consolidation', {'at': time.time(), **self.memory.stats()})
@@ -178,6 +184,8 @@ class SeedOrganism:
         prediction_error = evaluate_prediction(prediction, state_after).to_dict()
         self.telemetry.emit('PREDICTION_ERROR', 'prediction_error', 'Prospective prediction evaluated',
                             prediction_error)
+        curiosity = assess_curiosity(prediction_error, state_before, decision.action, state_after,
+                                     self.world_model.applicable_beliefs(decision.action))
         # B1 intentionally preserves B0 reward inputs; only evaluation timing changes.
         reward = self.learner.reward(state_before, decision.action)
         self.learner.update(decision, reward)
@@ -186,7 +194,10 @@ class SeedOrganism:
             state_before=state_before, action=decision.action, state_after=state_after,
             outcome=outcome, legacy_reward=reward, started_at=started_at,
             completed_at=completed_at, note=f'context={decision.state_key}', prediction=prediction,
-            prediction_error=prediction_error, world_model_eligible=True)
+            prediction_error=prediction_error, world_model_eligible=True, curiosity=curiosity)
+        self.telemetry.emit('CURIOSITY', 'curiosity', 'Curiosity assessment recorded',
+                            {**curiosity_summary({**curiosity, 'transition_id': transition_id}, 'assessed'),
+                             'suppression_reason': curiosity['suppression_reason']})
         self.world_model.recover()
         self.telemetry.emit('LEARNING', 'learner', 'Updated action value using legacy reward',
                             {'state_key': decision.state_key, 'action': decision.action, 'old_value': decision.score,
@@ -196,6 +207,9 @@ class SeedOrganism:
                             {'episode_id': episode_id, 'transition_id': transition_id})
         self.memory.set_meta('last_state', state_after)
         self.memory.set_meta('last_action', decision.action)
+        self.curiosity_attention.execute(transition_id,
+            lambda: self.reflect(provenance='curiosity_triggered', transition_id=transition_id),
+            self.stop_event, enabled=self.config['prediction_error_curiosity'])
         delay = {'observe': self.config['observe_interval'], 'reflect': self.config['reflect_interval'],
                  'consolidate': 20, 'rest': self.config['rest_interval']}[decision.action]
         self.telemetry.runtime(lifecycle='AWAKE', activity='resting' if decision.action == 'rest' else 'idle',
@@ -220,7 +234,7 @@ class SeedOrganism:
                 result = {'episode_id':episode_id}
                 self.telemetry.emit('PERCEPTION', 'owner_command', 'Owner-requested observation', state)
             elif name == 'reflect':
-                self.reflect()
+                self.reflect(provenance='owner_requested')
                 result = {'message':'Reflection completed'}
             elif name == 'consolidate':
                 self.consolidate()

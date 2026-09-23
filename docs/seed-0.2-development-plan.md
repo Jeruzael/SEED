@@ -2,13 +2,13 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B4 — Persistent World Model, explicitly authorized on 2026-09-22. B0–B4 are VERIFIED. B5–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
+**Current authorization: B5 — Bounded Computational Curiosity, explicitly authorized on 2026-09-22. B0–B5 are VERIFIED. B6–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
 
 ## Objective and architectural transition
 
 SEED means **Situated Experiential Emergent Development**. Evolve the existing Germination prototype incrementally into a system that learns from observed consequences and prediction error, while keeping behavior inspectable, reproducible, and under owner control.
 
-The B4 autonomous cycle in `seed/organism.py` is:
+The B5 autonomous cycle in `seed/organism.py` is:
 
 ```text
 perceive state_before
@@ -18,10 +18,12 @@ perceive state_before
 → perceive state_after
 → describe observed differences
 → evaluate the original prediction against state_after
+→ assess curiosity using a snapshot of prior published beliefs
 → calculate unchanged legacy reward from state_before
 → update contextual action value
-→ atomically store linked episode, transition, prediction, evaluation, and B4 eligibility
+→ atomically store episode, transition, prediction, evaluation, curiosity, and B4 eligibility
 → process at most 100 queued transitions into persistent descriptive world beliefs
+→ optionally claim and perform one guarded existing internal reflection
 ```
 
 The target architecture is:
@@ -56,7 +58,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B2 | Predictor | VERIFIED | B1 | Full suite: 182 passed; review finding fixed/tested | Prospective action-conditioned statistics; no prediction error or policy influence |
 | B3 | Prediction Error | VERIFIED | B1, B2 | Full suite: 252 passed; independent review approved | Deterministic post-observation evaluation; no policy/reward feedback |
 | B4 | World Model | VERIFIED | B1, B3 | Full suite: 327 passed; independent review: 75 B4 tests passed | Schema v3; prospective persistent descriptive statistics; no behavioral influence |
-| B5 | Prediction-Error Curiosity | NOT STARTED | B3, B4 | Not added or executed for B5 | Bounded influence on safe internal activity only |
+| B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | NOT STARTED | B1, B4 | Not added or executed for B6 | Actual pattern/knowledge processing; no automatic episode deletion |
 | B7 | Self Model | NOT STARTED | B3, B6 | Not added or executed for B7 | Evidence-grounded capabilities, accuracy, resources, and limitations |
 | B8 | Decision-System Upgrade | NOT STARTED | B5, B7 | Not added or executed for B8 | Combine decision signals while retaining Q-value compatibility |
@@ -1119,3 +1121,343 @@ preserve owner stop and resource/network boundaries, and add deterministic regre
 against this B4 baseline. Curiosity must not authorize new tools, destinations,
 external actions, LLM cognition, semantic consolidation or later-batch planning.
 B5–B10 remain NOT STARTED. Stop after B4 delivery.
+
+
+## B5 execution log — 2026-09-22
+
+**Status: VERIFIED.** Started 2026-09-22; completed 2026-09-23 (Asia/Manila).
+Branch `seed-0.2-b5`, owner-created from merge `29dd45b`,
+identical tree to verified B4 `39e07dc`. Initial tree clean; baseline suite **327
+passed**, no skips/exclusions, two existing warnings. Native execution plan:
+`docs/superpowers/plans/2026-09-22-seed-b5.md`. Delivery commit is the commit containing
+this record, titled `seed-0.2 B5: add bounded computational curiosity`; its resolved
+hash and clean-tree result are reported after commit. No automatic merge or push.
+
+Objective: persist deterministic computational salience from B3 error and prior B4
+beliefs, with only a guarded, optional use of the existing internal reflection
+capability. B5 introduces no emotion, goals, permission, capability expansion,
+self-preservation, LLM cognition, or B6+ work.
+
+### B5 architecture decisions
+
+1. Prediction error is the required anchor. Perfect prediction gives zero curiosity
+   even with no published beliefs. Missing evaluation gives unavailable, never zero
+   error or maximal curiosity.
+2. Uncertainty and novelty modulate prediction surprise with half-offset factors;
+   neither can independently generate curiosity, and zero novelty/uncertainty does
+   not erase meaningful prediction error.
+3. Assessment uses the pre-update world model. The exact components and selected
+   prior-belief snapshots are stored, never recomputed with later beliefs.
+4. Attention can request only the existing internal reflect function, at most once
+   for a transition. It cannot invoke owner commands, sensors, other internal actions,
+   new tools, destinations, shell operations or permission changes.
+5. Curiosity never changes Q-learning, reward, predictor inputs, B3 scoring, B4
+   evidence weight, action choice, epsilon/alpha or returned cycle delay.
+6. Reflection requires high salience, sufficient coverage, supported resource
+   safety, persistent transition/time cooldown and owner authorization.
+7. Durable attention claims use at-most-once semantics. Failed or interrupted work
+   consumes its budget; losing optional reflection is preferable to repeated work.
+8. The existing `prediction_error_curiosity` setting remains **False by default**.
+   It now accepts a strict Boolean True to enable guarded auxiliary reflection.
+   Every autonomous assessment is recorded regardless of this setting. Existing
+   False values remain authoritative and produce `disabled_by_owner` suppression
+   for otherwise eligible attention. No new opt-in UI or automatic setting rewrite
+   is added; the existing owner settings service/API supports the Boolean. The
+   `advanced_concept_inference` placeholder must still remain False.
+
+### Formula, components and thresholds
+
+`seed/curiosity.py` provides pure `assess_curiosity(evaluation,before,action,after,
+prior_beliefs)`. Every persisted assessment identifies **curiosity_v1 / version 1**.
+Supported input is B3 prediction_error_v1/version 1, evaluated aggregate with valid
+finite nonboolean mean_normalized_error and coverage in 0..1, positive coverage,
+and at least one usable modeled observation. Otherwise status=unavailable,
+score=NULL, level=UNAVAILABLE, no attention eligibility.
+
+For valid input:
+
+```text
+prediction_surprise = mean_normalized_error × coverage
+uncertainty_modifier = 0.5 + 0.5 × uncertainty
+novelty_modifier = 0.5 + 0.5 × novelty
+score = clamp(prediction_surprise × uncertainty_modifier × novelty_modifier, 0, 1)
+```
+
+Usable signals follow the B4 observation rules: valid before/after numeric pairs
+for battery/load/disk deltas, and exact Boolean after.network for network_reachable.
+Missing/invalid signals do not enter the component denominator. Components may use
+valid observed signals independently of whether that individual forecast was
+available; the B3 aggregate error and coverage remain the required score anchor.
+
+`WorldModel.applicable_beliefs(action)` reads at most eight keyed published candidates
+in one SQL statement. Select the action-conditioned belief, then global, then none,
+for each signal. Pending statistics are not published beliefs and do not reduce
+novelty/uncertainty. Both scopes are never counted together for one signal.
+
+Per signal:
+
+- Uncertainty = clamp(1−prior confidence,0,1), or 1 with no published belief. This
+  means lack of established consistent experiential support, not truth probability.
+- Novelty = 1 with no belief; .5 with fewer than four prior evidence samples; 1 for
+  a contradiction against an established belief; otherwise 0.
+- Arithmetic mean over usable signals produces the uncertainty/novelty components.
+
+B4 updating and B5 novelty share the canonical pure `world_model.contradicts`
+helper. Numeric deadbands remain battery .05, disk .01, load .02; strict opposite
+signs outside the deadband and prior n>=4 are required. Boolean majority thresholds
+remain >=.75 and <=.25 with prior n>=4. B4 sample validity, scope, two-sample
+publication, confidence formula, equal evidence weighting and update results are
+unchanged. Refactoring exposes helpers; it does not introduce a second rule.
+
+Levels: score <.20 LOW; .20≤score<.50 NOTABLE; .50≤score<.75 HIGH; score≥.75 VERY_HIGH.
+These are descriptive numeric labels. No score is assigned for unavailable data.
+
+Each component stores the observed sample, uncertainty, novelty, contradiction,
+and selected prior belief's key/scope/count/confidence/last source ID/statistical
+value. This bounded snapshot of at most four selected beliefs preserves meaning
+when the live model changes. Tests demonstrate both pending→published promotion and
+an established mean reversing sign after assessment: curiosity retains the prior
+positive mean and its contradiction, not the revised negative direction.
+
+### Schema v4 and prospective atomic persistence
+
+Additive v4 introduces two tables without rewriting any prior table:
+
+- `curiosity_assessments`: unique transition foreign key, creation time, model/version,
+  status, nullable score, level, surprise/uncertainty/novelty/coverage, components JSON,
+  eligibility, claim/completion flags, suppression/failure reasons, claim/completion
+  timestamps. Schema checks constrain evaluated versus unavailable score/level and
+  Boolean attention flags. Completion requires a prior claim.
+- `curiosity_runtime`: singleton last_reflection_transition_id and last_reflection_at.
+  These identify the last **claimed** auxiliary action, even if it failed or did
+  not finish; they do not reset on process restart.
+
+Memory's optional `curiosity` parameter defaults to absent. Autonomous B5 callers
+compute it after B3 error and before reward/Q persistence. The exact copied payload
+is inserted in the existing transaction with episode, transition, prediction,
+evaluation and prospective B4 queue entry. Failed assessment insertion rolls all
+of those inserts back. Later attention updates mutate only outcome/eligibility
+metadata; the historical score and components stay unchanged.
+
+The migration ladder supports fresh/legacy/v1/v2/v3→v4, v4 reopen no-op, rejection
+of future/ambiguous versions, and backup before upgrading existing memory. Tests
+compare all prior rows, including v3 published/pending beliefs, queue and markers,
+and verify the snapshot still has version 3 and original contents. An injected
+failure at the final v4 step rolls back every applied migration step from each
+prior version. Failed backup prevents schema changes. No B1–B4 assessments are
+backfilled: absence remains distinct from a zero-curiosity experience.
+
+### Runtime ordering and bounded attention
+
+Core ordering: B3 evaluation → read prior beliefs → assess curiosity → unchanged
+legacy reward/Q update → commit experience/assessment → emit its linked summary →
+B4 bounded recovery/update → optional claimed internal reflection. Existing memory
+and learning telemetry retain their meaning. A HIGH experience still contributes
+one B4 sample per valid signal/scope, exactly like a LOW experience.
+
+`seed/curiosity_attention.py` implements the only optional effect. Static guards
+are evaluated separately from the score, in this deterministic priority:
+
+1. unavailable evaluation;
+2. level below HIGH;
+3. coverage below .50;
+4. selected action already reflect;
+5. valid actual load_ratio >.8;
+6. valid actual battery_pct <20 with charging exactly False;
+7. valid actual disk_free_pct <10.
+
+Resource equality boundaries (.8 load, 20 battery, 10 disk) are allowed. Unknown,
+invalid or missing resource fields do not fabricate violations. A valid high score
+is not changed by any suppression. The coverage guard is also tested independently
+with a synthetic HIGH assessment below .50, even though the formula mathematically
+bounds a normal score by coverage and makes that combination unreachable.
+
+At claim time, static guards are rechecked against the persisted source. A disabled
+owner setting suppresses otherwise eligible reflection; an owner stop wins over
+all other reasons. If a previous claim exists, both conditions must hold:
+
+- at least **10 actual completed autonomous transitions**, including the current
+  transition, after the previous claim's source;
+- at least **300 seconds** since the prior claim's timestamp.
+
+A bounded indexed transition range reads at most ten IDs. ID gaps and owner-command
+experience episodes cannot provide budget. A backwards wall-clock jump conservatively
+keeps the time cooldown active. Without a prior claim, no cooldown is owed.
+
+BEGIN IMMEDIATE serializes the claim, cooldown row and claim event before invoking
+reflection. A claimed assessment cannot be invoked again by retry or another
+connection. Suppressed decisions are terminal for that transition; they are not
+reconsidered later using newer beliefs, resources or settings. The owner stop flag
+is checked again after claiming and before calling reflect.
+
+There is no recursive assessment, extra perception, fake transition, auxiliary
+reward/Q update, delay change, observe/rest/consolidate invocation, or automatic
+attention replay on startup. At most one existing reflection reads the usual
+latest 80 episodes and performs the existing two summary calculations. Policy
+reflection and owner-command reflection retain their existing algorithms.
+
+Reflection now has explicit provenance in REFLECTION start events and any CONCEPT
+events: policy_selected, owner_requested, or curiosity_triggered. The auxiliary
+case includes its source transition ID. Existing policy action and owner command
+records supply their own linkage; neither is recorded as auxiliary attention.
+
+An ordinary auxiliary exception records a bounded failure reason and CURIOSITY
+failure event, preserves the completed transition/assessment/claim, and allows the
+core to continue. SQLite errors propagate through existing storage error handling;
+the claim is not released. A crash after claim may lose an optional reflection.
+No automatic recovery retries an auxiliary claim. The whole physical cycle remains
+non-transactional: existing action/Q/concept effects may precede later failures.
+
+### Telemetry, inspection and metrics
+
+CURIOSITY events carry transition ID, score/level, surprise/uncertainty/novelty,
+coverage and attention outcome. Creation, claim, completion, dynamic suppression
+and ordinary auxiliary failure are recorded without dumping the full world model.
+Static suppression is visible in the assessment event/row. Existing event retention
+remains unchanged. No large runtime history or major frontend is added.
+
+Bounded observer endpoints:
+
+- `GET /api/curiosity`: newest first; limit 1..100, default 50, inclusive `before`
+  transition-ID cursor and returned next_cursor. Fetches at most limit+1 rows.
+- `GET /api/curiosity/{transition_id}`: one exact assessment, including components
+  and attention outcome; invalid/oversized IDs return 422, absent IDs 404.
+- `GET /api/curiosity/summary`: **latest 100 assessments only**, with assessment
+  count, mean score/components, level counts, eligible/claimed/completed reflection
+  counts, suppression counts/reasons and failure count. Unavailable scores are
+  excluded from means and retained in level counts. Empty means are NULL.
+
+Eligible count reflects current stored eligibility; successful/failed claims can
+remain eligible, while suppressed outcomes are not. Claimed and completed counts
+are separate, so incomplete optional work is not presented as successful. Suppressed
+count includes below-threshold and unavailable decisions. All counts and denominators
+refer to this bounded window, never lifetime development or intelligence.
+
+Direct service calls enforce bounds too. ReadStore uses SQLite mode=ro. Legacy
+queries return unavailable/empty without migration. Operator startup requires both
+v4 tables and schema version 4. Existing local Host/Origin/token and settings-audit
+boundaries remain in force. No new listener or writable curiosity API is added.
+
+### Deterministic evaluation and compatibility
+
+Artifact: `docs/baselines/seed-0.2-b5-comparison.json`.
+Reproduce: `.venv/bin/python -m tests.curiosity_scenario`.
+The nine isolated cases use the real core/predictor/evaluator/assessment/model and
+synthetic pre/post observations, deterministic action choice and fixed clocks.
+
+| Case | Score | Level | Auxiliary outcome |
+| --- | --- | --- | --- |
+| High, allowed | .925 | VERY_HIGH | One completed curiosity reflection |
+| Zero prediction error | 0 | LOW | Below threshold |
+| High load | .925 | VERY_HIGH | high_load |
+| Low uncharged battery | .95 | VERY_HIGH | low_battery |
+| Low disk | .9375 | VERY_HIGH | low_disk |
+| Policy already reflected | .925 | VERY_HIGH | already_reflected |
+| Owner setting disabled | .925 | VERY_HIGH | disabled_by_owner |
+| One evaluated signal | .25 | NOTABLE | Below threshold; coverage .25 |
+| Unavailable evaluation | NULL | UNAVAILABLE | No reflection |
+
+Every case has exactly one transition, one assessment, one processed B4 marker,
+and two perceptions. Returned delay is 8 seconds for observe, 12 for the selected
+reflect case. The allowed case retains legacy reward −.4 and Q .502 after the fifth
+visit from old Q .7 with alpha .18. Its auxiliary reflection creates no extra Q row
+or experience. These selected cases verify arithmetic and boundaries, not improvement.
+
+Comparison against the immutable B4 artifact:
+
+- All B4 world fixture statistics, evidence, contradictions and confidence match
+  exactly; only reported schema changes to 4.
+- Every non-footprint eight-cycle control metric matches, including actions,
+  predictions/support counts, scores, Q values, delays and 16 perceptions.
+- Every non-schema field in the three B3 evaluation cases and all aggregate
+  scoring metrics match exactly.
+- Predictor, evaluator, learner, body, commands, instance lock, transition helper,
+  telemetry helper and main entry point remain byte-identical to B4. All five
+  B0–B4 baseline artifacts remain byte-identical. Config changes only to accept the
+  existing curiosity Boolean; reflection changes only for provenance and optional
+  invocation; B4 changes only through shared rules/keyed reads.
+
+Checkpointed eight-cycle fixture storage: **282,624 bytes**, 69×4,096-byte pages,
+zero WAL/SHM after close; B4 was 249,856 bytes/61 pages. These are measured fixture
+sizes, not portable thresholds. Assessment storage grows one bounded record per
+new autonomous transition; claim state is a singleton, and per-assessment lookup,
+reflection, cooldown, and dashboard windows remain bounded. Existing B4 processed
+markers and detailed transition storage continue growing with experience.
+
+### B5 tests and verification
+
+New tests and fixture:
+
+- `tests/test_curiosity_migrations.py`: seven backup/migration/preservation/rollback
+  and exact atomic-persistence cases.
+- `tests/test_curiosity.py`: literal formula, error anchor, level boundaries,
+  unavailable/invalid aggregates, component averages, novelty, pure snapshot,
+  static guards, scope preference, bounded lookup and canonical contradiction reuse.
+- `tests/test_curiosity_attention.py`: claims committed before callbacks, concurrent
+  connections, restart/lost work, both cooldown conditions, ID gaps/owner episodes,
+  claim-event rollback, terminal suppression, failure budgets, serious storage errors,
+  owner-stop races and bounded range queries.
+- `tests/test_curiosity_cycle.py`: pre-update snapshot/promotion/direction reversal,
+  complete real-cycle timing, owner setting, all-action predictor/error/Q/delay and
+  evidence isolation, provenance/no-double-reflect, failure continuation and zero
+  additional socket/DNS/perception activity.
+- `tests/dashboard/test_curiosity.py`: recent pagination/detail, rolling100 metrics,
+  direct/HTTP validation, fixed query bounds, legacy reads and operator refusal.
+- `tests/test_curiosity_scenario.py` and `tests/curiosity_scenario.py`: nine real
+  controlled cases and comparisons with the saved B4 artifact.
+
+Earlier tests retain all behavior assertions. Current-version checks move to 4;
+strict event-order assertions include REFLECTION provenance and linked CURIOSITY
+creation; settings validation now rejects a nonboolean curiosity value rather than
+True; the B4 fixture reports the actual current schema instead of hardcoding 3.
+No test is removed, skipped or excluded.
+
+RED runs preceded migration, persistence, model helpers, assessment, attention,
+core configuration/integration, read routes and scenario implementation. New test
+harness corrections used the actual legacy reward arithmetic and persisted epsilon=0
+when applying settings, so random exploration could not make assertions flaky.
+Earlier tests failed on the intended schema/telemetry/Boolean-setting changes and
+were updated without weakening their policy/scoring/preservation checks.
+
+Final `.venv/bin/python -m pytest -q`: **426 passed**, **0 skipped/excluded**,
+**2 existing upstream deprecation warnings**. All **99 B5 tests** pass. Independent
+fresh read-only review reported **no Critical, Important or Minor findings** and
+confirmed the default-off owner setting is consistent with the authorized optional
+attention boundary. The reviewer did not rerun tests; full-suite and artifact
+execution evidence is supplied by the parent. No deferred findings remain.
+The standalone B5 CLI exactly matches the saved artifact. Compilation with
+`.venv/bin/python -m compileall -q seed dashboard tests`, `git diff --check`,
+and whitespace checks across all 31 changed/new files pass.
+
+All work uses temporary homes and synthetic observations. Installed memory was not
+read or migrated, and no installation, core restart, LaunchAgent change or listener
+was performed. Normal cycles still have **two perceptions** and the same returned
+intervals. Assessment and auxiliary reflection add **zero sockets, DNS requests or
+reachability probes**. The existing two probes per autonomous cycle remain.
+
+Files changed: core curiosity.py and curiosity_attention.py; additive changes in
+migrations.py, memory.py, organism.py, world_model.py and config.py; observer routes,
+read service and operator schema guard; seven new test/fixture files listed above;
+version/telemetry/config expectations in eight prior test files and actual-schema
+reporting in the B4 fixture; B5 plan, artifact, this tracker and brief README/architecture
+pointers above the preserved B3 reference text.
+
+### Limitations and B6 prerequisites
+
+Retained limitations: immediate rest horizon, charging-parser defect, incomplete
+whole-cycle atomicity, two existing probes per cycle, B4 processed-marker growth,
+and world beliefs limited to immediate descriptive statistics. Curiosity_v1 is a
+bounded heuristic; novelty is coarse and confidence is not a truth probability.
+It creates no goals, capabilities or external behavior. Optional reflection is off
+by default, can only reuse the existing reflection, and is at most once; crashes
+can lose it and cooldown uses persistent wall time. Added internal work consumes a
+small bounded amount of processing time but never shortens returned cycle delays.
+No claim of calibrated psychological curiosity or developmental improvement is made.
+
+**Ready for B6: YES**, with no B5 blocker. B6 requires separate explicit authorization
+and a scoped semantic-consolidation design: define source windows, derived concept
+meaning/provenance, idempotency and persistence, conflict handling, measurable
+verification and resource bounds. Preserve original memories and owner control;
+curiosity must not silently weight evidence or consolidation, merge/prune beliefs,
+forget experiences, or introduce later self-model/planning/tool capabilities.
+B6–B10 remain NOT STARTED. Stop after B5 delivery.

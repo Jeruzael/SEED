@@ -1,6 +1,8 @@
 """The dashboard's narrow, read-only view of SEED; no organism is constructed."""
 from __future__ import annotations
 import copy
+from collections import Counter
+import math
 import threading
 import time
 from pathlib import Path
@@ -167,6 +169,54 @@ class SeedService:
             if row is None:
                 raise ServiceError('not_found', 'World belief does not exist.', 404)
             return self._world_belief(row)
+
+    @staticmethod
+    def _curiosity(row):
+        item = dict(row)
+        item['components'] = decode(item.pop('components_json'), {})
+        return item
+
+    def curiosity_assessments(self, before=2**63-1, limit=50):
+        if (type(before) is not int or not 0 <= before <= 2**63-1 or
+            type(limit) is not int or not 1 <= limit <= 100):
+            raise ServiceError('invalid_query', 'Invalid curiosity pagination.')
+        with self.store.connection() as db:
+            if 'curiosity_assessments' not in self.store.tables(db):
+                return {'available': False, 'items': [], 'next_cursor': None}
+            rows = db.execute('SELECT * FROM curiosity_assessments WHERE transition_id<=? '
+                              'ORDER BY transition_id DESC LIMIT ?', (before,limit+1)).fetchall()
+            return {'available': True, 'items': [self._curiosity(r) for r in rows[:limit]],
+                    'next_cursor': rows[limit-1]['transition_id']-1 if len(rows)>limit else None}
+
+    def curiosity_assessment(self, transition_id):
+        if type(transition_id) is not int or not 1 <= transition_id <= 2**63-1:
+            raise ServiceError('invalid_id', 'Invalid curiosity transition ID.')
+        with self.store.connection() as db:
+            row = db.execute('SELECT * FROM curiosity_assessments WHERE transition_id=?', (transition_id,)).fetchone() \
+                if 'curiosity_assessments' in self.store.tables(db) else None
+            if row is None:
+                raise ServiceError('not_found', 'Curiosity assessment does not exist.', 404)
+            return self._curiosity(row)
+
+    def curiosity_summary(self):
+        with self.store.connection() as db:
+            available = 'curiosity_assessments' in self.store.tables(db)
+            rows = db.execute('SELECT * FROM curiosity_assessments ORDER BY transition_id DESC LIMIT 100').fetchall() \
+                if available else []
+        def mean(key):
+            values = [r[key] for r in rows if r['status']=='evaluated' and
+                      type(r[key]) in (int,float) and math.isfinite(r[key])]
+            return math.fsum(values)/len(values) if values else None
+        return dict(available=available, window_limit=100, assessment_count=len(rows),
+                    mean_score=mean('score'), mean_prediction_surprise=mean('prediction_surprise'),
+                    mean_uncertainty=mean('uncertainty'), mean_novelty=mean('novelty'),
+                    counts_by_level=dict(Counter(r['level'] for r in rows)),
+                    eligible_reflection_count=sum(r['reflection_eligible'] for r in rows),
+                    claimed_reflection_count=sum(r['reflection_claimed'] for r in rows),
+                    completed_reflection_count=sum(r['reflection_completed'] for r in rows),
+                    suppressed_reflection_count=sum(r['suppression_reason'] is not None for r in rows),
+                    suppression_reasons=dict(Counter(r['suppression_reason'] for r in rows if r['suppression_reason'])),
+                    failure_count=sum(r['failure_reason'] is not None for r in rows))
 
     def learning(self):
         with self.store.connection() as db:

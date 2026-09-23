@@ -46,9 +46,15 @@ def _number(value, signal):
 
 
 def _samples(row):
-    if row['action'] not in ACTIONS:
+    return transition_samples(_state(row['state_before_json']), row['action'], _state(row['state_after_json']))
+
+
+def transition_samples(before, action, after):
+    """Pure B4 signal validation, shared with pre-update curiosity assessment."""
+    if action not in ACTIONS:
         return {}
-    before, after = _state(row['state_before_json']), _state(row['state_after_json'])
+    before = before if isinstance(before, dict) else {}
+    after = after if isinstance(after, dict) else {}
     samples = {}
     for signal in DELTA_EPSILON:
         a, b = _number(before.get(signal), signal), _number(after.get(signal), signal)
@@ -68,23 +74,36 @@ def _mean(old, sample, count):
     return old * ((count - 1) / count) + sample / count
 
 
+def contradicts(signal, sample, belief):
+    """Canonical pre-update B4 rule; caller supplies a valid signal sample."""
+    if belief is None or belief['evidence_count'] < 4:
+        return False
+    value = json.loads(belief['value_json'])
+    if signal in DELTA_EPSILON:
+        mean, epsilon = value['mean_delta'], DELTA_EPSILON[signal]
+        return ((mean > epsilon and sample < -epsilon) or
+                (mean < -epsilon and sample > epsilon))
+    probability = value['probability_true']
+    return ((probability >= .75 and not sample) or
+            (probability <= .25 and sample))
+
+
+def _belief_key(signal, scope, scope_value):
+    family = 'numeric_delta' if signal in DELTA_EPSILON else 'boolean_frequency'
+    return f'{MODEL_VERSION}:{signal}:{scope}:{scope_value}:{family}'
+
+
 def _revise(signal, sample, old):
     n = old['evidence_count'] if old else 0
     value = json.loads(old['value_json']) if old else {}
-    contradictory = False
+    contradictory = contradicts(signal, sample, old)
     if signal in DELTA_EPSILON:
         mean = value.get('mean_delta', sample)
-        epsilon = DELTA_EPSILON[signal]
-        contradictory = n >= 4 and ((mean > epsilon and sample < -epsilon) or
-                                    (mean < -epsilon and sample > epsilon))
         updated = dict(mean_delta=_mean(mean, sample, n+1),
                        mean_absolute_delta=_mean(value.get('mean_absolute_delta', abs(sample)), abs(sample), n+1),
                        min_delta=min(value.get('min_delta', sample), sample),
                        max_delta=max(value.get('max_delta', sample), sample))
     else:
-        probability = value.get('probability_true', .5)
-        contradictory = n >= 4 and ((probability >= .75 and not sample) or
-                                    (probability <= .25 and sample))
         trues = value.get('true_count', 0) + int(sample)
         updated = dict(true_count=trues, false_count=n+1-trues, probability_true=trues/(n+1))
     updated['confidence_kind'] = 'evidence_consistency'
@@ -95,6 +114,23 @@ def _revise(signal, sample, old):
 class WorldModel:
     def __init__(self, memory):
         self.memory = memory
+
+    def applicable_beliefs(self, action):
+        """Snapshot at most eight keyed published rows in one read statement."""
+        keys = [_belief_key(signal, scope, value) for signal in SIGNALS
+                for scope, value in (('action', action), ('global', ''))]
+        with self.memory._lock:
+            rows = self.memory.db.execute(
+                'SELECT * FROM world_beliefs WHERE belief_key IN (?,?,?,?,?,?,?,?)', keys).fetchall()
+        found = {row['belief_key']: dict(row) for row in rows}
+        result = {}
+        for signal in SIGNALS:
+            for scope, value in (('action', action), ('global', '')):
+                row = found.get(_belief_key(signal, scope, value))
+                if row is not None:
+                    result[signal] = row
+                    break
+        return result
 
     def recover(self):
         """One bounded FIFO pass over explicit pending B4 evidence; never history."""
@@ -146,7 +182,7 @@ class WorldModel:
     def _update(self, signal, sample, scope, scope_value, transition_id, now):
         db = self.memory.db
         family = 'numeric_delta' if signal in DELTA_EPSILON else 'boolean_frequency'
-        key = f'{MODEL_VERSION}:{signal}:{scope}:{scope_value}:{family}'
+        key = _belief_key(signal, scope, scope_value)
         published = db.execute('SELECT * FROM world_beliefs WHERE belief_key=?', (key,)).fetchone()
         old = published if published is not None else db.execute(
             'SELECT * FROM world_pending WHERE belief_key=?', (key,)).fetchone()
