@@ -313,3 +313,58 @@ P5 push completed successfully after Git authentication was restored. The
 seed-0.2-post-b6-hardening branch is now published to GitHub. P6–P8 hosted gates
 remain pending until the pull request is opened and the hosted CI matrix completes;
 no final source/CI VERIFIED claim is made yet.
+
+
+## Pre-B7 hosted macOS portability correction — 2026-09-23
+
+C0: master was fetched and fast-forwarded to
+a2952f02669767244bceb67bd68fe3477e79e1f2 (PR #8 merge), then the clean
+fix/macos-stale-runtime-test branch was created. The merged hardening branch
+was preserved. SSH authentication required existing macOS Keychain options;
+no credential, repository permission or global Git configuration was changed.
+
+Read-only GitHub inspection confirms PR #8 merged and run 35880801656 had
+successful test (linux-py311) and test (linux-py313), while test (macos-py313)
+failed only test_stale_runtime_not_sleeping: 1 failed, 539 passed, 2 warnings.
+The macOS scenario step was skipped after pytest failed. Thus the merge did not
+wait for a passing macOS gate. Required-check enforcement needs owner review;
+no repository rules are changed by this correction.
+
+C1 root-cause hypothesis, recorded before applying the injection fix: **The test
+is host-dependent because it does not inject the process-state dependency. The
+production lifecycle branch is not the defect.** SeedService(home) constructs
+ProcessController(home), whose status inspects launchctl. Missing launchctl on
+Linux yields unknown; an absent LaunchAgent on macOS yields unregistered. The
+existing service intentionally reports STOPPED for unregistered/loaded with no
+active core lock. A synthetic diagnostic confirmed stale AWAKE telemetry maps
+unknown to None and both known inactive states to STOPPED. The original test
+assertion failed with a synthetic unregistered host result. No real LaunchAgent
+call was needed. A guard then failed the unmodified constructor call, while both
+new inactive-state tests passed (1 failed, 2 passed). Evidence: ignored
+.review-artifacts/macos-portability/diagnostic.json and red.log. The disposable
+probe initially rejected macOS's symlinked temporary path; resolving that path
+fixed the probe without changing application code or its path-safety contract.
+
+Correction and verification are in progress. B7 remains blocked until the fresh
+corrective PR passes every hosted matrix job and its artifacts are inspected.
+Low-disk mismatch stays OPEN; B7–B10 remain NOT STARTED.
+
+
+C2–C6 local result: the original test injects synthetic unknown status; a separate
+parameterized test covers unregistered and loaded, expecting STOPPED, not fresh,
+and the existing explanatory reason. A fixture forbids real ProcessController
+status calls in all three cases. No time mocking, skip, xfail or framework added.
+
+Fresh commands, each exit 0 with temporary synthetic SEED_HOME:
+
+- `.venv/bin/python -m pytest -q tests/dashboard/test_reads.py::test_stale_runtime_not_sleeping tests/dashboard/test_reads.py::test_stale_runtime_with_inactive_launchagent_is_stopped`: 3 passed.
+- `.venv/bin/python -m pytest -q tests/dashboard/test_reads.py`: 12 passed.
+- `.venv/bin/python -m pytest -q --junitxml=.review-artifacts/macos-portability/pytest.xml`: 542 passed, zero failures/skips, two existing dependency warnings.
+- The five existing `.venv/bin/python -m tests.<scenario>` commands (baseline_scenario, prediction_error_scenario, world_model_scenario, curiosity_scenario, semantic_scenario): valid JSON, each identical to the pre-correction output.
+- `git diff --check`: passed. Seven historical baseline hashes and locked requirements unchanged.
+
+Environment: Python 3.13.15 / macOS 26.5.1 arm64. Exact arguments and results are
+saved in .review-artifacts/macos-portability/local-results.json. Scope audit:
+only tests/dashboard/test_reads.py and this correction record changed. All
+production files, workflows, requirements, installers and baselines are unchanged.
+Hosted correction evidence is pending; the local pass is not source/CI closure.

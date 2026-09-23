@@ -1,6 +1,7 @@
 import json
 import sqlite3
 import time
+from types import SimpleNamespace
 import pytest
 from dashboard.services.seed_service import SeedService, ServiceError
 
@@ -44,15 +45,35 @@ def test_corrupt_and_bad_json(legacy_home,tmp_path):
     (path/'memory.sqlite3').write_bytes(b'not a database')
     assert SeedService(path).status()['data_state']=='error'
 
-def test_stale_runtime_not_sleeping(home):
+@pytest.fixture
+def no_host_process(monkeypatch):
+    def unexpected_status(*args, **kwargs):
+        raise AssertionError('stale-runtime unit test must not inspect host LaunchAgent')
+    monkeypatch.setattr('dashboard.services.process.ProcessController.status', unexpected_status)
+
+def test_stale_runtime_not_sleeping(home, no_host_process):
     from seed.memory import Memory
     from seed.telemetry import Telemetry
     m=Memory(home/'memory.sqlite3')
     Telemetry(m).runtime(heartbeat=time.time()-100, lifecycle='AWAKE', pid=999999, session_id='other')
     m.close()
-    status=SeedService(home).status()
+    process=SimpleNamespace(status=lambda: {'state':'unknown', 'reason':'Synthetic test process'})
+    status=SeedService(home, process=process).status()
     assert status['lifecycle'] is None
     assert status['fresh'] is False
+
+@pytest.mark.parametrize('process_state', ['unregistered', 'loaded'])
+def test_stale_runtime_with_inactive_launchagent_is_stopped(home, no_host_process, process_state):
+    from seed.memory import Memory
+    from seed.telemetry import Telemetry
+    m=Memory(home/'memory.sqlite3')
+    Telemetry(m).runtime(heartbeat=time.time()-100, lifecycle='AWAKE', pid=999999, session_id='other')
+    m.close()
+    process=SimpleNamespace(status=lambda: {'state':process_state, 'pid':None})
+    status=SeedService(home, process=process).status()
+    assert status['lifecycle']=='STOPPED'
+    assert status['fresh'] is False
+    assert status['reason']=='LaunchAgent is not running; no active core lock.'
 
 def test_storage_excludes_symlinks(home,tmp_path):
     outside=tmp_path/'large'
