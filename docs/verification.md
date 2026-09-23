@@ -131,7 +131,7 @@ are local checks, not a claim that GitHub has executed the workflow. actionlint
 was unavailable locally; the checked YAML was parsed with Ruby Psych and its run
 scripts checked with bash -n.
 
-After authorizing a push/PR, inspect a real run for the relevant revision, confirm
+After pushing/opening the authorized PR, inspect a real run for the relevant revision, confirm
 all three jobs and artifacts, and copy the exact check names GitHub reports.
 The job name template is test (matrix ID); exact required-check names are not yet
 recorded because there has been no hosted run. Do not configure guessed names.

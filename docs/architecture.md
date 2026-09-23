@@ -2,7 +2,7 @@
 
 **SEED 0.2 — verified through B6, schema v5.** This guide describes the source implemented in B6 commit **dc225af**. Verification recorded **497 passing tests**, zero skips, and two existing dependency warnings. The [development tracker](seed-0.2-development-plan.md) is the canonical acceptance ledger; [historical artifacts](baselines/) preserve results from each batch. The installed organism is a separate deployment and may be older.
 
-The separately authorized [post-B6 hardening](reviews/2026-09-23-post-b6-hardening.md) corrects the battery parser and software metadata without changing developmental capabilities or schema. Fresh local verification passes 539 tests; hosted matrix verification remains pending.
+The separately authorized [post-B6 hardening](reviews/2026-09-23-post-b6-hardening.md) corrects the battery parser and software metadata without changing developmental capabilities or schema. The pre-B7 wording follow-up passes 540 tests locally; hosted matrix verification remains pending.
 
 SEED studies learning from observed transitions while preserving provenance, bounded processing, and owner control. B7 self-modeling and later batches remain unstarted.
 
