@@ -6,7 +6,7 @@ SEED is an experimental developmental agent that treats a MacBook as its body an
 
 **Current source: SEED 0.2 — verified through B6.** SQLite schema **v5**. The verified B6 implementation is commit **dc225af**, with **497 tests passing**, no skips, and two existing dependency deprecation warnings. The installed application may be older; source updates do not install, restart, or migrate the live organism.
 
-Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. The pre-B7 wording follow-up passes **540 tests** locally on macOS/Python 3.13; hosted Linux/macOS CI is **pending execution on the final PR head**. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
+Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. The macOS test-isolation correction passes **542 tests** locally and on all three hosted Linux/macOS jobs for correction commit `cb70d00`; all verification artifacts were inspected. [Corrective PR #9](https://github.com/Jeruzael/SEED/pull/9) records checks for its current head. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
 
 | Batch | Capability | Status |
 | --- | --- | --- |

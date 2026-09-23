@@ -123,27 +123,38 @@ retention is 14 days. No evidence artifact is a deployment package.
 
 ## Status and owner-controlled merge checks
 
-Local macOS/Python 3.13 verification does not establish Linux, Python 3.11 or
-GitHub-hosted macOS results. **Pre-B7 hosted CI is pending execution on the final PR head.**
-No hosted run was triggered during the initial H0–H5 hardening. The owner has
-now authorized the pre-B7 push/PR and artifact inspection. YAML/structure and shell validation
-are local checks, not a claim that GitHub has executed the workflow. actionlint
-was unavailable locally; the checked YAML was parsed with Ruby Psych and its run
-scripts checked with bash -n.
+The macOS test-isolation correction in [PR #9](https://github.com/Jeruzael/SEED/pull/9)
+passed [SEED verification run 35883121881](https://github.com/Jeruzael/SEED/actions/runs/35883121881)
+on 2026-09-23 for commit cb70d004ac128390e29a2d72d9ae6aa1fc30c4bf.
+All three job artifacts were downloaded and inspected: 542 tests each, zero
+failures/skips, matching checkout SHA and lock hash, clean checkout, successful
+locked installation/pip check, and all five scenarios on each 3.13 job. The 3.11
+standalone-scenario step is intentionally disabled by the unchanged matrix;
+its full pytest suite still includes scenario tests. No failure was hidden.
 
-After pushing/opening the authorized PR, inspect a real run for the relevant revision, confirm
-all three jobs and artifacts, and copy the exact check names GitHub reports.
-The job name template is test (matrix ID); exact required-check names are not yet
-recorded because there has been no hosted run. Do not configure guessed names.
+Exact observed check names, which the owner should require on master:
 
-The owner can then use repository Settings → Rules / Branches to require those
-observed status checks for master, subject to account permissions and plan support.
-Review existing rules before changing anything. Documentation and workflow code
-do not enable branch protection by themselves. See [GitHub repository Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
+- `test (linux-py311)` — ubuntu-24.04, Python 3.11.16
+- `test (linux-py313)` — ubuntu-24.04, Python 3.13.15
+- `test (macos-py313)` — macos-15 (15.7.9 arm64), Python 3.13.15
 
-During the read-only audit, GitHub reported zero runs and protected=false in the
-branch summary. Detailed branch protection returned 403 for integration access;
-rulesets returned 403 with a private-repository plan restriction. Detailed rule
-status therefore remains unknown. No visibility, billing, permissions or rules
-were changed. Those settings, hosted execution, merge and deployment remain
-separate owner-controlled steps.
+The linked PR records the current final head and its matching run/artifact audit,
+including any subsequent evidence-only documentation commit. A successful run
+for an earlier commit does not verify a later head. The documentation follow-up
+must also pass all three jobs before the final closure handoff.
+
+The earlier PR #8 macOS run failed a host-dependent stale-runtime unit test and
+skipped scenarios; its Linux jobs passed. PR #8 merged without waiting for a
+passing macOS gate. The correction injects process state in tests and leaves
+production lifecycle logic and the workflow unchanged.
+
+Required-check enforcement remains an owner-controlled repository setting.
+Review repository Settings → Rules / Branches and existing rules before requiring
+the observed checks, subject to permissions and plan support. No rule, visibility,
+billing or permissions change was made. Initial detailed protection/ruleset reads
+were restricted; documentation does not establish enforcement. See
+[GitHub repository Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
+
+Hosted synthetic macOS verification is not installation or live-device validation.
+The installed organism remains untouched. Deployment and B7–B10 are outside this
+correction; B7 needs separate owner authorization after source/CI closure.
