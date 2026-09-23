@@ -1,5 +1,8 @@
 # Post-B6 hardening — 2026-09-23
 
+The latest portability-correction section below supersedes earlier pending
+checkpoints; historical run counts and outcomes remain as recorded.
+
 ## Scope and resume ledger
 
 Owner-authorized H0–H5 from SEED_Codex_Post_B6_Hardening_Instructions.md.
@@ -368,3 +371,52 @@ saved in .review-artifacts/macos-portability/local-results.json. Scope audit:
 only tests/dashboard/test_reads.py and this correction record changed. All
 production files, workflows, requirements, installers and baselines are unchanged.
 Hosted correction evidence is pending; the local pass is not source/CI closure.
+
+
+### Corrective hosted evidence and owner handoff
+
+[PR #9 — Fix macOS stale-runtime test isolation](https://github.com/Jeruzael/SEED/pull/9)
+was opened from fix/macos-stale-runtime-test to master; it remains unmerged.
+Correction commit: cb70d004ac128390e29a2d72d9ae6aa1fc30c4bf.
+[SEED verification run 35883121881](https://github.com/Jeruzael/SEED/actions/runs/35883121881)
+completed successfully on 2026-09-23 for that exact head.
+
+| Actual check name | Runner / Python | Result | Suite | Standalone scenarios | Artifact inspected |
+| --- | --- | --- | --- | --- | --- |
+| test (linux-py311) | ubuntu-24.04 / 3.11.16 | success | 542 passed | Disabled by matrix; suite scenario tests ran | Yes |
+| test (linux-py313) | ubuntu-24.04 / 3.13.15 | success | 542 passed | All five passed | Yes |
+| test (macos-py313) | macos-15, macOS 15.7.9 arm64 / 3.13.15 | success | 542 passed | All five passed | Yes |
+
+All three ZIPs were downloaded, inventoried and inspected. Each records
+checked_out_sha=cb70d004ac128390e29a2d72d9ae6aa1fc30c4bf, dirty_tree empty,
+dependencies.exit=0, pytest.exit=0, successful pip check, zero JUnit errors,
+failures or skips, and the unchanged lock SHA-256
+1fe34b077636964cde188c0f19317f7615f27200d4ac49aedeeb13df401fd769.
+Each 3.13 ZIP also records scenarios.exit=0 and five valid JSON outputs exactly
+matching the local scenario outputs, with empty stderr. Job-step conclusions
+confirm successful upload and no unexpected skipped/failing verification steps.
+Only generated evidence files are present; no owner home/database/backup.
+Evidence: .review-artifacts/macos-portability/hosted-35883121881/inspection.json
+and its three ZIPs. Initial temporary-download requests rejected Python's default
+client signature; standard User-Agent requests succeeded without changing access.
+
+An independent reviewer completed source/test/scope review with zero Critical,
+Important or Minor findings. The reviewer confirmed the injection and guard,
+unchanged production behavior, test evidence and two-file implementation scope.
+The later README/verification-guide edits only replace stale current CI status
+with this correction's observed evidence and exact check names. Historical B0–B6
+acceptance records, baselines, production, workflow and requirements stay intact.
+
+The evidence-only documentation follow-up will receive its own final-head CI run.
+The authoritative final SHA, run and artifact audit are recorded in PR #9 and the
+final handoff, avoiding any claim that this earlier run verifies a later commit.
+No new closure claim applies to a head until all three jobs and artifacts have
+been checked for that head.
+
+The owner should require the three exact check names in the table on master.
+No branch protection/ruleset change is authorized here and none was made.
+Production lifecycle, learner/reward/Q, schema/migrations, battery parsing,
+network destinations, sensing frequency, memory retention and security remain
+unchanged. Installed organism untouched; deployment/live-device validation NOT
+PERFORMED. Low-disk decision mismatch OPEN. B7–B10 NOT STARTED; B7 requires
+separate authorization after the final corrective-head source/CI gate passes.
