@@ -36,7 +36,7 @@ def test_v2_upgrade_preserves_every_row_and_backup_then_noop(v2_home):
         before = rows(db)
     m = Memory(path)
     try:
-        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 3
+        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 4
         assert rows(m.db) == before
         for table in WORLD_TABLES:
             assert m.db.execute(f'SELECT count(*) FROM {table}').fetchone()[0] == 0

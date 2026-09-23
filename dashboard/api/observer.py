@@ -28,6 +28,13 @@ def observer_router(service, slots):
         return service.world_beliefs(signal, scope, scope_value, after, limit)
     @router.get('/world-beliefs/{belief_id}')
     def world_belief(belief_id: int): return service.world_belief(belief_id)
+    @router.get('/curiosity')
+    def curiosity(before: int = Query(2**63-1, ge=0, le=2**63-1), limit: int = Query(50, ge=1, le=100)):
+        return service.curiosity_assessments(before, limit)
+    @router.get('/curiosity/summary')
+    def curiosity_summary(): return service.curiosity_summary()
+    @router.get('/curiosity/{transition_id}')
+    def curiosity_assessment(transition_id: int): return service.curiosity_assessment(transition_id)
     @router.get('/history')
     def history(limit: int = Query(200, ge=2, le=500)): return service.history(limit)
     @router.get('/memories')

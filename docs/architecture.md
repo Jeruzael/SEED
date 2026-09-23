@@ -1,6 +1,6 @@
 # SEED Current Architecture
 
-> **B4 update (2026-09-22):** Persistent descriptive world beliefs and schema v3 are now verified. See [the B4 execution record](seed-0.2-development-plan.md#b4-execution-log--2026-09-22) for the current changes, tests and limits. The detailed text below is the preserved B3 reference snapshot; its B3 status and not-yet-implemented statements describe that earlier state.
+> **B5 update (2026-09-23):** Bounded curiosity assessments and schema v4 are verified. Auxiliary reflection uses the existing owner setting, default off. See [the B5 execution record](seed-0.2-development-plan.md#b5-execution-log--2026-09-22) for current behavior, tests and limits. The detailed text below is the preserved B3 reference snapshot; its status and not-yet-implemented statements describe that earlier state.
 
 **Current verified development state: SEED 0.2 B3**
 

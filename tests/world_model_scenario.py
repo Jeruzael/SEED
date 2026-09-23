@@ -39,7 +39,7 @@ def run_scenario(home):
             scoped_evidence_count=sum(b['evidence_count'] for b in beliefs),
             total_scoped_contradictions=sum(b['contradiction_count'] for b in beliefs),
             unprocessed_eligible_transitions=m.db.execute('SELECT count(*) FROM world_model_queue').fetchone()[0])
-        return dict(fixture='SEED 0.2 B4 deterministic world-model revision',schema_version=3,
+        return dict(fixture='SEED 0.2 B4 deterministic world-model revision',schema_version=m.db.execute('SELECT version FROM seed_schema').fetchone()[0],
                     one_sample=one_sample,established_confidence=established,beliefs=beliefs,metrics=metrics)
     finally:
         m.close()

@@ -110,13 +110,14 @@ class Memory:
 
     def record_transition_experience(self, *, state_before, action, state_after, outcome,
                                      legacy_reward, started_at, completed_at, note=None, prediction=None,
-                                     prediction_error=None, world_model_eligible=False):
+                                     prediction_error=None, world_model_eligible=False, curiosity=None):
         """Commit the linked experience pair together; never backfill old episodes."""
         before_json = json.dumps(validated_state(state_before), sort_keys=True, allow_nan=False)
         after_json = json.dumps(validated_state(state_after), sort_keys=True, allow_nan=False)
         outcome_json = json.dumps(outcome, sort_keys=True, allow_nan=False)
         prediction_json = None if prediction is None else json.dumps(prediction, sort_keys=True, allow_nan=False)
         error_json = None if prediction_error is None else json.dumps(prediction_error, sort_keys=True, allow_nan=False)
+        assessment = None if curiosity is None else json.loads(json.dumps(curiosity, allow_nan=False))
         with self._lock, self.db:
             episode = self.db.execute(
                 'INSERT INTO episodes(ts,event,state_json,action,reward,note) VALUES(?,?,?,?,?,?)',
@@ -130,6 +131,16 @@ class Memory:
             if world_model_eligible:
                 self.db.execute('INSERT INTO world_model_queue(transition_id) VALUES(?)',
                                 (transition.lastrowid,))
+            if assessment is not None:
+                fields = ('model','model_version','status','score','level','prediction_surprise',
+                          'uncertainty','novelty','coverage')
+                self.db.execute('''INSERT INTO curiosity_assessments(
+                    transition_id,created_at,model,model_version,status,score,level,
+                    prediction_surprise,uncertainty,novelty,coverage,components_json,
+                    reflection_eligible,suppression_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                    (transition.lastrowid,completed_at,*(assessment[key] for key in fields),
+                     json.dumps(assessment['components'],sort_keys=True,allow_nan=False),
+                     int(assessment['reflection_eligible']),assessment['suppression_reason']))
             return episode.lastrowid, transition.lastrowid
 
     def set_q(self, state_key: str, action: str, value: float, visits: int):

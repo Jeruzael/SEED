@@ -3,7 +3,7 @@ from seed.config import validate_settings
 from dashboard.services.settings import SettingsStore
 from dashboard.services.read_store import ServiceError
 
-@pytest.mark.parametrize('patch',[{'alpha':float('nan')},{'alpha':float('inf')},{'epsilon':1.1},{'alpha':0},{'port':80},{'observe_interval':0},{'port':True},{'theme':'evil'},{'backup_directory':'/tmp'},{'prediction_error_curiosity':True}])
+@pytest.mark.parametrize('patch',[{'alpha':float('nan')},{'alpha':float('inf')},{'epsilon':1.1},{'alpha':0},{'port':80},{'observe_interval':0},{'port':True},{'theme':'evil'},{'backup_directory':'/tmp'},{'prediction_error_curiosity':'true'}])
 def test_invalid_settings(patch):
     with pytest.raises(ValueError): validate_settings(patch)
 

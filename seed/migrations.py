@@ -1,7 +1,7 @@
 """Additive migrations: original episode, concept, policy and identity rows stay intact."""
 import sqlite3
 
-VERSION = 3
+VERSION = 4
 STATEMENTS = [
     'CREATE TABLE seed_schema(version INTEGER NOT NULL)',
     '''CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL,
@@ -65,13 +65,34 @@ V3_STATEMENTS = [
         valid_signals INTEGER NOT NULL CHECK(valid_signals BETWEEN 0 AND 4))''',
 ]
 
+V4_STATEMENTS = [
+    '''CREATE TABLE curiosity_assessments(
+        transition_id INTEGER PRIMARY KEY REFERENCES transitions(id),
+        created_at REAL NOT NULL, model TEXT NOT NULL, model_version INTEGER NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('evaluated','unavailable')),
+        score REAL CHECK(score BETWEEN 0 AND 1), level TEXT NOT NULL,
+        prediction_surprise REAL, uncertainty REAL, novelty REAL, coverage REAL,
+        components_json TEXT NOT NULL,
+        reflection_eligible INTEGER NOT NULL CHECK(reflection_eligible IN (0,1)),
+        reflection_claimed INTEGER NOT NULL DEFAULT 0 CHECK(reflection_claimed IN (0,1)),
+        reflection_completed INTEGER NOT NULL DEFAULT 0 CHECK(reflection_completed IN (0,1)),
+        suppression_reason TEXT, failure_reason TEXT, claimed_at REAL, completed_at REAL,
+        CHECK((status='unavailable' AND score IS NULL AND level='UNAVAILABLE') OR
+              (status='evaluated' AND score IS NOT NULL AND level IN ('LOW','NOTABLE','HIGH','VERY_HIGH'))),
+        CHECK(reflection_completed <= reflection_claimed))''',
+    '''CREATE TABLE curiosity_runtime(
+        singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+        last_reflection_transition_id INTEGER NOT NULL REFERENCES transitions(id),
+        last_reflection_at REAL NOT NULL)''',
+]
+
 
 def schema_version(db: sqlite3.Connection) -> int:
     """Return 0 for unversioned storage; refuse ambiguous/unsupported versions."""
     if not db.execute("SELECT 1 FROM sqlite_master WHERE name='seed_schema'").fetchone():
         return 0
     rows = db.execute('SELECT version FROM seed_schema').fetchall()
-    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, 2, VERSION):
+    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, 2, 3, VERSION):
         raise ValueError('Unsupported SEED schema version')
     return rows[0][0]
 
@@ -92,6 +113,11 @@ def migrate(db: sqlite3.Connection) -> None:
             version = 2
         if version == 2:
             for statement in V3_STATEMENTS:
+                db.execute(statement)
+            db.execute('UPDATE seed_schema SET version=3')
+            version = 3
+        if version == 3:
+            for statement in V4_STATEMENTS:
                 db.execute(statement)
             db.execute('UPDATE seed_schema SET version=?', (VERSION,))
         db.commit()
