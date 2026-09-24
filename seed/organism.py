@@ -16,6 +16,7 @@ from .predictor import Predictor
 from .prediction_error import evaluate_prediction
 from .world_model import WorldModel
 from .semantic_memory import Consolidator
+from .self_model import SelfModel
 from .curiosity import assess_curiosity
 from .curiosity_attention import CuriosityAttention, summary as curiosity_summary
 from .memory import Memory
@@ -43,6 +44,7 @@ class SeedOrganism:
             self.curiosity_attention = CuriosityAttention(self.memory)
             self.consolidator = Consolidator(self.memory)
             self.telemetry = Telemetry(self.memory)
+            self.self_model = SelfModel(self.memory, clock=lambda: time.time())
             self.stop_event = threading.Event()
             self.last_tick_wall = time.time()
             self.sleep_threshold = 45.0
@@ -218,6 +220,7 @@ class SeedOrganism:
         self.curiosity_attention.execute(transition_id,
             lambda: self.reflect(provenance='curiosity_triggered', transition_id=transition_id),
             self.stop_event, enabled=self.config['prediction_error_curiosity'])
+        self.self_model.update(transition_id, self.session_id, self.stop_event)
         delay = {'observe': self.config['observe_interval'], 'reflect': self.config['reflect_interval'],
                  'consolidate': 20, 'rest': self.config['rest_interval']}[decision.action]
         self.telemetry.runtime(lifecycle='AWAKE', activity='resting' if decision.action == 'rest' else 'idle',

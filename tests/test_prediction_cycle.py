@@ -73,7 +73,7 @@ def test_prospective_order_and_exact_pre_action_payload(home, monkeypatch):
         events = [(r[0],json.loads(r[1])) for r in core.memory.db.execute(
             'SELECT category,data_json FROM events ORDER BY id')]
         assert [category for category,_ in events] == ['PERCEPTION','DECISION','PREDICTION','ACTION','REFLECTION',
-                                                       'ACTION','PERCEPTION','PREDICTION_ERROR','CURIOSITY','LEARNING','MEMORY']
+                                                       'ACTION','PERCEPTION','PREDICTION_ERROR','CURIOSITY','LEARNING','MEMORY','SELF_MODEL']
         assert events[2][1] == payload
     finally:
         core.close()
