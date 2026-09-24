@@ -4,7 +4,7 @@ This is a navigation index. The [development tracker](seed-0.2-development-plan.
 
 ## Current verified state
 
-**SEED 0.2 — B7 implemented, schema v6.** The owner approved the written [B7 design](superpowers/specs/2026-09-23-b7-self-model-design.md) and native implementation. Current local verification: **634 passed**, no skips, two existing dependency warnings. Independent review and hosted B7 CI are pending; see the [implementation record](seed-0.2-development-plan.md#b7-implementation-record--2026-09-24). B8–B10 remain unstarted.
+**SEED 0.2 — B7 implemented, schema v6.** The owner approved the written [B7 design](superpowers/specs/2026-09-23-b7-self-model-design.md) and native implementation. Current local verification: **646 passed**, no skips, two existing dependency warnings. Independent review findings are fixed and regression-tested; hosted B7 CI is pending; see the [implementation record](seed-0.2-development-plan.md#b7-implementation-record--2026-09-24). B8–B10 remain unstarted.
 
 The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR #9 merge), schema v5, 542 tests. Historical B6 acceptance remains 497 passed at dc225af.
 

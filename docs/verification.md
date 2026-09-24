@@ -1,6 +1,6 @@
 # Reproducible SEED verification
 
-This guide covers local verification and the post-B6 GitHub Actions workflow.
+This guide covers current local verification and the GitHub Actions workflow introduced after B6. B7 adds the sixth deterministic self-model scenario.
 The [hardening record](reviews/2026-09-23-post-b6-hardening.md) distinguishes fresh
 local evidence from historical B6 results and pending hosted checks.
 
@@ -39,7 +39,7 @@ result = dict(python=sys.version, executable=sys.executable, platform=platform.p
 Path('.review-artifacts/local/environment.json').write_text(json.dumps(result,indent=2)+'\n')
 PY
 .venv/bin/python -m pytest -q --junitxml=.review-artifacts/local/pytest.xml 2>&1 | tee .review-artifacts/local/pytest.log
-for scenario in baseline_scenario prediction_error_scenario world_model_scenario curiosity_scenario semantic_scenario; do
+for scenario in baseline_scenario prediction_error_scenario world_model_scenario curiosity_scenario semantic_scenario self_model_scenario; do
   .venv/bin/python -m "tests.${scenario}" > ".review-artifacts/local/scenarios/${scenario}.json" 2> ".review-artifacts/local/scenarios/${scenario}.stderr.log"
   .venv/bin/python -m json.tool ".review-artifacts/local/scenarios/${scenario}.json" > /dev/null
 done
@@ -72,8 +72,8 @@ entry does not cancel the others. No failure is made non-blocking.
 | Matrix ID | Runner label | Python | Checks |
 | --- | --- | --- | --- |
 | linux-py311 | ubuntu-24.04 | 3.11 | Locked install, pip check, full pytest suite (including scenario tests) |
-| linux-py313 | ubuntu-24.04 | 3.13 | Same checks plus five standalone scenario commands and JSON validation |
-| macos-py313 | macos-15 | 3.13 | Same checks plus five standalone scenario commands and JSON validation |
+| linux-py313 | ubuntu-24.04 | 3.13 | Same checks plus six standalone scenario commands and JSON validation |
+| macos-py313 | macos-15 | 3.13 | Same checks plus six standalone scenario commands and JSON validation |
 
 PR runs explicitly check out `github.event.pull_request.head.sha`; push/manual
 runs use `github.sha`. This satisfies the closure requirement that artifact
@@ -158,3 +158,8 @@ were restricted; documentation does not establish enforcement. See
 Hosted synthetic macOS verification is not installation or live-device validation.
 The installed organism remains untouched. Deployment and B7–B10 are outside this
 correction; B7 needs separate owner authorization after source/CI closure.
+
+
+## B7 verification checkpoint
+
+The B7 implementation has 646 passing local tests and six passing standalone synthetic scenarios. Seven historical B0–B6 artifacts remain byte-identical; schema and additive database footprint are the only permitted historical scenario differences. See the [B7 execution record](seed-0.2-development-plan.md#b7-implementation-record--2026-09-24) for final review results. Hosted B7 checks have not run: automatic approval review rejected the implementation push pending explicit owner authorization to transfer the source to the existing Jeruzael/SEED remote. The rejection did not change the remote. Earlier hosted results above remain evidence only for their stated commits.

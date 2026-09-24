@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: owner-approved B7 implementation, following approval of the written design. B7 is IMPLEMENTED; 634 local tests pass. Independent review and hosted B7 CI remain pending. B0–B6 remain VERIFIED; post-B6 hardening and macOS portability correction are closed at source/CI level. B8–B10 remain NOT STARTED and unauthorized.** Installed-organism deployment remains separate. See the [B7 implementation record](#b7-implementation-record--2026-09-24). Historical entries below retain their original status and evidence.
+**Current authorization: owner-approved B7 implementation, following approval of the written design. B7 is IMPLEMENTED; 646 local tests pass. Independent review findings are fixed; hosted B7 CI remains pending. B0–B6 remain VERIFIED; post-B6 hardening and macOS portability correction are closed at source/CI level. B8–B10 remain NOT STARTED and unauthorized.** Installed-organism deployment remains separate. See the [B7 implementation record](#b7-implementation-record--2026-09-24). Historical entries below retain their original status and evidence.
 
 ## Objective and architectural transition
 
@@ -62,7 +62,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B4 | World Model | VERIFIED | B1, B3 | Full suite: 327 passed; independent review: 75 B4 tests passed | Schema v3; prospective persistent descriptive statistics; no behavioral influence |
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
-| B7 | Self Model | IMPLEMENTED | B3, B6 | 634 local tests pass; review and hosted CI pending | Schema v6; bounded descriptive singleton; no upstream influence |
+| B7 | Self Model | IMPLEMENTED | B3, B6 | 646 local tests pass; review findings fixed; hosted CI pending | Schema v6; bounded descriptive singleton; no upstream influence |
 | B8 | Decision-System Upgrade | NOT STARTED | B5, B7 | Not added or executed for B8 | Combine decision signals while retaining Q-value compatibility |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
@@ -1843,10 +1843,24 @@ Commits: `b39a6bd` schema and preservation, `abaf736` bounded publisher, `3c6e8a
 
 ### Verification evidence
 
-Fresh local full suite: **634 passed, zero skipped, two existing dependency warnings**, Python 3.13.15. Coverage includes v5 backups and rows, all earlier migration rollbacks, exact metric denominators, nested corruption, raw-window exclusion, 1,000/1,001 count boundary, independent source clocks, retained-error provenance, transactional event retention, interrupted connection restoration, failed write preservation, no-op restart, owner-command isolation and a four-read observer query budget.
+Fresh local full suite: **646 passed, zero skipped, two existing dependency warnings**, Python 3.13.15. Coverage includes v5 backups and rows, all earlier migration rollbacks, exact metric denominators, nested corruption, raw-window exclusion, 1,000/1,001 count boundary, independent source clocks, retained-error provenance, transactional event retention, interrupted connection restoration, failed write preservation, no-op restart, owner-command isolation and a four-read observer query budget.
 
 All four actions, with curiosity enabled and disabled, run in pairs against absent, valid, corrupt, failed-write and disabled self models. Actions, rewards, predictions, evaluations, Q values, learning parameters, world processing, curiosity, semantic records, delays and perception counts remain equal. A separate real Body probe test uses synthetic host sensors and a stubbed socket, proving exactly the two existing fixed reachability calls.
 
 The new deterministic [comparison artifact](baselines/seed-0.2-b7-comparison.json) records all seven immutable historical hashes and reproduces fresh, insufficient, scored, stale, failure, restart, suppressed-consolidation and paired-policy cases. Three valid B3 evaluations produce coverage **5/12**, error **.06**, accuracy **.94**, with **two** scored samples. Consolidation remains selectable when its last audit reports low_disk suppression. This verifies reporting, not a reward-policy fix or a developmental improvement claim.
 
-All six standalone scenario CLIs pass with synthetic temporary homes and strict JSON. Compileall and git diff --check pass. All seven historical artifact hashes and bytes match the approved-design base; learner, sensors, predictor, evaluator, world model, curiosity/attention, semantic engine, commands, configuration, telemetry, Memory and dependency lock remain byte-identical. Independent review and hosted CI are pending below. B7 status remains **IMPLEMENTED** until required acceptance evidence is complete. B8–B10 remain **NOT STARTED**. The existing low-disk decision mismatch stays open for separate authorization.
+All six standalone scenario CLIs pass with synthetic temporary homes and strict JSON. Compileall and git diff --check pass. All seven historical artifact hashes and bytes match the approved-design base; learner, sensors, predictor, evaluator, world model, curiosity/attention, semantic engine, commands, configuration, telemetry, Memory and dependency lock remain byte-identical. Independent review is complete; both important findings are fixed with failing regressions followed by passing focused and full suites. Hosted CI remains pending owner authorization to push. B7 status remains **IMPLEMENTED** until required acceptance evidence is complete. B8–B10 remain **NOT STARTED**. The existing low-disk decision mismatch stays open for separate authorization.
+
+
+### Final independent review and corrective verification
+
+One fresh whole-branch reviewer inspected `89f4561..824a723` against the approved design, plan and review focus. The reviewer independently passed all 92 original B7 tests and exercised real retention/VM rollback. It found two important issues, no critical or minor findings, and no behaviors declined for judgment:
+
+1. Ordinary rollback/progress-removal/timeout-restoration errors could escape optional B7 processing, skip remaining cleanup or mask an interrupt. Cleanup now attempts each step independently, releases the memory lock unconditionally and reports failure through a bounded logger diagnostic. A failed rollback/progress removal prevents diagnostic transactions. Failure diagnostics own only their own transaction. KeyboardInterrupt/SystemExit propagate even when cleanup also fails, including interruption during diagnostic emission. Actual storage failure can still affect later existing core operations; B7 does not claim to repair an unusable connection.
+2. Nested domains were individually valid but contradictory across fields. The reader now rejects observation timestamps after transition completion, runtime measurements without singleton-source identity, and failure counts/status/reasons inconsistent with valid metadata.
+
+Twelve new regression cases were observed failing before fixes: four cleanup fault sites, two primary interrupts with cleanup failure, two diagnostic interrupts, and four observer contradictions. The final focused suite passes **77** tests; the complete suite passes **646**, with zero skips and the two existing dependency warnings. All six scenario CLIs, compilation, whitespace checks and historical/core-file byte comparisons pass again. No review finding was deferred; no design ruling was needed. The approved spec and original seven artifacts remain unchanged.
+
+### Delivery boundary
+
+Source changes are committed locally on `seed-0.2-b7`. Automatic approval review rejected the attempted push because explicit authorization is required to transfer this implementation/source history to the `Jeruzael/SEED` remote. The rejected command did not run. No implementation PR, hosted B7 run, merge or deployment occurred. The owner must approve pushing the final branch and opening a draft PR before hosted Linux 3.11/3.13 and macOS 3.13 acceptance can be completed. B7 therefore remains **IMPLEMENTED, locally verified**, not fully VERIFIED. B8–B10 and the installed organism remain untouched.

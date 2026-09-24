@@ -106,3 +106,28 @@ def test_clock_rollback_projects_error_without_mutating_source(home):
     assert result['snapshot']['measured_at']==p['measured_at']
     with sqlite3.connect(home/'memory.sqlite3') as db:
         assert json.loads(db.execute('SELECT data_json FROM self_model_current').fetchone()[0])==p
+
+
+@pytest.mark.parametrize('damage', ['error_status', 'error_partial_reason', 'runtime_source', 'observation_clock'])
+def test_contradictory_evidence_is_rejected_before_read_projection(home, damage):
+    m=Memory(home/'memory.sqlite3')
+    with m.db:
+        m.db.execute("INSERT INTO events VALUES(1,999,'ERROR','synthetic','private','{}')")
+        m.db.execute('INSERT OR REPLACE INTO runtime VALUES(1,?)',(json.dumps(dict(heartbeat=1001,last_successful_cycle=1000,session_id='synthetic')),))
+    tid=record(m);assert update(m,tid)=='updated'
+    p=current(m)
+    if damage == 'error_status':
+        p['recent_failures']['value']['invalid_metadata_count']=1
+        p['recent_failures']['value']['latest_valid_event']=None
+    elif damage == 'error_partial_reason':
+        p['recent_failures']['reason']='partial_window'
+    elif damage == 'runtime_source':
+        p['sources']['runtime']['ids']=[]
+    else:
+        p['sources']['observation']['source_observed_at']=1002
+    with m.db:m.db.execute('UPDATE self_model_current SET data_json=?',(json.dumps(p),))
+    m.close()
+    result=SeedService(home,clock=lambda:1002).self_model()
+    assert result['available'] is False
+    assert result['reason']=='invalid_snapshot'
+    assert result['snapshot'] is None

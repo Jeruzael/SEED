@@ -342,3 +342,106 @@ def test_b7_never_rolls_back_a_transaction_it_failed_to_acquire(memory):
     finally:memory.db.set_authorizer(None)
     assert current(memory) is None and not memory.db.in_transaction
     assert memory.db.execute('PRAGMA busy_timeout').fetchone()[0]==2000
+
+
+class CleanupFailureConnection:
+    """Inject one cleanup fault while keeping actual SQLite transactions observable."""
+    def __init__(self, db, failure):
+        self.db, self.failure = db, failure
+        self.restoration_attempted = False
+        self.rollback_calls = 0
+        self.progress_removals = 0
+
+    def __getattr__(self, name):
+        return getattr(self.db, name)
+
+    def execute(self, sql, *args):
+        if sql == 'PRAGMA busy_timeout=2000':
+            self.restoration_attempted = True
+            if self.failure == 'timeout':
+                raise sqlite3.DatabaseError('synthetic timeout cleanup failure')
+        return self.db.execute(sql, *args)
+
+    def rollback(self):
+        self.rollback_calls += 1
+        if self.failure == 'rollback' or self.failure == 'diagnostic_rollback' and self.rollback_calls == 2:
+            raise sqlite3.DatabaseError('synthetic rollback cleanup failure')
+        return self.db.rollback()
+
+    def set_progress_handler(self, callback, n):
+        if callback is None:
+            self.progress_removals += 1
+            if self.failure == 'progress':
+                raise sqlite3.DatabaseError('synthetic progress cleanup failure')
+        return self.db.set_progress_handler(callback, n)
+
+
+@pytest.mark.parametrize('failure', ['timeout', 'rollback', 'progress', 'diagnostic_rollback'])
+def test_cleanup_faults_are_diagnosed_without_escaping_or_skipping_other_cleanup(memory, monkeypatch, caplog, failure):
+    import seed.self_model as module
+    from threading import Thread
+    tid=record(memory)
+    original=memory.db
+    proxy=CleanupFailureConnection(original, failure)
+    if failure in ('rollback', 'diagnostic_rollback'):
+        def invalid(*args):raise ValueError('synthetic invalid evidence')
+        monkeypatch.setattr(module, 'build_snapshot', invalid)
+    if failure == 'diagnostic_rollback':
+        original.execute("CREATE TRIGGER fail_diagnostic BEFORE INSERT ON events WHEN NEW.category='SELF_MODEL' BEGIN SELECT RAISE(ABORT,'diagnostic failed'); END")
+    memory.db=proxy
+    try:
+        assert update(memory,tid)=='failed'
+        assert proxy.restoration_attempted
+        assert proxy.progress_removals >= 1
+        assert 'Self model' in caplog.text and 'cleanup' in caplog.text.lower()
+        acquired=[]
+        def check_lock():
+            ok=memory._lock.acquire(blocking=False);acquired.append(ok)
+            if ok:memory._lock.release()
+        thread=Thread(target=check_lock);thread.start();thread.join()
+        assert acquired==[True]
+        assert original.execute('SELECT 1').fetchone()[0]==1
+        if failure == 'rollback':
+            # Ownership is uncertain: no second diagnostic transaction attempted.
+            assert proxy.rollback_calls == 1
+            assert not original.execute("SELECT 1 FROM events WHERE category='SELF_MODEL'").fetchone()
+        if failure == 'timeout':
+            # Commit happened, but failed cleanup must never report update success.
+            assert current(memory)['source_transition_id']==tid
+    finally:
+        memory.db=original
+        original.set_progress_handler(None,0)
+        original.rollback()
+        original.execute('PRAGMA busy_timeout=2000')
+
+
+@pytest.mark.parametrize('interrupt', [KeyboardInterrupt, SystemExit])
+def test_cleanup_failure_never_masks_interrupt(memory, monkeypatch, interrupt):
+    import seed.self_model as module
+    tid=record(memory);original=memory.db
+    proxy=CleanupFailureConnection(original,'progress')
+    def stop(*args):raise interrupt('synthetic interruption')
+    monkeypatch.setattr(module,'build_snapshot',stop)
+    memory.db=proxy
+    try:
+        with pytest.raises(interrupt,match='synthetic interruption'):update(memory,tid)
+        assert proxy.restoration_attempted
+        assert not original.in_transaction
+    finally:
+        memory.db=original
+        original.set_progress_handler(None,0)
+        original.rollback()
+        original.execute('PRAGMA busy_timeout=2000')
+
+
+@pytest.mark.parametrize('interrupt', [KeyboardInterrupt, SystemExit])
+def test_interrupt_during_failure_diagnostic_still_restores_connection(memory, monkeypatch, interrupt):
+    import seed.self_model as module
+    tid=record(memory)
+    def invalid(*args):raise ValueError('synthetic invalid evidence')
+    def interrupt_diagnostic(*args):raise interrupt('synthetic diagnostic interruption')
+    monkeypatch.setattr(module,'build_snapshot',invalid)
+    monkeypatch.setattr(module,'emit',interrupt_diagnostic)
+    with pytest.raises(interrupt,match='synthetic diagnostic interruption'):update(memory,tid)
+    assert not memory.db.in_transaction
+    assert memory.db.execute('PRAGMA busy_timeout').fetchone()[0]==2000

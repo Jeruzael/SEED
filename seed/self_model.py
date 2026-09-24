@@ -464,6 +464,9 @@ def validate_snapshot(p):
         f = p['observations'][name]
         require(f['value'] is None or sensor_valid(name, f['value']))
         require(f['status'] in ('available', 'unavailable', 'stale', 'error'))
+        if f['status'] in ('available', 'stale'):
+            require(number(sources['observation']['source_observed_at'], 0,
+                           sources['transition']['source_observed_at']))
     for name in RESOURCES: require(p['resources'][name] == 'observations.' + name)
     for name, work in ACTIONS.items():
         require(all(p['capabilities']['actions'][name]['value'][k] is True for k in ('implemented', 'selectable', 'owner_controlled')))
@@ -513,6 +516,7 @@ def validate_snapshot(p):
             require(run['suppression_reason'] in ('high_load', 'low_battery', 'low_disk') if run['status'] == 'suppressed' else run['suppression_reason'] is None)
     runtime = p['memory']['runtime_reported']['value']
     if runtime is not None:
+        require(sources['runtime']['ids'] == [1])
         keys(runtime, ('heartbeat', 'last_successful_cycle', 'session_id'))
         require(number(runtime['heartbeat']) and (runtime['last_successful_cycle'] is None or number(runtime['last_successful_cycle'])) and text(runtime['session_id']))
         require(runtime['heartbeat'] == sources['runtime']['source_observed_at'])
@@ -531,6 +535,15 @@ def validate_snapshot(p):
         require(latest['id'] in ids and number(latest['ts'], 0, p['measured_at']) and latest['category'] == 'ERROR' and text(latest['source']))
     else:
         require(f['count'] == f['invalid_metadata_count'])
+    failure_field = p['recent_failures']
+    valid_count = f['count'] - f['invalid_metadata_count']
+    require((latest is not None) == (valid_count > 0))
+    if f['count'] and not valid_count:
+        require(failure_field['status'] == 'error' and failure_field['reason'] == 'invalid_value')
+    else:
+        # At publication this source clock equals measured_at, so it cannot be stale.
+        require(failure_field['status'] == 'available')
+        require(failure_field['reason'] == ('partial_window' if f['invalid_metadata_count'] else None))
     # Also enforce global structural/byte bounds for callers supplying dictionaries.
     bounded_json(json.dumps(p, ensure_ascii=True, allow_nan=False), SNAPSHOT_BYTES)
     return p
@@ -553,7 +566,7 @@ def project_snapshot(payload, read_at):
 
 
 @contextmanager
-def sql_budget(db, stop_event=None, operations=100000):
+def sql_budget(db, stop_event=None, operations=100000, cleanup_errors=None):
     """Scoped on a connection owned by this caller; no existing callback is installed."""
     ticks = 0
     def progress():
@@ -564,7 +577,12 @@ def sql_budget(db, stop_event=None, operations=100000):
     try:
         yield
     finally:
-        db.set_progress_handler(None, 0)
+        try:
+            db.set_progress_handler(None, 0)
+        except Exception:
+            if cleanup_errors is None:
+                raise
+            cleanup_errors.append('progress_handler')
 
 
 def _read_evidence(db, tid):
@@ -601,65 +619,87 @@ class SelfModel:
             return 'skipped'
         db = self.memory.db
         timeout = None
-        owned = False
+        configured = owned = False
+        result, failure_reason = 'skipped', None
+        cleanup_errors = []
         try:
             if stop_event.is_set() or db.in_transaction:
                 return 'skipped'
             require(integer(transition_id, 1) and text(session_id))
             timeout = db.execute('PRAGMA busy_timeout').fetchone()[0]
             db.execute('PRAGMA busy_timeout=0')
-            with sql_budget(db, stop_event):
+            configured = True
+            with sql_budget(db, stop_event, cleanup_errors=cleanup_errors):
                 db.execute('BEGIN IMMEDIATE')
                 owned = True
                 prior = db.execute('SELECT source_transition_id FROM self_model_current WHERE singleton=1').fetchone()
-                if prior and integer(prior[0], 1) and prior[0] >= transition_id:
-                    db.rollback()
-                    owned = False
-                    return 'skipped'
-                p = build_snapshot(_read_evidence(db, transition_id), self.clock(), transition_id, session_id)
-                raw = json.dumps(p, ensure_ascii=True, allow_nan=False, separators=(',', ':'))
-                summary = dict(model=MODEL, model_version=1, source_transition_id=transition_id, status='updated',
-                    field_status_counts=dict(Counter({s: 0 for s in STATUSES}) + Counter(f['status'] for f in envelopes(p))),
-                    prediction_sample_count=p['prediction_performance']['score']['value']['samples'],
-                    recent_failure_count=p['recent_failures']['value']['count'], source_event_id=p['source_event_id'])
-                summary['field_status_counts'] = {s: summary['field_status_counts'].get(s, 0) for s in STATUSES}
-                require(len(json.dumps(summary).encode()) <= 1024)
-                db.execute('''INSERT INTO self_model_current VALUES(1,?,?,?,?,?) ON CONFLICT(singleton) DO UPDATE SET
-                    updated_at=excluded.updated_at,model=excluded.model,model_version=excluded.model_version,
-                    source_transition_id=excluded.source_transition_id,data_json=excluded.data_json''',
-                    (p['measured_at'], MODEL, MODEL_VERSION, transition_id, raw))
-                emit(db, 'SELF_MODEL', 'self_model', 'Self model snapshot updated', summary)
-                if stop_event.is_set():
-                    db.rollback()
-                    owned = False
-                    return 'skipped'
-                db.commit()
-                owned = False
-                return 'updated'
+                if not (prior and integer(prior[0], 1) and prior[0] >= transition_id):
+                    p = build_snapshot(_read_evidence(db, transition_id), self.clock(), transition_id, session_id)
+                    raw = json.dumps(p, ensure_ascii=True, allow_nan=False, separators=(',', ':'))
+                    summary = dict(model=MODEL, model_version=1, source_transition_id=transition_id, status='updated',
+                        field_status_counts=dict(Counter({s: 0 for s in STATUSES}) + Counter(f['status'] for f in envelopes(p))),
+                        prediction_sample_count=p['prediction_performance']['score']['value']['samples'],
+                        recent_failure_count=p['recent_failures']['value']['count'], source_event_id=p['source_event_id'])
+                    summary['field_status_counts'] = {s: summary['field_status_counts'].get(s, 0) for s in STATUSES}
+                    require(len(json.dumps(summary).encode()) <= 1024)
+                    db.execute('''INSERT INTO self_model_current VALUES(1,?,?,?,?,?) ON CONFLICT(singleton) DO UPDATE SET
+                        updated_at=excluded.updated_at,model=excluded.model,model_version=excluded.model_version,
+                        source_transition_id=excluded.source_transition_id,data_json=excluded.data_json''',
+                        (p['measured_at'], MODEL, MODEL_VERSION, transition_id, raw))
+                    emit(db, 'SELF_MODEL', 'self_model', 'Self model snapshot updated', summary)
+                    if not stop_event.is_set():
+                        db.commit()
+                        owned = False
+                        result = 'updated'
         except Exception as exc:
-            if owned:
-                db.rollback()
-                owned = False
-            if not stop_event.is_set():
-                self._failure(transition_id, 'storage_failed' if isinstance(exc, sqlite3.Error) else 'invalid_snapshot')
-            return 'skipped' if stop_event.is_set() else 'failed'
+            result = 'skipped' if stop_event.is_set() else 'failed'
+            failure_reason = 'storage_failed' if isinstance(exc, sqlite3.Error) else 'invalid_snapshot'
         finally:
+            # Each cleanup is independent. A failed rollback or handler removal leaves
+            # ownership uncertain: log only, without attempting a diagnostic transaction.
             try:
-                if owned: db.rollback()
-                if timeout is not None: db.execute(f'PRAGMA busy_timeout={int(timeout)}')
+                try:
+                    if owned:
+                        try:
+                            db.rollback()
+                        except Exception:
+                            cleanup_errors.append('rollback')
+                    if failure_reason and not stop_event.is_set():
+                        if configured and not cleanup_errors:
+                            self._failure(transition_id, failure_reason, cleanup_errors)
+                        else:
+                            log.warning('Self model update failed; durable diagnostic unavailable')
+                finally:
+                    if timeout is not None:
+                        try:
+                            db.execute(f'PRAGMA busy_timeout={int(timeout)}')
+                        except Exception:
+                            cleanup_errors.append('busy_timeout')
+                    if cleanup_errors:
+                        log.warning('Self model cleanup failed; connection state may be unusable')
             finally:
                 self.memory._lock.release()
+        return 'failed' if cleanup_errors else result
 
-    def _failure(self, transition_id, reason):
+    def _failure(self, transition_id, reason, cleanup_errors):
         db = self.memory.db
+        owned = False
         try:
-            if db.in_transaction: return
-            with sql_budget(db, operations=2000):
+            if db.in_transaction:
+                return
+            with sql_budget(db, operations=2000, cleanup_errors=cleanup_errors):
                 db.execute('BEGIN IMMEDIATE')
+                owned = True
                 emit(db, 'SELF_MODEL', 'self_model', 'Self model update failed',
                      dict(model=MODEL, model_version=1, source_transition_id=transition_id if integer(transition_id, 1) else None,
                           status='failed', reason=reason))
                 db.commit()
+                owned = False
         except Exception:
-            db.rollback()
             log.warning('Self model update failed; durable diagnostic unavailable')
+        finally:
+            if owned:
+                try:
+                    db.rollback()
+                except Exception:
+                    cleanup_errors.append('diagnostic_rollback')
