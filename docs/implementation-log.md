@@ -4,7 +4,18 @@ This is a navigation index. The [development tracker](seed-0.2-development-plan.
 
 ## Current verified state
 
-**SEED 0.2 is verified through B6**, implemented in commit **dc225af**. Current schema is **v5**. The recorded full suite has **497 passing tests**, zero skips, and two existing dependency deprecation warnings. B7 is ready for separately authorized design and implementation; B7–B10 remain unstarted.
+**SEED 0.2 is verified through B6**, with subsequent hardening and macOS CI
+portability correction closed at source/CI level on master
+`585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR #9 merge). Current schema remains
+**v5**. Fresh 2026-09-24 local baseline: **542 passed**, zero failed/skipped, two
+existing dependency warnings; all five scenario outputs unchanged. Historical B6
+acceptance remains **497 passed** at **dc225af**.
+
+**B7 design/specification is COMPLETE FOR OWNER REVIEW. B7 implementation is NOT
+STARTED.** The [B7 design](superpowers/specs/2026-09-23-b7-self-model-design.md)
+and [execution record](seed-0.2-development-plan.md#b7-design-execution-record--2026-09-24)
+define the proposed singleton, evidence/freshness contract and tests. Implementation
+requires separate authorization after review. B8–B10 remain unstarted.
 
 | Batch | Status | Capability | Evidence |
 | --- | --- | --- | --- |
@@ -15,13 +26,23 @@ This is a navigation index. The [development tracker](seed-0.2-development-plan.
 | B4 | VERIFIED | Persistent descriptive world model | [Execution record](seed-0.2-development-plan.md#b4-execution-log--2026-09-22), [comparison](baselines/seed-0.2-b4-comparison.json) |
 | B5 | VERIFIED | Bounded computational curiosity | [Execution record](seed-0.2-development-plan.md#b5-execution-log--2026-09-22), [comparison](baselines/seed-0.2-b5-comparison.json) |
 | B6 | VERIFIED | Semantic memory consolidation | [Execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23), [comparison](baselines/seed-0.2-b6-comparison.json) |
-| B7–B10 | NOT STARTED | Self model, decision upgrade, development UI, evaluation | Separate authorization required |
+| B7 | NOT STARTED | Self Model design complete for owner review | [Design](superpowers/specs/2026-09-23-b7-self-model-design.md); separate implementation authorization required |
+| B8–B10 | NOT STARTED | Decision upgrade, development UI, evaluation | Separate authorization required |
 
 ## Post-B6 hardening — separate from B7
 
-The [2026-09-23 hardening record](reviews/2026-09-23-post-b6-hardening.md) covers the corrected battery parser, explicit source/runtime/dashboard/schema metadata, and a pinned least-privilege CI workflow. The pre-B7 wording follow-up passes **540 tests** locally on macOS/Python 3.13 and all five scenarios. Historical B0–B6 counts and artifacts are preserved.
+The [2026-09-23 hardening record](reviews/2026-09-23-post-b6-hardening.md) covers
+the battery parser, source/runtime/schema metadata, wording and CI follow-ups.
+The historical wording checkpoint passed 540 tests; the subsequent macOS isolation
+correction brought the verified baseline to 542. All seven B0–B6 artifacts remain
+unchanged. The exact-master [Actions run](https://github.com/Jeruzael/SEED/actions/runs/35884486727)
+has successful Linux Python 3.11/3.13 and macOS Python 3.13 jobs. Source/CI closure
+does not mean installed-device deployment or validation.
 
-[Verification instructions](verification.md) document reproducible evidence, pending hosted matrix checks and owner-controlled merge settings. The [low-disk decision mismatch](review-follow-ups.md) remains **OPEN: separate owner authorization required**. No B7–B10 or deployment work is included.
+[Verification instructions](verification.md) provide reproduction guidance;
+older pending-check statements describe their recorded checkpoint. The
+[low-disk decision mismatch](review-follow-ups.md) remains **OPEN: separate owner
+authorization required**. This B7 design task changes no runtime behavior.
 
 ## Current boundaries
 

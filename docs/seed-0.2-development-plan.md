@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: post-B6 hardening H0–H5, explicitly authorized on 2026-09-23. B0–B6 remain VERIFIED. Hardening is tracked separately below; B7–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
+**Current authorization: B7 design/specification only, explicitly authorized by the owner; completed for owner review on 2026-09-24. B7 implementation is NOT STARTED and requires separate authorization after design review. B0–B6 remain VERIFIED; post-B6 hardening and macOS portability correction are closed at source/CI level. B8–B10 remain NOT STARTED and unauthorized.** Broader dashboard implementation and installed-organism deployment remain separate. See the [B7 design](superpowers/specs/2026-09-23-b7-self-model-design.md) and [design execution record](#b7-design-execution-record--2026-09-24). Historical entries below retain the status and evidence recorded at their own dates.
 
 ## Objective and architectural transition
 
@@ -60,7 +60,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B4 | World Model | VERIFIED | B1, B3 | Full suite: 327 passed; independent review: 75 B4 tests passed | Schema v3; prospective persistent descriptive statistics; no behavioral influence |
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
-| B7 | Self Model | NOT STARTED | B3, B6 | Not added or executed for B7 | Evidence-grounded capabilities, accuracy, resources, and limitations |
+| B7 | Self Model | NOT STARTED | B3, B6 | No B7 tests added; current baseline: 542 passed | Design/specification COMPLETE FOR OWNER REVIEW; separate implementation authorization required |
 | B8 | Decision-System Upgrade | NOT STARTED | B5, B7 | Not added or executed for B8 | Combine decision signals while retaining Q-value compatibility |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
@@ -1753,3 +1753,73 @@ skips, two existing warnings; all five scenarios and historical baseline hashes
 unchanged. Hosted CI and final independent review are pending at this checkpoint.
 The [hardening review](reviews/2026-09-23-post-b6-hardening.md) records closure
 progress. Low-disk mismatch stays OPEN; B7–B10 remain NOT STARTED.
+
+
+## B7 design execution record — 2026-09-24
+
+**Authorization:** the owner's SEED_B7_Self_Model_Design_Instructions.md and explicit
+“please proceed” authorize design/specification only. No implementation, migration,
+API, test, frontend, deployment or later batch is authorized by this record.
+
+**Starting state:** clean master and origin/master at
+`585affec56ddb0e4580f6df6926b9b6bde291dc0`, PR #9 merge, then a new dedicated
+`seed-0.2-b7` branch. Previous branches and history were preserved. Current schema
+remains v5 and core version 0.2. The post-merge Actions run
+[35884486727](https://github.com/Jeruzael/SEED/actions/runs/35884486727) has successful
+linux-py311, linux-py313 and macos-py313 jobs on that exact SHA; job metadata was
+reconfirmed during this design audit. Owner-provided post-merge evidence reports
+542 passes per job. No new hosted artifact download audit is claimed here.
+
+**Fresh baseline:** `.venv/bin/python -m pytest -q` → **542 passed, zero failures or
+skips, two existing dependency warnings**, exit 0, macOS 26.5.1 arm64 / Python 3.13.15.
+Each of the following standalone commands exited 0 with valid JSON, exactly matching
+the preceding portability-correction output:
+
+- `.venv/bin/python -m tests.baseline_scenario`
+- `.venv/bin/python -m tests.prediction_error_scenario`
+- `.venv/bin/python -m tests.world_model_scenario`
+- `.venv/bin/python -m tests.curiosity_scenario`
+- `.venv/bin/python -m tests.semantic_scenario`
+
+All execution used synthetic data and resolved temporary homes. Audit output is
+local ignored `.review-artifacts/b7-design/`. Dependency lock and all seven
+historical baseline hashes remain unchanged. No dependencies were installed.
+
+**Deliverable:** [Self Model design](superpowers/specs/2026-09-23-b7-self-model-design.md).
+The requested filename date is preserved; actual preparation/review is 2026-09-24.
+The required source, documentation and test inventory was read completely, with
+migration and scenario fixtures inspected. A written 12-point self-review is
+included in the spec. This is an inline self-review, not an independent code review.
+
+**Design decision:** select a bounded persisted current snapshot over derived-only
+inspection and a revision ledger. Proposed schema v6 adds only self_model_current
+(singleton, updated_at, model, model_version, source_transition_id, data_json).
+The proposed update follows committed experience, B4 recovery and optional curiosity
+reflection, before final runtime telemetry; it has no upstream consumers. Source
+cutoffs, status/freshness policies, atomic bounded telemetry, restart/failure behavior,
+readonly inspection, complete synthetic JSON examples, acceptance scenario and
+concrete test/file map are specified. No proposed schema or API is implemented.
+
+**Important boundaries resolved:** static action selectability is separate from
+substantive audited work; consolidation audits have no invented transition linkage;
+recorded prior runtime success does not claim current completion; count queries
+saturate instead of scanning all history; migration explicitly passes through v5;
+existing event retention remains within the bounded B7 transaction. Low-disk reward
+versus consolidation suppression remains OPEN for B8 or separately authorized work.
+
+**Files changed:** exactly this tracker, docs/implementation-log.md and the new
+B7 design spec. No code, tests, migrations, dependencies, README, architecture guide,
+baseline artifacts or installed data changed. Validation covers required spec
+sections, strict JSON examples, proposed DDL syntax in an in-memory scratch DB,
+relative links, whitespace, exact documentation-only scope and baseline hashes.
+These are documentation checks, not execution of B7 acceptance tests.
+
+**Delivery:** documentation-only commit `docs: design B7 self model` on seed-0.2-b7;
+resolved commit identity is supplied in the handoff. Branch push for inspection is
+permitted; no merge or implementation PR. Implementation remains behind owner
+review and a separate follow-up authorization.
+
+B7 design/specification: **COMPLETE FOR OWNER REVIEW**.
+B7 implementation: **NOT STARTED**.
+B8–B10: **NOT STARTED**.
+Installed organism: **UNTOUCHED**.
