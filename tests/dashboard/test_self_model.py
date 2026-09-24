@@ -76,3 +76,33 @@ def test_missing_home_and_operator_table_guard(tmp_path,home):
     assert not absent.exists()
     with sqlite3.connect(home/'memory.sqlite3') as db:db.execute('DROP TABLE self_model_current')
     with pytest.raises(ServiceError):create_app(home,operator=True)
+
+
+def test_read_query_budget_and_sql_write_denial(home):
+    from contextlib import contextmanager
+    from dashboard.services.read_store import ReadStore
+    from dashboard.services.self_model import SelfModelReadService
+    publish(home);store=ReadStore(home);queries=[]
+    original=store.connection
+    @contextmanager
+    def observed():
+        with original() as db:
+            db.set_trace_callback(queries.append)
+            denied={sqlite3.SQLITE_INSERT,sqlite3.SQLITE_UPDATE,sqlite3.SQLITE_DELETE,sqlite3.SQLITE_CREATE_TABLE,sqlite3.SQLITE_DROP_TABLE}
+            db.set_authorizer(lambda operation,*args:sqlite3.SQLITE_DENY if operation in denied else sqlite3.SQLITE_OK)
+            yield db
+    store.connection=observed
+    result=SelfModelReadService(store,clock=lambda:1002).get()
+    assert result['available']
+    assert len([q for q in queries if q.startswith('SELECT')])==4
+    assert len(json.dumps(result).encode())<=40960
+
+
+def test_clock_rollback_projects_error_without_mutating_source(home):
+    p=publish(home)
+    s=SeedService(home,clock=lambda:999)
+    result=s.self_model()
+    assert result['snapshot']['observations']['network']['status']=='error'
+    assert result['snapshot']['measured_at']==p['measured_at']
+    with sqlite3.connect(home/'memory.sqlite3') as db:
+        assert json.loads(db.execute('SELECT data_json FROM self_model_current').fetchone()[0])==p

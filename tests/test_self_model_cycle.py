@@ -87,3 +87,32 @@ def test_update_follows_attention_and_stop_remains_authoritative(home,monkeypatc
         core.cycle()
         assert current(core.memory)==old and core.stop_event.is_set()
     finally:core.close()
+
+
+def test_normal_cycle_keeps_exactly_two_existing_network_probes(home,monkeypatch):
+    import socket
+    import seed.body as body
+    probes=[]
+    class Connection:
+        def __enter__(self):return self
+        def __exit__(self,*args):return False
+    def connect(address,timeout):
+        probes.append((address,timeout));return Connection()
+    monkeypatch.setattr(socket,'create_connection',connect)
+    from types import SimpleNamespace
+    monkeypatch.setattr(body,'battery_state',lambda:(80,True))
+    monkeypatch.setattr(body.shutil,'disk_usage',lambda _:SimpleNamespace(total=100,free=70))
+    monkeypatch.setattr(body.os,'getloadavg',lambda:(.2,.3,.4))
+    monkeypatch.setattr(body.os,'cpu_count',lambda:1)
+    monkeypatch.setattr(body.platform,'node',lambda:'synthetic')
+    monkeypatch.setattr(body.platform,'machine',lambda:'synthetic')
+    monkeypatch.setattr(body.platform,'mac_ver',lambda:('synthetic',(),''))
+    monkeypatch.setattr(body.time,'time',lambda:1002)
+    localtime=body.time.localtime
+    monkeypatch.setattr(body.time,'localtime',lambda *args:localtime(1002))
+    core=SeedOrganism(home)
+    try:
+        core.cycle()
+        assert current(core.memory) is not None
+        assert probes==[(('1.1.1.1',443),1.0)]*2
+    finally:core.close()

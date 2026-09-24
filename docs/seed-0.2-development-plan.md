@@ -2,13 +2,13 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B7 design/specification only, explicitly authorized by the owner; completed for owner review on 2026-09-24. B7 implementation is NOT STARTED and requires separate authorization after design review. B0–B6 remain VERIFIED; post-B6 hardening and macOS portability correction are closed at source/CI level. B8–B10 remain NOT STARTED and unauthorized.** Broader dashboard implementation and installed-organism deployment remain separate. See the [B7 design](superpowers/specs/2026-09-23-b7-self-model-design.md) and [design execution record](#b7-design-execution-record--2026-09-24). Historical entries below retain the status and evidence recorded at their own dates.
+**Current authorization: owner-approved B7 implementation, following approval of the written design. B7 is IMPLEMENTED; 634 local tests pass. Independent review and hosted B7 CI remain pending. B0–B6 remain VERIFIED; post-B6 hardening and macOS portability correction are closed at source/CI level. B8–B10 remain NOT STARTED and unauthorized.** Installed-organism deployment remains separate. See the [B7 implementation record](#b7-implementation-record--2026-09-24). Historical entries below retain their original status and evidence.
 
 ## Objective and architectural transition
 
 SEED means **Situated Experiential Emergent Development**. Evolve the existing Germination prototype incrementally into a system that learns from observed consequences and prediction error, while keeping behavior inspectable, reproducible, and under owner control.
 
-The B6 autonomous cycle in `seed/organism.py` is:
+The B7 autonomous cycle in `seed/organism.py` is:
 
 ```text
 perceive state_before
@@ -24,6 +24,8 @@ perceive state_before
 → atomically store episode, transition, prediction, evaluation, curiosity, and B4 eligibility
 → process at most 100 queued transitions into persistent descriptive world beliefs
 → optionally claim and perform one guarded existing internal reflection
+→ publish one bounded descriptive self-model snapshot
+→ record final runtime telemetry
 ```
 
 The target architecture is:
@@ -60,7 +62,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B4 | World Model | VERIFIED | B1, B3 | Full suite: 327 passed; independent review: 75 B4 tests passed | Schema v3; prospective persistent descriptive statistics; no behavioral influence |
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
-| B7 | Self Model | NOT STARTED | B3, B6 | No B7 tests added; current baseline: 542 passed | Design/specification COMPLETE FOR OWNER REVIEW; separate implementation authorization required |
+| B7 | Self Model | IMPLEMENTED | B3, B6 | 634 local tests pass; review and hosted CI pending | Schema v6; bounded descriptive singleton; no upstream influence |
 | B8 | Decision-System Upgrade | NOT STARTED | B5, B7 | Not added or executed for B8 | Combine decision signals while retaining Q-value compatibility |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
@@ -1823,3 +1825,28 @@ B7 design/specification: **COMPLETE FOR OWNER REVIEW**.
 B7 implementation: **NOT STARTED**.
 B8–B10: **NOT STARTED**.
 Installed organism: **UNTOUCHED**.
+
+
+## B7 implementation record — 2026-09-24
+
+The owner approved the written design at `89f4561bee0a8bca930a329f88bbaef5af3e82e1` and explicitly requested implementation and continuation. Native execution continues on `seed-0.2-b7`, based on verified master `585affec56ddb0e4580f6df6926b9b6bde291dc0`. The [implementation plan](superpowers/plans/2026-09-24-seed-b7.md) records tasks and review focus. No installed process, installed memory, launch configuration or deployment changed.
+
+### Implementation and preservation
+
+Schema v6 adds only `self_model_current`, initially empty. Existing supported memory is backed up before transactional additive migration; failure rolls back every earlier schema path. Original records and historical missing values remain untouched. Snapshot publication and its bounded existing-style SELF_MODEL event are atomic, including event retention. Busy/VM limits, stop, duplicate, rollback and connection restoration have regression coverage.
+
+The publisher runs once after optional reflection and before final cycle runtime. Fixed source registries describe committed observations, prediction performance, bounded storage counts, the action catalog, independent consolidation audit, stored runtime and retained ERROR records. It performs no perception, process probe, network call, policy update or semantic work. The parameter-free read-only `/api/self-model` validates nested payloads and projects freshness from original source clocks; startup and reads never refresh evidence.
+
+Limits: 100 raw evaluations (invalid records consume the window); 100 retained errors plus one lookahead; four storage counts capped at 1,001; 14 evidence reads plus timeout read; 100,000 SQLite VM steps; zero busy wait; 16 KiB source JSON, 32 KiB snapshot, 1 KiB telemetry and 40 KiB API response. Counts beyond 1,000 are lower bounds. Recorded failures are not a lifetime rate, logical page size is not filesystem footprint, and prediction scores are not calibrated competence.
+
+Commits: `b39a6bd` schema and preservation, `abaf736` bounded publisher, `3c6e8a1` downstream cycle and observer. Tests were run failing before each implementation. No test was removed, skipped or excluded. Strict event expectations add only the downstream SELF_MODEL event; historical comparison tests permit only actual schema and additive database-footprint differences.
+
+### Verification evidence
+
+Fresh local full suite: **634 passed, zero skipped, two existing dependency warnings**, Python 3.13.15. Coverage includes v5 backups and rows, all earlier migration rollbacks, exact metric denominators, nested corruption, raw-window exclusion, 1,000/1,001 count boundary, independent source clocks, retained-error provenance, transactional event retention, interrupted connection restoration, failed write preservation, no-op restart, owner-command isolation and a four-read observer query budget.
+
+All four actions, with curiosity enabled and disabled, run in pairs against absent, valid, corrupt, failed-write and disabled self models. Actions, rewards, predictions, evaluations, Q values, learning parameters, world processing, curiosity, semantic records, delays and perception counts remain equal. A separate real Body probe test uses synthetic host sensors and a stubbed socket, proving exactly the two existing fixed reachability calls.
+
+The new deterministic [comparison artifact](baselines/seed-0.2-b7-comparison.json) records all seven immutable historical hashes and reproduces fresh, insufficient, scored, stale, failure, restart, suppressed-consolidation and paired-policy cases. Three valid B3 evaluations produce coverage **5/12**, error **.06**, accuracy **.94**, with **two** scored samples. Consolidation remains selectable when its last audit reports low_disk suppression. This verifies reporting, not a reward-policy fix or a developmental improvement claim.
+
+All six standalone scenario CLIs pass with synthetic temporary homes and strict JSON. Compileall and git diff --check pass. All seven historical artifact hashes and bytes match the approved-design base; learner, sensors, predictor, evaluator, world model, curiosity/attention, semantic engine, commands, configuration, telemetry, Memory and dependency lock remain byte-identical. Independent review and hosted CI are pending below. B7 status remains **IMPLEMENTED** until required acceptance evidence is complete. B8–B10 remain **NOT STARTED**. The existing low-disk decision mismatch stays open for separate authorization.

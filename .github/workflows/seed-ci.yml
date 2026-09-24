@@ -90,7 +90,7 @@ jobs:
           set -euo pipefail
           trap 'status=$?; printf "%s\n" "$status" > .review-artifacts/ci/scenarios.exit; exit "$status"' EXIT
           mkdir -p .review-artifacts/ci/scenarios
-          for scenario in baseline_scenario prediction_error_scenario world_model_scenario curiosity_scenario semantic_scenario; do
+          for scenario in baseline_scenario prediction_error_scenario world_model_scenario curiosity_scenario semantic_scenario self_model_scenario; do
             python -m "tests.${scenario}" > ".review-artifacts/ci/scenarios/${scenario}.json" 2> ".review-artifacts/ci/scenarios/${scenario}.stderr.log"
             python -m json.tool ".review-artifacts/ci/scenarios/${scenario}.json" > /dev/null
           done
