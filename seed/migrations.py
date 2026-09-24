@@ -1,7 +1,7 @@
 """Additive migrations: original episode, concept, policy and identity rows stay intact."""
 import sqlite3
 
-VERSION = 5
+VERSION = 6
 STATEMENTS = [
     'CREATE TABLE seed_schema(version INTEGER NOT NULL)',
     '''CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL,
@@ -118,12 +118,17 @@ V5_STATEMENTS = [
 ]
 
 
+V6_STATEMENTS = [
+    "CREATE TABLE self_model_current (\n    singleton INTEGER PRIMARY KEY CHECK(singleton = 1),\n    updated_at REAL NOT NULL CHECK(updated_at >= 0),\n    model TEXT NOT NULL CHECK(model = 'self_model_v1'),\n    model_version INTEGER NOT NULL CHECK(model_version = 1),\n    source_transition_id INTEGER NOT NULL REFERENCES transitions(id)\n        CHECK(source_transition_id > 0),\n    data_json TEXT NOT NULL\n        CHECK(length(CAST(data_json AS BLOB)) <= 32768)\n);"
+]
+
+
 def schema_version(db: sqlite3.Connection) -> int:
     """Return 0 for unversioned storage; refuse ambiguous/unsupported versions."""
     if not db.execute("SELECT 1 FROM sqlite_master WHERE name='seed_schema'").fetchone():
         return 0
     rows = db.execute('SELECT version FROM seed_schema').fetchall()
-    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, 2, 3, 4, VERSION):
+    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, 2, 3, 4, 5, VERSION):
         raise ValueError('Unsupported SEED schema version')
     return rows[0][0]
 
@@ -154,6 +159,11 @@ def migrate(db: sqlite3.Connection) -> None:
             version = 4
         if version == 4:
             for statement in V5_STATEMENTS:
+                db.execute(statement)
+            db.execute('UPDATE seed_schema SET version=5')
+            version = 5
+        if version == 5:
+            for statement in V6_STATEMENTS:
                 db.execute(statement)
             db.execute('UPDATE seed_schema SET version=?', (VERSION,))
         db.commit()

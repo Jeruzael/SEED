@@ -132,6 +132,6 @@ def test_prediction_joins_atomic_experience_and_does_not_backfill(home):
         assert [r[0] for r in rows] == [old_transition,new_transition]
         assert rows[0][1] is None and json.loads(rows[1][1]) == payload
         assert all(r[2] is None for r in rows)
-        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 5
+        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 6
     finally:
         core.close()

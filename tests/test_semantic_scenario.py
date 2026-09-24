@@ -7,7 +7,7 @@ import pytest
 def test_deterministic_semantic_revision_scenario(tmp_path):
     from tests.semantic_scenario import run_scenario
     result=run_scenario(tmp_path)
-    assert result['schema_version']==5
+    assert result['schema_version']==6
     stages=result['stages']
     assert [s['run']['created_count'] for s in stages]==[2,0,0,0]
     assert [s['run']['revised_count'] for s in stages]==[0,0,0,2]
@@ -45,4 +45,13 @@ def test_b5_compatibility_and_saved_b6_artifact(tmp_path):
     expected['source_sha256']=expected.pop('unchanged_b5_source_sha256')
     expected['source_sha256']['body.py']=hashlib.sha256(
         (Path(__file__).parents[1]/'seed/body.py').read_bytes()).hexdigest()
+    # B7 adds storage only; compare every other historical behavioral field.
+    for key in ('curiosity','world_model','semantic_memory'):
+        assert result[key]['schema_version']==6
+        expected[key]['schema_version']=6
+    for case in expected['evaluation_snapshot']['cases'].values():
+        case['schema_version']=6
+    for key in ('database_footprint','database_page_count'):
+        result['control'].pop(key)
+        expected['control'].pop(key)
     assert result==expected

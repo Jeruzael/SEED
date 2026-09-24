@@ -53,7 +53,7 @@ def test_upgrade_to_current_preserves_all_rows_and_backup(kind, tmp_path, legacy
             before = snapshot(db)
     m = Memory(target / 'memory.sqlite3')
     try:
-        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 5
+        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 6
         assert m.db.execute('SELECT count(*) FROM transitions').fetchone()[0] == 0
     finally:
         m.close()
