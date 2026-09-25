@@ -4,7 +4,7 @@
 
 SEED is an experimental developmental agent that treats a MacBook as its body and first environment. It observes local conditions, remembers experience, predicts immediate outcomes, measures prediction error, and retains descriptive patterns within owner-controlled boundaries.
 
-**Current source: SEED 0.2 — B7 implemented and locally tested.** SQLite schema **v6**. The current suite passes **646 tests**, with no skips and two existing dependency warnings. Independent review findings are fixed and regression-tested; hosted B7 CI is pending; the [tracker](docs/seed-0.2-development-plan.md#b7-implementation-record--2026-09-24) records delivery evidence. The installed application may be older; source updates do not install, restart, or migrate the live organism.
+**Current source: SEED 0.2 — verified through B7.** SQLite schema **v6**. Post-merge [hosted verification](https://github.com/Jeruzael/SEED/actions/runs/36104979944) passed **646 tests on each job**: Linux Python 3.11.16, Linux Python 3.13.15, and macOS Python 3.13.15, on master `ab7c2b45508828685fc9b0a65807e08cee1cff98`. All six standalone scenarios passed on both Python 3.13 jobs. The [closure record](docs/seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25) documents source/CI evidence. Deployment/live-device validation was **not performed**; source updates do not install, restart, or migrate the live organism.
 
 Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. The macOS test-isolation correction passes **542 tests** locally and on all three hosted Linux/macOS jobs for correction commit `cb70d00`; all verification artifacts were inspected. [Corrective PR #9](https://github.com/Jeruzael/SEED/pull/9) records checks for its current head. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
 
@@ -17,7 +17,7 @@ Post-B6 hardening corrects current battery-state parsing, separates source and r
 | B4 | Persistent descriptive world model | VERIFIED |
 | B5 | Bounded computational curiosity | VERIFIED |
 | B6 | Semantic memory consolidation | VERIFIED |
-| B7 | Descriptive self model | IMPLEMENTED; local checks pass |
+| B7 | Descriptive self model | VERIFIED |
 | B8–B10 | Decision upgrade, development UI, evaluation | NOT STARTED |
 
 See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B8–B10 require separate explicit authorization.

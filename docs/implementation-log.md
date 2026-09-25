@@ -4,7 +4,7 @@ This is a navigation index. The [development tracker](seed-0.2-development-plan.
 
 ## Current verified state
 
-**SEED 0.2 — B7 implemented, schema v6.** The owner approved the written [B7 design](superpowers/specs/2026-09-23-b7-self-model-design.md) and native implementation. Current local verification: **646 passed**, no skips, two existing dependency warnings. Independent review findings are fixed and regression-tested; hosted B7 CI is pending; see the [implementation record](seed-0.2-development-plan.md#b7-implementation-record--2026-09-24). B8–B10 remain unstarted.
+**SEED 0.2 — B7 VERIFIED, schema v6.** [PR #10](https://github.com/Jeruzael/SEED/pull/10) merged B7 into master `ab7c2b45508828685fc9b0a65807e08cee1cff98`. Post-merge [SEED verification run 36104979944](https://github.com/Jeruzael/SEED/actions/runs/36104979944) passed **646 tests on each of the three jobs**: Linux Python 3.11.16, Linux Python 3.13.15 and macOS Python 3.13.15. All six standalone scenarios passed on both Python 3.13 jobs; recorded artifact inspection confirmed the exact checkout SHA, clean tree, successful dependency/test checks and unchanged lock hash. See the [closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25). Deployment/live-device validation remains **NOT PERFORMED**; B8–B10 remain **NOT STARTED**.
 
 The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR #9 merge), schema v5, 542 tests. Historical B6 acceptance remains 497 passed at dc225af.
 
@@ -17,7 +17,7 @@ The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR 
 | B4 | VERIFIED | Persistent descriptive world model | [Execution record](seed-0.2-development-plan.md#b4-execution-log--2026-09-22), [comparison](baselines/seed-0.2-b4-comparison.json) |
 | B5 | VERIFIED | Bounded computational curiosity | [Execution record](seed-0.2-development-plan.md#b5-execution-log--2026-09-22), [comparison](baselines/seed-0.2-b5-comparison.json) |
 | B6 | VERIFIED | Semantic memory consolidation | [Execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23), [comparison](baselines/seed-0.2-b6-comparison.json) |
-| B7 | IMPLEMENTED | Bounded descriptive self model | [Execution record](seed-0.2-development-plan.md#b7-implementation-record--2026-09-24), [comparison](baselines/seed-0.2-b7-comparison.json) |
+| B7 | VERIFIED | Bounded descriptive self model | [Closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25), [comparison](baselines/seed-0.2-b7-comparison.json) |
 | B8–B10 | NOT STARTED | Decision upgrade, development UI, evaluation | Separate authorization required |
 
 ## Post-B6 hardening — separate from B7

@@ -1,6 +1,6 @@
 # SEED Architecture
 
-**SEED 0.2 — B7 implemented, schema v6.** The local suite passes 646 tests with two existing dependency warnings. Independent review findings are fixed and regression-tested; hosted B7 CI is pending. The [development tracker](seed-0.2-development-plan.md#b7-implementation-record--2026-09-24) is the canonical acceptance ledger; [historical artifacts](baselines/) preserve each batch's evidence. The installed organism is a separate deployment and may be older.
+**SEED 0.2 — B7 VERIFIED, schema v6.** Post-merge [hosted verification](https://github.com/Jeruzael/SEED/actions/runs/36104979944) passed **646 tests on all three matrix jobs** (Linux Python 3.11/3.13 and macOS Python 3.13) on master `ab7c2b45508828685fc9b0a65807e08cee1cff98`. The [development tracker](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25) records final source/CI acceptance; [historical artifacts](baselines/) preserve each batch's evidence. Deployment/live-device validation was **not performed**. The installed organism is a separate deployment and may be older.
 
 The earlier [post-B6 hardening](reviews/2026-09-23-post-b6-hardening.md) and macOS portability correction closed at source/CI level on master `585affec56ddb0e4580f6df6926b9b6bde291dc0`, with 542 tests. B7 adds descriptive inspection of recorded evidence. B8–B10 remain unstarted.
 
