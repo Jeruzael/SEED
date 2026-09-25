@@ -162,4 +162,14 @@ correction; B7 needs separate owner authorization after source/CI closure.
 
 ## B7 verification checkpoint
 
-The B7 implementation has 646 passing local tests and six passing standalone synthetic scenarios. Seven historical B0–B6 artifacts remain byte-identical; schema and additive database footprint are the only permitted historical scenario differences. See the [B7 execution record](seed-0.2-development-plan.md#b7-implementation-record--2026-09-24) for final review results. Hosted B7 checks have not run: automatic approval review rejected the implementation push pending explicit owner authorization to transfer the source to the existing Jeruzael/SEED remote. The rejection did not change the remote. Earlier hosted results above remain evidence only for their stated commits.
+**B7 is VERIFIED at source/CI level**, following [PR #10](https://github.com/Jeruzael/SEED/pull/10) and post-merge [SEED verification run 36104979944](https://github.com/Jeruzael/SEED/actions/runs/36104979944) on master `ab7c2b45508828685fc9b0a65807e08cee1cff98`. GitHub confirms all three jobs completed successfully:
+
+| Exact check | Python | Tests | Standalone scenarios |
+| --- | --- | --- | --- |
+| `test (linux-py311)` | 3.11.16 | 646 passed | Not configured; full pytest includes scenario tests |
+| `test (linux-py313)` | 3.13.15 | 646 passed | All six passed |
+| `test (macos-py313)` | 3.13.15 | 646 passed | All six passed |
+
+Both 3.13 jobs passed `baseline_scenario`, `prediction_error_scenario`, `world_model_scenario`, `curiosity_scenario`, `semantic_scenario` and `self_model_scenario`. The supplied artifact-inspection record confirms all three checkouts matched the merge SHA, had an empty `dirty_tree`, dependency installation exit 0, successful pip check, pytest exit 0 and an unchanged requirements-lock.txt hash. Seven historical B0–B6 artifacts remain unchanged.
+
+See the [final closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25). Deployment/live-device validation remains **NOT PERFORMED**, the low-disk decision mismatch remains **OPEN**, and B8–B10 remain **NOT STARTED**. These results verify the stated merge commit, not a later documentation PR head.

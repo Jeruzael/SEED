@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: owner-approved B7 implementation, following approval of the written design. B7 is IMPLEMENTED; 646 local tests pass. Independent review findings are fixed; hosted B7 CI remains pending. B0–B6 remain VERIFIED; post-B6 hardening and macOS portability correction are closed at source/CI level. B8–B10 remain NOT STARTED and unauthorized.** Installed-organism deployment remains separate. See the [B7 implementation record](#b7-implementation-record--2026-09-24). Historical entries below retain their original status and evidence.
+**Current authorization: documentation-only B7 verification closure. B7 is VERIFIED at source/CI level on master `ab7c2b45508828685fc9b0a65807e08cee1cff98`; post-merge run 36104979944 passed 646 tests on all three Linux/macOS jobs. B0–B6 remain VERIFIED. B8–B10 remain NOT STARTED and unauthorized.** Deployment/live-device validation remains NOT PERFORMED, and the low-disk decision mismatch remains OPEN. See the [hosted verification closure](#b7-hosted-verification-closure--2026-09-25). Historical entries below retain their original status and evidence.
 
 ## Objective and architectural transition
 
@@ -62,7 +62,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B4 | World Model | VERIFIED | B1, B3 | Full suite: 327 passed; independent review: 75 B4 tests passed | Schema v3; prospective persistent descriptive statistics; no behavioral influence |
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
-| B7 | Self Model | IMPLEMENTED | B3, B6 | 646 local tests pass; review findings fixed; hosted CI pending | Schema v6; bounded descriptive singleton; no upstream influence |
+| B7 | Self Model | VERIFIED | B3, B6 | 646 tests on Linux 3.11/3.13 and macOS 3.13; six scenarios on both 3.13 jobs; post-merge run 36104979944 | Schema v6; bounded descriptive singleton; no upstream influence |
 | B8 | Decision-System Upgrade | NOT STARTED | B5, B7 | Not added or executed for B8 | Combine decision signals while retaining Q-value compatibility |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
@@ -1864,3 +1864,22 @@ Twelve new regression cases were observed failing before fixes: four cleanup fau
 ### Delivery boundary
 
 Source changes are committed locally on `seed-0.2-b7`. Automatic approval review rejected the attempted push because explicit authorization is required to transfer this implementation/source history to the `Jeruzael/SEED` remote. The rejected command did not run. No implementation PR, hosted B7 run, merge or deployment occurred. The owner must approve pushing the final branch and opening a draft PR before hosted Linux 3.11/3.13 and macOS 3.13 acceptance can be completed. B7 therefore remains **IMPLEMENTED, locally verified**, not fully VERIFIED. B8–B10 and the installed organism remain untouched.
+
+
+### B7 hosted verification closure — 2026-09-25
+
+This record supersedes the earlier B7 implementation/delivery checkpoints above without rewriting their historical evidence. [PR #10](https://github.com/Jeruzael/SEED/pull/10) merged as master `ab7c2b45508828685fc9b0a65807e08cee1cff98` (Merge pull request #10 from Jeruzael/seed-0.2-b7). The documentation-closure task fetched origin and confirmed that exact clean starting master before creating `docs/b7-verification-closure`.
+
+Post-merge [SEED verification run 36104979944](https://github.com/Jeruzael/SEED/actions/runs/36104979944) completed successfully on that exact merge commit:
+
+| Exact check | Python | Full suite | Standalone scenarios |
+| --- | --- | --- | --- |
+| `test (linux-py311)` | 3.11.16 | 646 passed | Not configured for this job; scenario tests remain in pytest |
+| `test (linux-py313)` | 3.13.15 | 646 passed | All six passed |
+| `test (macos-py313)` | 3.13.15 | 646 passed | All six passed |
+
+The six standalone scenarios are `baseline_scenario`, `prediction_error_scenario`, `world_model_scenario`, `curiosity_scenario`, `semantic_scenario` and `self_model_scenario`. GitHub job results were independently confirmed during this closure. The supplied artifact-inspection record confirms for all three jobs: `checked_out_sha` equals `ab7c2b45508828685fc9b0a65807e08cee1cff98`, `dirty_tree` is empty, dependency installation exit is 0, pip check succeeds, pytest exit is 0 and the requirements-lock.txt hash is unchanged.
+
+**B7 status: VERIFIED at source/CI level. Schema: v6.** Deployment/live-device validation remains **NOT PERFORMED**; the installed organism is untouched. The low-disk reward/consolidation decision mismatch remains **OPEN**. B8–B10 remain **NOT STARTED**. B8 may begin only under separate explicit authorization and design scope.
+
+This closure changes only the five current-state documentation files. Production code, tests, schema/migrations, workflow behavior, dependencies and historical baselines remain unchanged. The documentation PR is separate from the verified B7 merge and must not be represented as covered by the earlier run.
