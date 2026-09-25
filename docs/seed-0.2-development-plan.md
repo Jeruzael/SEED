@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: documentation-only B7 verification closure. B7 is VERIFIED at source/CI level on master `ab7c2b45508828685fc9b0a65807e08cee1cff98`; post-merge run 36104979944 passed 646 tests on all three Linux/macOS jobs. B0–B6 remain VERIFIED. B8–B10 remain NOT STARTED and unauthorized.** Deployment/live-device validation remains NOT PERFORMED, and the low-disk decision mismatch remains OPEN. See the [hosted verification closure](#b7-hosted-verification-closure--2026-09-25). Historical entries below retain their original status and evidence.
+**Current authorization: B8 design/specification only, COMPLETE FOR OWNER REVIEW on `seed-0.2-b8`, based on verified master `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`. B8 overall status is IN PROGRESS; implementation is NOT STARTED pending owner review and separate authorization. B0–B7 remain VERIFIED; source schema remains v6. B9–B10 remain NOT STARTED and unauthorized.** Deployment/live-device validation remains NOT PERFORMED; installed organism is UNTOUCHED. The low-disk mismatch remains OPEN in implemented code, with its proposed resolution in the [B8 design](superpowers/specs/2026-09-25-b8-decision-system-design.md). See the [B8 design record](#b8-design-execution-record--2026-09-25). Historical entries below retain their original status and evidence.
 
 ## Objective and architectural transition
 
@@ -63,7 +63,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
 | B7 | Self Model | VERIFIED | B3, B6 | 646 tests on Linux 3.11/3.13 and macOS 3.13; six scenarios on both 3.13 jobs; post-merge run 36104979944 | Schema v6; bounded descriptive singleton; no upstream influence |
-| B8 | Decision-System Upgrade | NOT STARTED | B5, B7 | Not added or executed for B8 | Combine decision signals while retaining Q-value compatibility |
+| B8 | Decision-System Upgrade | IN PROGRESS | B5, B7 | Fresh B7 baseline: 646 passed; six scenarios unchanged; no B8 tests added | Design COMPLETE FOR OWNER REVIEW; implementation NOT STARTED; [specification](superpowers/specs/2026-09-25-b8-decision-system-design.md) |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
 
@@ -1883,3 +1883,71 @@ The six standalone scenarios are `baseline_scenario`, `prediction_error_scenario
 **B7 status: VERIFIED at source/CI level. Schema: v6.** Deployment/live-device validation remains **NOT PERFORMED**; the installed organism is untouched. The low-disk reward/consolidation decision mismatch remains **OPEN**. B8–B10 remain **NOT STARTED**. B8 may begin only under separate explicit authorization and design scope.
 
 This closure changes only the five current-state documentation files. Production code, tests, schema/migrations, workflow behavior, dependencies and historical baselines remain unchanged. The documentation PR is separate from the verified B7 merge and must not be represented as covered by the earlier run.
+
+
+## B8 design execution record — 2026-09-25
+
+**Authorization:** the owner's SEED_B8_Decision_System_Design_Instructions.md and
+explicit instruction authorize design/specification only. Production implementation,
+migrations, tests, APIs, UI, B9–B10 and installation remain unauthorized.
+
+**Starting state:** fetched origin, checked out master, fast-forward pulled and
+verified clean HEAD/origin/master at `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`
+(PR #11 documentation closure), then created `seed-0.2-b8`. No reset/rewrite or B7
+branch reuse. Software version 0.2/schema 6 remain unchanged. Owner-supplied exact-master
+[run 36121878229](https://github.com/Jeruzael/SEED/actions/runs/36121878229) reports
+646 passes on Linux 3.11 / Linux 3.13 / macOS 3.13 and six scenarios on both 3.13 jobs; this
+phase does not claim another hosted artifact audit.
+
+**Fresh baseline:** `.venv/bin/python -m pytest -q` → **646 passed, zero failures or
+skips, two existing warnings**, Python 3.13.15, exit 0. All six standalone commands
+`.venv/bin/python -m tests.baseline_scenario`, `tests.prediction_error_scenario`,
+`tests.world_model_scenario`, `tests.curiosity_scenario`, `tests.semantic_scenario`
+and `tests.self_model_scenario` (each with the same interpreter/module invocation)
+exited 0 with valid JSON exactly matching saved B7 outputs. Resolved temporary homes
+and synthetic sensors only; ignored audit files under `.review-artifacts/b8-design/`.
+All eight B0–B7 artifact hashes remain unchanged; no installed home was accessed.
+
+**Deliverable:** [Decision-System Upgrade design](superpowers/specs/2026-09-25-b8-decision-system-design.md),
+including required evidence inventory, alternatives, exact math, strict healthy and
+degraded examples, future deterministic scenarios/tests/file map and 16-point written
+self-review. This is an inline design review, not independent code review or execution
+of future B8 acceptance tests.
+
+**Selected recommendation:** separate `decision_v1` with one keyed Q snapshot and
+one raw 200-row prediction-history snapshot; all four predictions precede selection.
+Keep legacy reward/Q update/visits/alpha; use bounded Q component and forecast resource
+risk/support uncertainty: `0.50*Q + 0.35*(1-R) + 0.15*(1-U)`. Hard costly-action
+resource constraints apply to exploration and exploitation. Epsilon remains the
+exploration probability among eligible actions. Unsupported auxiliary evidence falls
+back to eligible raw-Q ordering; fixed exploitation tie priority is rest, observe,
+reflect, consolidate. B4/B5/B6/B7 feedback, information gain, cost proxies and goals are
+excluded with explicit reasons. No resource or intelligence improvement is claimed.
+
+**Low-disk design:** keep the old reward; exclude autonomous consolidate when B6's
+known-resource guard would suppress work, and guard autonomous reflect equivalently.
+Owner commands retain their existing availability/audits. The issue remains OPEN in
+implemented code until separately authorized implementation is verified.
+
+**Persistence/inspection proposal:** additive schema 7 `decision_records`, keyed to
+transitions, exact preselection candidate evidence, 64 KiB bound, atomic with the
+existing experience group and no historical backfill. Bounded DECISION summary and
+two future read-only inspection routes; no frontend. A necessary narrow B7 schema 6/7
+compatibility change is specified without changing self_model_v1 meaning or relabeling
+old snapshots. Current schema, source, tests and endpoints are unchanged.
+
+**Validation and scope:** strict example JSON and literal score checks, proposed DDL
+syntax in a temporary in-memory database, required headings, relative links, whitespace,
+baseline hashes and exact documentation-only scope checked. These document checks do
+not implement B8 tests or run migration on SEED memory. Only this tracker,
+`docs/implementation-log.md` and the new spec change. README, architecture, review
+follow-ups, verification guide, CI, dependencies and every baseline are untouched.
+
+**Delivery:** local documentation-only commit `docs: design B8 decision system`;
+resolved hash and clean-tree result supplied after commit. No push/PR/merge, production
+implementation or live deployment is part of this delivery. Stop for owner review.
+
+B8 design/specification: **COMPLETE FOR OWNER REVIEW**.
+B8 implementation: **NOT STARTED**.
+B9–B10: **NOT STARTED**.
+Installed organism: **UNTOUCHED**.
