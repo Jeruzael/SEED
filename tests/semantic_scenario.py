@@ -43,7 +43,7 @@ def run_scenario(home):
             'SELECT record_json FROM semantic_memory_history ORDER BY semantic_memory_id,revision')]
         retained={t:m.db.execute(f'SELECT count(*) FROM {t}').fetchone()[0] for t in
                   ('episodes','transitions','world_beliefs','world_model_processed','semantic_memories','semantic_memory_history')}
-        return dict(fixture='SEED 0.2 B6 deterministic semantic revision',schema_version=5,
+        return dict(fixture='SEED 0.2 B6 deterministic semantic revision',schema_version=m.db.execute('SELECT version FROM seed_schema').fetchone()[0],
                     stages=stages,history=history,retained=retained)
     finally:m.close()
 

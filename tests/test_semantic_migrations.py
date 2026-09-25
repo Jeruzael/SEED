@@ -26,7 +26,7 @@ def test_v4_backup_upgrade_preserves_every_row_and_reopen(v4_home):
     with sqlite3.connect(path) as db: before=snapshot(db)
     m=Memory(path)
     try:
-        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0]==5
+        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0]==6
         assert {t:[tuple(r) for r in m.db.execute(f'SELECT * FROM {t}')] for t in before}==before
         for table in ('semantic_memories','semantic_memory_history','consolidation_runs','consolidation_state'):
             assert m.db.execute(f'SELECT count(*) FROM {table}').fetchone()[0]==0

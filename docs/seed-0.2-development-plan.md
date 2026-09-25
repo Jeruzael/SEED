@@ -2,13 +2,13 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: post-B6 hardening H0–H5, explicitly authorized on 2026-09-23. B0–B6 remain VERIFIED. Hardening is tracked separately below; B7–B10 remain NOT STARTED and are not authorized.** Broader dashboard implementation remains paused.
+**Current authorization: owner-approved B7 implementation, following approval of the written design. B7 is IMPLEMENTED; 646 local tests pass. Independent review findings are fixed; hosted B7 CI remains pending. B0–B6 remain VERIFIED; post-B6 hardening and macOS portability correction are closed at source/CI level. B8–B10 remain NOT STARTED and unauthorized.** Installed-organism deployment remains separate. See the [B7 implementation record](#b7-implementation-record--2026-09-24). Historical entries below retain their original status and evidence.
 
 ## Objective and architectural transition
 
 SEED means **Situated Experiential Emergent Development**. Evolve the existing Germination prototype incrementally into a system that learns from observed consequences and prediction error, while keeping behavior inspectable, reproducible, and under owner control.
 
-The B6 autonomous cycle in `seed/organism.py` is:
+The B7 autonomous cycle in `seed/organism.py` is:
 
 ```text
 perceive state_before
@@ -24,6 +24,8 @@ perceive state_before
 → atomically store episode, transition, prediction, evaluation, curiosity, and B4 eligibility
 → process at most 100 queued transitions into persistent descriptive world beliefs
 → optionally claim and perform one guarded existing internal reflection
+→ publish one bounded descriptive self-model snapshot
+→ record final runtime telemetry
 ```
 
 The target architecture is:
@@ -60,7 +62,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B4 | World Model | VERIFIED | B1, B3 | Full suite: 327 passed; independent review: 75 B4 tests passed | Schema v3; prospective persistent descriptive statistics; no behavioral influence |
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
-| B7 | Self Model | NOT STARTED | B3, B6 | Not added or executed for B7 | Evidence-grounded capabilities, accuracy, resources, and limitations |
+| B7 | Self Model | IMPLEMENTED | B3, B6 | 646 local tests pass; review findings fixed; hosted CI pending | Schema v6; bounded descriptive singleton; no upstream influence |
 | B8 | Decision-System Upgrade | NOT STARTED | B5, B7 | Not added or executed for B8 | Combine decision signals while retaining Q-value compatibility |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
@@ -1753,3 +1755,112 @@ skips, two existing warnings; all five scenarios and historical baseline hashes
 unchanged. Hosted CI and final independent review are pending at this checkpoint.
 The [hardening review](reviews/2026-09-23-post-b6-hardening.md) records closure
 progress. Low-disk mismatch stays OPEN; B7–B10 remain NOT STARTED.
+
+
+## B7 design execution record — 2026-09-24
+
+**Authorization:** the owner's SEED_B7_Self_Model_Design_Instructions.md and explicit
+“please proceed” authorize design/specification only. No implementation, migration,
+API, test, frontend, deployment or later batch is authorized by this record.
+
+**Starting state:** clean master and origin/master at
+`585affec56ddb0e4580f6df6926b9b6bde291dc0`, PR #9 merge, then a new dedicated
+`seed-0.2-b7` branch. Previous branches and history were preserved. Current schema
+remains v5 and core version 0.2. The post-merge Actions run
+[35884486727](https://github.com/Jeruzael/SEED/actions/runs/35884486727) has successful
+linux-py311, linux-py313 and macos-py313 jobs on that exact SHA; job metadata was
+reconfirmed during this design audit. Owner-provided post-merge evidence reports
+542 passes per job. No new hosted artifact download audit is claimed here.
+
+**Fresh baseline:** `.venv/bin/python -m pytest -q` → **542 passed, zero failures or
+skips, two existing dependency warnings**, exit 0, macOS 26.5.1 arm64 / Python 3.13.15.
+Each of the following standalone commands exited 0 with valid JSON, exactly matching
+the preceding portability-correction output:
+
+- `.venv/bin/python -m tests.baseline_scenario`
+- `.venv/bin/python -m tests.prediction_error_scenario`
+- `.venv/bin/python -m tests.world_model_scenario`
+- `.venv/bin/python -m tests.curiosity_scenario`
+- `.venv/bin/python -m tests.semantic_scenario`
+
+All execution used synthetic data and resolved temporary homes. Audit output is
+local ignored `.review-artifacts/b7-design/`. Dependency lock and all seven
+historical baseline hashes remain unchanged. No dependencies were installed.
+
+**Deliverable:** [Self Model design](superpowers/specs/2026-09-23-b7-self-model-design.md).
+The requested filename date is preserved; actual preparation/review is 2026-09-24.
+The required source, documentation and test inventory was read completely, with
+migration and scenario fixtures inspected. A written 12-point self-review is
+included in the spec. This is an inline self-review, not an independent code review.
+
+**Design decision:** select a bounded persisted current snapshot over derived-only
+inspection and a revision ledger. Proposed schema v6 adds only self_model_current
+(singleton, updated_at, model, model_version, source_transition_id, data_json).
+The proposed update follows committed experience, B4 recovery and optional curiosity
+reflection, before final runtime telemetry; it has no upstream consumers. Source
+cutoffs, status/freshness policies, atomic bounded telemetry, restart/failure behavior,
+readonly inspection, complete synthetic JSON examples, acceptance scenario and
+concrete test/file map are specified. No proposed schema or API is implemented.
+
+**Important boundaries resolved:** static action selectability is separate from
+substantive audited work; consolidation audits have no invented transition linkage;
+recorded prior runtime success does not claim current completion; count queries
+saturate instead of scanning all history; migration explicitly passes through v5;
+existing event retention remains within the bounded B7 transaction. Low-disk reward
+versus consolidation suppression remains OPEN for B8 or separately authorized work.
+
+**Files changed:** exactly this tracker, docs/implementation-log.md and the new
+B7 design spec. No code, tests, migrations, dependencies, README, architecture guide,
+baseline artifacts or installed data changed. Validation covers required spec
+sections, strict JSON examples, proposed DDL syntax in an in-memory scratch DB,
+relative links, whitespace, exact documentation-only scope and baseline hashes.
+These are documentation checks, not execution of B7 acceptance tests.
+
+**Delivery:** documentation-only commit `docs: design B7 self model` on seed-0.2-b7;
+resolved commit identity is supplied in the handoff. Branch push for inspection is
+permitted; no merge or implementation PR. Implementation remains behind owner
+review and a separate follow-up authorization.
+
+B7 design/specification: **COMPLETE FOR OWNER REVIEW**.
+B7 implementation: **NOT STARTED**.
+B8–B10: **NOT STARTED**.
+Installed organism: **UNTOUCHED**.
+
+
+## B7 implementation record — 2026-09-24
+
+The owner approved the written design at `89f4561bee0a8bca930a329f88bbaef5af3e82e1` and explicitly requested implementation and continuation. Native execution continues on `seed-0.2-b7`, based on verified master `585affec56ddb0e4580f6df6926b9b6bde291dc0`. The [implementation plan](superpowers/plans/2026-09-24-seed-b7.md) records tasks and review focus. No installed process, installed memory, launch configuration or deployment changed.
+
+### Implementation and preservation
+
+Schema v6 adds only `self_model_current`, initially empty. Existing supported memory is backed up before transactional additive migration; failure rolls back every earlier schema path. Original records and historical missing values remain untouched. Snapshot publication and its bounded existing-style SELF_MODEL event are atomic, including event retention. Busy/VM limits, stop, duplicate, rollback and connection restoration have regression coverage.
+
+The publisher runs once after optional reflection and before final cycle runtime. Fixed source registries describe committed observations, prediction performance, bounded storage counts, the action catalog, independent consolidation audit, stored runtime and retained ERROR records. It performs no perception, process probe, network call, policy update or semantic work. The parameter-free read-only `/api/self-model` validates nested payloads and projects freshness from original source clocks; startup and reads never refresh evidence.
+
+Limits: 100 raw evaluations (invalid records consume the window); 100 retained errors plus one lookahead; four storage counts capped at 1,001; 14 evidence reads plus timeout read; 100,000 SQLite VM steps; zero busy wait; 16 KiB source JSON, 32 KiB snapshot, 1 KiB telemetry and 40 KiB API response. Counts beyond 1,000 are lower bounds. Recorded failures are not a lifetime rate, logical page size is not filesystem footprint, and prediction scores are not calibrated competence.
+
+Commits: `b39a6bd` schema and preservation, `abaf736` bounded publisher, `3c6e8a1` downstream cycle and observer. Tests were run failing before each implementation. No test was removed, skipped or excluded. Strict event expectations add only the downstream SELF_MODEL event; historical comparison tests permit only actual schema and additive database-footprint differences.
+
+### Verification evidence
+
+Fresh local full suite: **646 passed, zero skipped, two existing dependency warnings**, Python 3.13.15. Coverage includes v5 backups and rows, all earlier migration rollbacks, exact metric denominators, nested corruption, raw-window exclusion, 1,000/1,001 count boundary, independent source clocks, retained-error provenance, transactional event retention, interrupted connection restoration, failed write preservation, no-op restart, owner-command isolation and a four-read observer query budget.
+
+All four actions, with curiosity enabled and disabled, run in pairs against absent, valid, corrupt, failed-write and disabled self models. Actions, rewards, predictions, evaluations, Q values, learning parameters, world processing, curiosity, semantic records, delays and perception counts remain equal. A separate real Body probe test uses synthetic host sensors and a stubbed socket, proving exactly the two existing fixed reachability calls.
+
+The new deterministic [comparison artifact](baselines/seed-0.2-b7-comparison.json) records all seven immutable historical hashes and reproduces fresh, insufficient, scored, stale, failure, restart, suppressed-consolidation and paired-policy cases. Three valid B3 evaluations produce coverage **5/12**, error **.06**, accuracy **.94**, with **two** scored samples. Consolidation remains selectable when its last audit reports low_disk suppression. This verifies reporting, not a reward-policy fix or a developmental improvement claim.
+
+All six standalone scenario CLIs pass with synthetic temporary homes and strict JSON. Compileall and git diff --check pass. All seven historical artifact hashes and bytes match the approved-design base; learner, sensors, predictor, evaluator, world model, curiosity/attention, semantic engine, commands, configuration, telemetry, Memory and dependency lock remain byte-identical. Independent review is complete; both important findings are fixed with failing regressions followed by passing focused and full suites. Hosted CI remains pending owner authorization to push. B7 status remains **IMPLEMENTED** until required acceptance evidence is complete. B8–B10 remain **NOT STARTED**. The existing low-disk decision mismatch stays open for separate authorization.
+
+
+### Final independent review and corrective verification
+
+One fresh whole-branch reviewer inspected `89f4561..824a723` against the approved design, plan and review focus. The reviewer independently passed all 92 original B7 tests and exercised real retention/VM rollback. It found two important issues, no critical or minor findings, and no behaviors declined for judgment:
+
+1. Ordinary rollback/progress-removal/timeout-restoration errors could escape optional B7 processing, skip remaining cleanup or mask an interrupt. Cleanup now attempts each step independently, releases the memory lock unconditionally and reports failure through a bounded logger diagnostic. A failed rollback/progress removal prevents diagnostic transactions. Failure diagnostics own only their own transaction. KeyboardInterrupt/SystemExit propagate even when cleanup also fails, including interruption during diagnostic emission. Actual storage failure can still affect later existing core operations; B7 does not claim to repair an unusable connection.
+2. Nested domains were individually valid but contradictory across fields. The reader now rejects observation timestamps after transition completion, runtime measurements without singleton-source identity, and failure counts/status/reasons inconsistent with valid metadata.
+
+Twelve new regression cases were observed failing before fixes: four cleanup fault sites, two primary interrupts with cleanup failure, two diagnostic interrupts, and four observer contradictions. The final focused suite passes **77** tests; the complete suite passes **646**, with zero skips and the two existing dependency warnings. All six scenario CLIs, compilation, whitespace checks and historical/core-file byte comparisons pass again. No review finding was deferred; no design ruling was needed. The approved spec and original seven artifacts remain unchanged.
+
+### Delivery boundary
+
+Source changes are committed locally on `seed-0.2-b7`. Automatic approval review rejected the attempted push because explicit authorization is required to transfer this implementation/source history to the `Jeruzael/SEED` remote. The rejected command did not run. No implementation PR, hosted B7 run, merge or deployment occurred. The owner must approve pushing the final branch and opening a draft PR before hosted Linux 3.11/3.13 and macOS 3.13 acceptance can be completed. B7 therefore remains **IMPLEMENTED, locally verified**, not fully VERIFIED. B8–B10 and the installed organism remain untouched.

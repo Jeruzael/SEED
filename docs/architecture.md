@@ -1,10 +1,8 @@
-# SEED Current Architecture
+# SEED Architecture
 
-**SEED 0.2 — verified through B6, schema v5.** This guide describes the source implemented in B6 commit **dc225af**. Verification recorded **497 passing tests**, zero skips, and two existing dependency warnings. The [development tracker](seed-0.2-development-plan.md) is the canonical acceptance ledger; [historical artifacts](baselines/) preserve results from each batch. The installed organism is a separate deployment and may be older.
+**SEED 0.2 — B7 implemented, schema v6.** The local suite passes 646 tests with two existing dependency warnings. Independent review findings are fixed and regression-tested; hosted B7 CI is pending. The [development tracker](seed-0.2-development-plan.md#b7-implementation-record--2026-09-24) is the canonical acceptance ledger; [historical artifacts](baselines/) preserve each batch's evidence. The installed organism is a separate deployment and may be older.
 
-The separately authorized [post-B6 hardening](reviews/2026-09-23-post-b6-hardening.md) corrects the battery parser and software metadata without changing developmental capabilities or schema. The pre-B7 wording follow-up passes 540 tests locally; hosted matrix verification remains pending.
-
-SEED studies learning from observed transitions while preserving provenance, bounded processing, and owner control. B7 self-modeling and later batches remain unstarted.
+The earlier [post-B6 hardening](reviews/2026-09-23-post-b6-hardening.md) and macOS portability correction closed at source/CI level on master `585affec56ddb0e4580f6df6926b9b6bde291dc0`, with 542 tests. B7 adds descriptive inspection of recorded evidence. B8–B10 remain unstarted.
 
 ## Runtime composition
 
@@ -19,10 +17,11 @@ SEED studies learning from observed transitions while preserving provenance, bou
 | World model | `seed/world_model.py` | Persistent descriptive statistics from explicitly queued transitions |
 | Curiosity | `seed/curiosity.py`, `seed/curiosity_attention.py` | Pure assessment and durable budget for optional existing reflection |
 | Consolidator | `seed/semantic_memory.py` | Bounded promotion and revision of supported world beliefs |
+| Self model | `seed/self_model.py` | Bounded descriptive singleton, validation, atomic summary event and freshness projection |
 | Infrastructure | `seed/telemetry.py`, `seed/commands.py`, `seed/runtime.py` | Events, owner-command queue and instance lock |
 | Dashboard | `dashboard/` | Separate local observer and explicit operator controls |
 
-`Body` observes battery/charging state, load, disk availability, local time, wall-clock time, network reachability and host identity. The existing network probe connects to `1.1.1.1:443`. There is no new sensing or network activity in B2–B6 model processing.
+`Body` observes battery/charging state, load, disk availability, local time, wall-clock time, network reachability and host identity. The existing network probe connects to `1.1.1.1:443`. There is no new sensing or network activity in B2–B7 model processing.
 
 ## Sensor and version boundaries after hardening
 
@@ -37,7 +36,7 @@ Bootstrap retains token, operator, refresh_seconds and the legacy version label,
 | core_source_version | Core source accompanying this dashboard, currently 0.2 |
 | dashboard_version | Dashboard component version, currently 0.1 |
 | dashboard_edition | Observer Edition, separate from operator mode |
-| supported_schema_version | Imported migration VERSION, currently 5; not an observed database schema |
+| supported_schema_version | Imported migration VERSION, currently 6; not an observed database schema |
 
 The actual recorded core software version remains `/api/status` → runtime.version. A stopped/stale record keeps its prior version and freshness state; no record means unavailable. The overview uses “Reported core version” and an Unavailable fallback. Bootstrap exposes no invented build SHA, and no Git subprocess is added to runtime processing.
 
@@ -62,6 +61,8 @@ apply settings; infer wake if necessary
 → recover at most 100 queued transitions into B4 statistics
 → record learning/memory telemetry and latest-state metadata
 → optionally claim and perform one guarded existing reflection
+→ publish one self-model snapshot from committed evidence
+→ update final runtime telemetry
 → return the selected delay for the subsequent wait
 ```
 
@@ -77,7 +78,7 @@ The learner uses epsilon-greedy choice among `observe`, `reflect`, `consolidate`
 Q_new = Q_old + alpha × (legacy_reward - Q_old)
 ```
 
-Legacy reward uses the pre-action observation and selected action. B2–B6 do not change this equation, reward inputs, action ranking, epsilon, alpha, state keys, or returned delays. In particular, suppressing a consolidation run does not alter its selected action or reward.
+Legacy reward uses the pre-action observation and selected action. B2–B7 do not change this equation, reward inputs, action ranking, epsilon, alpha, state keys, or returned delays. In particular, suppressing a consolidation run does not alter its selected action or reward.
 
 B5 can add one optional internal reflection after persistence. That limited attention mechanism does not create an extra policy choice, transition or Q update. World beliefs and semantic memories do not feed back into prediction or policy. Semantic memory also does not affect curiosity scoring, cooldown, reflection eligibility, or B4 evidence weight. B8 owns future decision integration.
 
@@ -187,6 +188,22 @@ Runs expose examined, eligible, created, revised, weakened, unchanged and failed
 
 Repeated unchanged runs can add run/events and update cursor/checkpoint metadata, but leave semantic rows, timestamps and history untouched. No original memory is deleted, pruned or expired. Run audits and revision history grow over time.
 
+## Descriptive self model — B7
+
+`self_model_v1` is a durable current description, not a decision input. `SelfModel.update` runs once after optional curiosity reflection and before final runtime telemetry. It reads the just-committed transition's `state_after_json`, never the latest-state metadata or fresh sensors. Owner commands, inspection, startup and reopen do not trigger publication. Equal or older transition IDs are skipped. Stored runtime may therefore describe the prior completed cycle; no current heartbeat is invented.
+
+The fixed catalog describes the four existing actions and their capabilities. Consolidation remains selectable even when its most recent audit reports suppression. Observation fields, coverage and scores, storage counts, consolidation, runtime and retained failures each carry a value, status, reason and source reference. Unknown, invalid and unavailable evidence remain distinct from zero or false. These fields never influence the learner, predictor, evaluator, world model, curiosity, semantic memory, reward, or delays.
+
+Prediction performance considers the latest 100 raw transitions through the current ID. Missing, unsupported and malformed records consume that window. Coverage averages valid B3 evaluations, including unavailable evaluations with zero coverage; error and accuracy average only evaluations with scores. Scores are engineering summaries with explicit sample counts, not calibrated competence. Three synthetic valid cases yield coverage 5/12, mean error .06, mean accuracy .94 and two scored samples.
+
+Freshness uses original source timestamps: observations 60 seconds, prediction evidence 300 seconds, storage 60 seconds, consolidation 300 seconds, runtime 10 seconds, failures 60 seconds. The catalog is static. A read projects stale/clock-error statuses without replacing stored values or timestamps. Missing runtime stays missing after restart. Backward clock movement is reported, not silently corrected.
+
+Publication uses a nonblocking memory lock, zero SQLite busy timeout, at most 14 evidence reads plus the timeout read, and a 100,000-step SQLite VM budget. Counts read at most 1,001 IDs and become lower bounds beyond 1,000. Failures use the latest 100 retained ERROR records plus one lookahead; they are not a failure rate. Source JSON is capped at 16 KiB; snapshots at 32 KiB, with depth/member/array and domain validation. Database size is logical page size × page count, not filesystem usage.
+
+The singleton and bounded SELF_MODEL summary event commit together, including existing event-retention behavior. An interrupted or failed replacement preserves the last committed snapshot; a separate failure diagnostic is best effort. Stop, duplicate and contention paths cannot fabricate a new snapshot. Rollback, progress-handler removal and timeout restoration are attempted independently. Ordinary cleanup failures produce a bounded log diagnostic and a failed result, while KeyboardInterrupt/SystemExit still propagate. Uncertain ownership prevents a diagnostic transaction; unusable storage is not automatically repaired. This transaction does not make the entire autonomous cycle atomic.
+
+`GET /api/self-model` accepts no parameters and uses four bounded reads on a read-only connection with a 100,000-step budget. It validates the schema, persisted envelope, nested domains and source transition before projection. Legacy storage returns unavailable with `legacy_schema`; an empty v6 singleton reports `awaiting_first_cycle`; corrupt payloads report `invalid_snapshot`. Incompatible schema versions return 409 and inaccessible databases return the existing sanitized 503 response. The response is capped at 40 KiB. No live process, Memory constructor, sensor, migration or write is invoked.
+
 ## Storage layers and schema
 
 | Layer | Tables | Role |
@@ -197,16 +214,17 @@ Repeated unchanged runs can add run/events and update cursor/checkpoint metadata
 | Curiosity | `curiosity_assessments`, `curiosity_runtime` | Assessments, attention outcomes and durable cooldown |
 | Semantic knowledge | `semantic_memories`, `semantic_memory_history` | Current consolidated records and complete prior revisions |
 | Consolidation | `consolidation_runs`, `consolidation_state` | Run audit and persistent cyclic cursor |
+| Self model | `self_model_current` | One validated current snapshot, source transition and measurement timestamp |
 | Supporting state | `meta`, `q_values`, telemetry/operator tables | Identity, learned policy, settings, lifecycle and local controls |
 
 Supported migration path:
 
 ```text
 unversioned → v1 instrumentation → v2 transitions
-→ v3 world model → v4 curiosity → v5 semantic memory
+→ v3 world model → v4 curiosity → v5 semantic memory → v6 self model
 ```
 
-The write-capable `Memory` constructor checks existing schema and backs up supported older memory before upgrading. The migration ladder is transactional and additive. Unknown, future, ambiguous or duplicate schema versions are refused. Direct low-level migration does not substitute for the constructor's filesystem backup policy. V5 migration creates empty semantic/history/run/progress tables, with no automatic backfill.
+The write-capable `Memory` constructor checks existing schema and backs up supported older memory before upgrading. The migration ladder is transactional and additive. Unknown, future, ambiguous or duplicate schema versions are refused. Direct low-level migration does not substitute for the constructor's filesystem backup policy. V5 creates empty semantic/history/run/progress tables; v6 adds only the empty self_model_current singleton table. Neither step backfills history.
 
 Historical records remain valid across eras: episodes may lack transitions, transitions may lack predictions, predictions may lack evaluations, and older experiences may lack world-model eligibility or curiosity. These absences are not corruption and are not filled with invented observations.
 
@@ -218,12 +236,13 @@ The entire physical cycle is **not transactional**. Reflection, consolidation, t
 
 ## Dashboard and inspection
 
-The dashboard never constructs a second organism. Observer services use read-only SQLite connections; operator mode requires schema v5 and its required tables rather than migrating storage. The CLI binds to `127.0.0.1`, with no arbitrary host option. Existing Host/Origin checks, required mutation Origin, CSRF, bounded request bodies, strict models and fixed command allowlists remain in place.
+The dashboard never constructs a second organism. Observer services use read-only SQLite connections; operator mode requires schema v6 and its required tables rather than migrating storage. The CLI binds to `127.0.0.1`, with no arbitrary host option. Existing Host/Origin checks, required mutation Origin, CSRF, bounded request bodies, strict models and fixed command allowlists remain in place.
 
-B4–B6 inspection routes are bounded:
+B4–B7 inspection routes are bounded:
 
 | Route | Result and filters |
 | --- | --- |
+| `/api/self-model` | One persisted current snapshot with read-time freshness; no parameters |
 | `/api/world-beliefs` | Ascending ID pages; signal, scope, scope_value, after, limit |
 | `/api/world-beliefs/{id}` | One published belief and provenance |
 | `/api/curiosity` | Newest assessments first; inclusive before transition ID, limit |
@@ -263,11 +282,13 @@ Inherited limitations include historical battery misclassification (corrected on
 
 World beliefs and action associations are descriptive rather than causal. Predictor support, B3 accuracy, B4 consistency, B5 curiosity and B6 promotion thresholds are separate engineering measures, not calibrated certainty. Curiosity is coarse and optional work can be lost after a claim. Semantic knowledge only summarizes B4's existing signals/scopes and changes when consolidation is invoked; it has no cross-signal concepts or multi-step temporal patterns.
 
-Self-modeling, semantic-driven policy, prediction-error reward shaping, candidate-action planning, forgetting, arbitrary external tools, generated shell/code execution, autonomous source modification and LLM cognition are not implemented. B7 and later work require explicit authorization and their own acceptance evidence.
+Semantic-driven policy, prediction-error reward shaping, candidate-action planning, forgetting, arbitrary external tools, generated shell/code execution, autonomous source modification and LLM cognition are not implemented. B8–B10 require explicit authorization and their own acceptance evidence.
 
-The [low-disk decision mismatch](review-follow-ups.md) is reproduced and deferred to separately authorized B8 or a new owner-defined scope. No learner formula or consolidation guard is changed to resolve it in this hardening task.
+The [low-disk decision mismatch](review-follow-ups.md) is reproduced and deferred to separately authorized B8 or a new owner-defined scope. No learner formula or consolidation guard is changed to resolve it in B7.
 
 ## Verification
+
+The [B7 record](seed-0.2-development-plan.md#b7-implementation-record--2026-09-24) and [comparison artifact](baselines/seed-0.2-b7-comparison.json) cover migration preservation, exact metrics, corruption, bounded processing, transactional failures, restart/freshness, read-only inspection and unchanged all-action policy runs.
 
 The [B6 execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23) records the 497-test suite, 71 new B6 tests, independent review and corrected transaction-acquisition audit regression. Coverage includes migration/backup/rollback, material revision and idempotency, actual contradictory evidence followed by reactivation, bounded/restarted work, failure isolation, resource suppression, read-only APIs and upstream compatibility.
 

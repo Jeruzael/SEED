@@ -4,7 +4,7 @@
 
 SEED is an experimental developmental agent that treats a MacBook as its body and first environment. It observes local conditions, remembers experience, predicts immediate outcomes, measures prediction error, and retains descriptive patterns within owner-controlled boundaries.
 
-**Current source: SEED 0.2 — verified through B6.** SQLite schema **v5**. The verified B6 implementation is commit **dc225af**, with **497 tests passing**, no skips, and two existing dependency deprecation warnings. The installed application may be older; source updates do not install, restart, or migrate the live organism.
+**Current source: SEED 0.2 — B7 implemented and locally tested.** SQLite schema **v6**. The current suite passes **646 tests**, with no skips and two existing dependency warnings. Independent review findings are fixed and regression-tested; hosted B7 CI is pending; the [tracker](docs/seed-0.2-development-plan.md#b7-implementation-record--2026-09-24) records delivery evidence. The installed application may be older; source updates do not install, restart, or migrate the live organism.
 
 Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. The macOS test-isolation correction passes **542 tests** locally and on all three hosted Linux/macOS jobs for correction commit `cb70d00`; all verification artifacts were inspected. [Corrective PR #9](https://github.com/Jeruzael/SEED/pull/9) records checks for its current head. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
 
@@ -17,9 +17,10 @@ Post-B6 hardening corrects current battery-state parsing, separates source and r
 | B4 | Persistent descriptive world model | VERIFIED |
 | B5 | Bounded computational curiosity | VERIFIED |
 | B6 | Semantic memory consolidation | VERIFIED |
-| B7–B10 | Self model, decision upgrade, development UI, evaluation | NOT STARTED |
+| B7 | Descriptive self model | IMPLEMENTED; local checks pass |
+| B8–B10 | Decision upgrade, development UI, evaluation | NOT STARTED |
 
-See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B7 requires separate explicit authorization.
+See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B8–B10 require separate explicit authorization.
 
 ## What SEED does
 
@@ -32,7 +33,7 @@ SEED runs as a normal user-owned macOS process. Its existing body observes batte
 | `consolidate` | One guarded semantic consolidation run and a checkpoint | 20 seconds |
 | `rest` | No additional action work; longer subsequent wait | Configurable; default 35 seconds |
 
-A normal autonomous cycle performs **two perceptions**. Each retains the existing fixed TCP reachability probe to `1.1.1.1:443`. Prediction, scoring, world-model learning, curiosity, and consolidation add no network requests or new sensors.
+A normal autonomous cycle performs **two perceptions**. Each retains the existing fixed TCP reachability probe to `1.1.1.1:443`. Prediction, scoring, world-model learning, curiosity, consolidation, and self-model publication add no network requests or new sensors.
 
 ## Current autonomous cycle
 
@@ -51,6 +52,8 @@ perceive state_before
   curiosity assessment, and world-model queue entry
 → process at most 100 queued transitions into world beliefs
 → optionally perform one guarded existing reflection
+→ publish one bounded descriptive self-model snapshot
+→ record final cycle runtime
 → wait for the selected action delay
 ```
 
@@ -91,6 +94,12 @@ The owner setting **`prediction_error_curiosity` defaults to `false`**. Assessme
 
 This optional reflection creates no extra perception, learner transition, reward, or Q update. A durable claim prevents replay after restart, although a crash can lose the optional work. Curiosity never forces consolidation or weights world-model or semantic evidence.
 
+## Descriptive self model
+
+B7 persists one **`self_model_v1`** snapshot after each completed autonomous cycle's optional reflection, before final runtime telemetry. It summarizes committed observations, the fixed action catalog, recent prediction performance, bounded storage counts, the latest consolidation audit, stored runtime, and recent retained failures. Every field identifies its evidence source and availability. This is a description of recorded state, with no effect on policy, reward, learning, or action availability.
+
+Inspect it with **`GET /api/self-model`** (no query parameters). Reads preserve the stored payload and project freshness from each source's original timestamp; restart and inspection do not refresh evidence. A new schema-v6 database remains `awaiting_first_cycle` until a successful publication. Legacy storage is reported without migration. The [architecture guide](docs/architecture.md#descriptive-self-model--b7) explains field limits and failure handling.
+
 ## Battery and version reporting
 
 The battery parser reads complete status fields: `discharging` and `not charging` report false, including under an AC header. `charging` reports true when trustworthy; `charged` on AC retains the existing externally-powered compatibility meaning. Invalid percentages and ambiguous/unrecognized status remain unavailable independently. Corrected current observations can change learner context and resource guards; historical observations are not rewritten and reward formulas are unchanged. The dashboard says `Not charging` for false; that boolean does not identify the power source.
@@ -103,7 +112,7 @@ Version fields have separate meanings:
 | `/api/bootstrap` → `core_source_version` | Core source accompanying the dashboard (0.2), not evidence of an installed upgrade |
 | `dashboard_version`, `dashboard_edition` | Dashboard component identity: 0.1, Observer Edition |
 | Bootstrap `version` | Preserved legacy label: 0.1 Observer Edition |
-| `supported_schema_version` | Schema supported by this source (5), not the inspected database's actual schema |
+| `supported_schema_version` | Schema supported by this source (6), not the inspected database's actual schema |
 
 Unavailable runtime stays unavailable, and older/stopped telemetry keeps its reported version. The overview labels this “Reported core version.” No build commit is inferred from the dashboard checkout.
 
@@ -115,15 +124,15 @@ The contextual bandit, epsilon, alpha, legacy reward, and Q update remain unchan
 Q_new = Q_old + alpha × (reward - Q_old)
 ```
 
-Predictions, evaluation scores, world beliefs, curiosity scores, and semantic memories do not change action selection or that update. B5's optional reflection is the current limited use of prediction error for additional internal activity. B8 owns future decision integration.
+Predictions, evaluation scores, world beliefs, curiosity scores, semantic memories, and the self model do not change action selection or that update. B5's optional reflection is the current limited use of prediction error for additional internal activity. B8 owns future decision integration.
 
 SEED does not resist shutdown, prevent sleep, hide, escalate privileges, replicate itself, change security settings, acquire tools, choose arbitrary network destinations, execute generated commands, or modify its own source. Owner authority remains part of its design.
 
 ## Persistence and compatibility
 
-The current SQLite schema is **v5**. Supported older memory is backed up before upgrade through the write-capable `Memory` path; migrations are additive. Unsupported or ambiguous schema versions are refused. The dashboard's observer reads do not migrate storage.
+The current SQLite schema is **v6**. Supported older memory is backed up before upgrade through the write-capable `Memory` path; migrations are additive. Unsupported or ambiguous schema versions are refused. The dashboard's observer reads do not migrate storage.
 
-Historical absences are valid: pre-B1 episodes may lack transitions; B1 transitions may lack predictions; B2 predictions may lack evaluations; pre-B4/B5 history may lack queued world-model evidence or curiosity assessments. Migration invents none of these. A later explicit consolidation may consume already-published eligible B4 beliefs.
+Historical absences are valid: pre-B1 episodes may lack transitions; B1 transitions may lack predictions; B2 predictions may lack evaluations; pre-B4/B5 history may lack queued world-model evidence or curiosity assessments. Migration invents none of these. A later explicit consolidation may consume already-published eligible B4 beliefs. The v6 migration adds an empty singleton table without synthesizing a self model from history.
 
 Experience persistence, world-model updates, and semantic revisions have separate transaction boundaries. The **entire cycle is not atomic**: a Q update, reflection, consolidation, or telemetry may commit before a later experience-persistence failure.
 
@@ -147,6 +156,7 @@ Run deterministic scenarios with temporary homes and synthetic observations:
 .venv/bin/python -m tests.world_model_scenario
 .venv/bin/python -m tests.curiosity_scenario
 .venv/bin/python -m tests.semantic_scenario
+.venv/bin/python -m tests.self_model_scenario
 ```
 
 Saved [baseline artifacts](docs/baselines/) are immutable evidence for their respective batches. Current executions can legitimately report a newer schema or a larger database footprint; compatibility tests explicitly account for these changes.
@@ -175,7 +185,7 @@ The local dashboard can be started from a development environment with its depen
 .venv/bin/python -m dashboard
 ```
 
-It binds to `127.0.0.1:8765` by default and uses `SEED_HOME`, or the standard SEED data directory when unset. Observer mode reads existing storage without constructing another organism. Explicit `--operator` mode enables local controls and requires the complete current schema. B4–B6 add bounded inspection APIs; the broader B9 development UI remains unimplemented. See [inspection endpoints](docs/architecture.md#dashboard-and-inspection).
+It binds to `127.0.0.1:8765` by default and uses `SEED_HOME`, or the standard SEED data directory when unset. Observer mode reads existing storage without constructing another organism. Explicit `--operator` mode enables local controls and requires the complete current schema. B4–B7 add bounded inspection APIs; the broader B9 development UI remains unimplemented. See [inspection endpoints](docs/architecture.md#dashboard-and-inspection).
 
 Stop the installed organism:
 
@@ -204,4 +214,4 @@ Actual macOS sleep suspends the process. Wake is inferred from a large wall-cloc
 
 The [low-disk reward mismatch](docs/review-follow-ups.md) remains open: legacy reward can favor consolidation while low disk suppresses its semantic work. Consolidation is not disk cleanup; a decision change requires separate authorization.
 
-**B7 is next, pending explicit authorization.** Self-modeling, the B8 decision upgrade, B9 development UI, and B10 development evaluation remain unstarted. Full acceptance results and inherited limitations are recorded in the [B6 execution log](docs/seed-0.2-development-plan.md#b6-execution-log--2026-09-23).
+**B8–B10 remain unstarted.** B7 exposes descriptive evidence only. Prediction metrics use the latest 100 raw records, storage counts saturate at 1,001, and failure summaries cover retained events rather than a lifetime failure rate. Full evidence and remaining gates are in the [B7 execution record](docs/seed-0.2-development-plan.md#b7-implementation-record--2026-09-24).

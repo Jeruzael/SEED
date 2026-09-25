@@ -39,7 +39,7 @@ def test_bootstrap_explicit_versions_preserve_legacy_contract_and_tokens(home, o
         assert data['version'] == '0.1 Observer Edition'
         assert data['dashboard_version'] == '0.1'
         assert data['dashboard_edition'] == 'Observer Edition'
-        assert data['supported_schema_version'] == VERSION == 5
+        assert data['supported_schema_version'] == VERSION == 6
         assert data['operator'] is operator and data['refresh_seconds'] == 5
         assert isinstance(data['token'],str) and len(data['token']) >= 32
         assert c.get('/api/bootstrap').json()['token'] == data['token']
@@ -52,7 +52,7 @@ def test_legacy_metadata_read_does_not_migrate_or_invent_runtime(legacy_home):
     path = legacy_home/'memory.sqlite3'
     with sqlite3.connect(path) as db: before = list(db.iterdump())
     with TestClient(create_app(legacy_home),base_url=ORIGIN) as c:
-        assert c.get('/api/bootstrap').json().get('supported_schema_version') == 5
+        assert c.get('/api/bootstrap').json().get('supported_schema_version') == 6
         status = c.get('/api/status').json()
         assert status['compatibility'] == 'legacy' and not status['fresh']
         assert status['runtime'] == {} and status['runtime'].get('version') is None

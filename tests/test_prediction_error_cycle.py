@@ -68,7 +68,7 @@ def test_error_order_original_prediction_once_and_exact_persistence(home,monkeyp
         assert evaluation['signals']['battery_pct']['signed_error']==-70
         assert evaluation['signals']['load_ratio']['signed_error']==pytest.approx(.9)
         events=[(r[0],json.loads(r[1])) for r in core.memory.db.execute('SELECT category,data_json FROM events ORDER BY id')]
-        assert [r[0] for r in events]==['PERCEPTION','DECISION','PREDICTION','ACTION','REFLECTION','ACTION','PERCEPTION','PREDICTION_ERROR','CURIOSITY','LEARNING','MEMORY']
+        assert [r[0] for r in events]==['PERCEPTION','DECISION','PREDICTION','ACTION','REFLECTION','ACTION','PERCEPTION','PREDICTION_ERROR','CURIOSITY','LEARNING','MEMORY','SELF_MODEL']
         assert events[7][1]==evaluation
         assert core.memory.db.execute('SELECT id FROM episodes').fetchone()[0]==row['episode_id']
     finally:core.close()
@@ -123,5 +123,5 @@ def test_evaluation_pair_rollback_and_historical_b1_b2_integrity(home):
         assert rows[0]['prediction_json'] is None and rows[0]['prediction_error_json'] is None
         assert rows[1]['prediction_json'] is not None and rows[1]['prediction_error_json'] is None
         assert json.loads(rows[2]['prediction_error_json'])==evaluation
-        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0]==5
+        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0]==6
     finally:core.close()

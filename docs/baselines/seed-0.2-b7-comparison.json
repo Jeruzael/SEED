@@ -1,0 +1,270 @@
+{
+  "approved_design_commit": "89f4561bee0a8bca930a329f88bbaef5af3e82e1",
+  "batch": "B7",
+  "command": ".venv/bin/python -m tests.self_model_scenario",
+  "historical_artifact_sha256": {
+    "docs/baselines/seed-0.1-baseline.json": "06aab67678a8dc1c1aa7e226e8ae36749cf0f6d4b6cf7f4a3d2d115d02e6ec65",
+    "docs/baselines/seed-0.2-b1-comparison.json": "4ebb6e6fb84b8315a7b274f1c5f3f5e6fd192f73fc6a30a6b1eed929ee044b79",
+    "docs/baselines/seed-0.2-b2-comparison.json": "3198b14635ad8cbb38360bf9dfdf26e9cb43dfd16524b2ce5a4abce25069c082",
+    "docs/baselines/seed-0.2-b3-evaluation.json": "88a5a82bca073444ec0b1b8b9d98678c45f853bf323b22185de323ac2818e834",
+    "docs/baselines/seed-0.2-b4-comparison.json": "f8f84f57b0eb2d6fa2e30f00751ec9097c7b244c29d57c76ce719b18177bf4c1",
+    "docs/baselines/seed-0.2-b5-comparison.json": "01d98f21c2108e46cb676b52d27cafeb958b7e222964e13484a69620921a6896",
+    "docs/baselines/seed-0.2-b6-comparison.json": "cfbea2c67261d600f713e59bb8cbb43616e8a122a3007f96f9cad477e3053ead"
+  },
+  "self_model": {
+    "before_first_cycle": "awaiting_first_cycle",
+    "failed_write_preserves_snapshot": true,
+    "failure_count": 1,
+    "fixture": "SEED 0.2 B7 deterministic self-model inspection",
+    "fresh_resource_status": "available",
+    "insufficient_score": {
+      "reason": "no_scored_evaluations",
+      "source": "prediction_score",
+      "status": "insufficient_evidence",
+      "value": {
+        "accuracy_score": null,
+        "mean_normalized_error": null,
+        "samples": 0
+      }
+    },
+    "metrics": {
+      "accuracy": 0.94,
+      "coverage": 0.41666666666666663,
+      "error": 0.06,
+      "samples": 2,
+      "valid_evaluations": 3
+    },
+    "new_cycle_advances": true,
+    "perceptions_per_run": 4,
+    "policy_control": {
+      "actions": [
+        "observe",
+        "observe"
+      ],
+      "alpha": 0.18,
+      "delays": [
+        8,
+        8
+      ],
+      "epsilon": 0,
+      "evaluations": [
+        {
+          "aggregate": {
+            "accuracy_score": 1.0,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.0,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 0.0,
+              "actual": 80.0,
+              "normalized_error": 0.0,
+              "predicted": 80.0,
+              "scoring_method": "percentage_range",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 0.0,
+              "actual": 70.0,
+              "normalized_error": 0.0,
+              "predicted": 70.0,
+              "scoring_method": "percentage_range",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 0.0,
+              "actual": 0.2,
+              "normalized_error": 0.0,
+              "predicted": 0.2,
+              "scoring_method": "bounded_relative",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": false,
+              "classification_error": 0,
+              "correct": true,
+              "normalized_error": 0,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        },
+        {
+          "aggregate": {
+            "accuracy_score": 1.0,
+            "coverage": 1.0,
+            "evaluated_signals": 4,
+            "mean_normalized_error": 0.0,
+            "status": "evaluated",
+            "target_signals": 4
+          },
+          "evaluator": "prediction_error_v1",
+          "evaluator_version": 1,
+          "horizon": "next_post_action_observation",
+          "prediction_model": "transition_delta_v1",
+          "prediction_model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "absolute_error": 0.0,
+              "actual": 80.0,
+              "normalized_error": 0.0,
+              "predicted": 80.0,
+              "scoring_method": "percentage_range",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "disk_free_pct": {
+              "absolute_error": 0.0,
+              "actual": 70.0,
+              "normalized_error": 0.0,
+              "predicted": 70.0,
+              "scoring_method": "percentage_range",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "load_ratio": {
+              "absolute_error": 0.0,
+              "actual": 0.2,
+              "normalized_error": 0.0,
+              "predicted": 0.2,
+              "scoring_method": "bounded_relative",
+              "signed_error": 0.0,
+              "status": "evaluated"
+            },
+            "network_reachable": {
+              "actual": false,
+              "classification_error": 0,
+              "correct": true,
+              "normalized_error": 0,
+              "predicted": false,
+              "scoring_method": "boolean_mismatch",
+              "status": "evaluated"
+            }
+          }
+        }
+      ],
+      "perceptions": 4,
+      "predictions": [
+        {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 80.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 70.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 0.2
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        },
+        {
+          "action": "observe",
+          "horizon": "next_post_action_observation",
+          "model": "transition_delta_v1",
+          "model_version": 1,
+          "signals": {
+            "battery_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 80.0
+            },
+            "disk_free_pct": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 70.0
+            },
+            "load_ratio": {
+              "clamped": false,
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": 0.2
+            },
+            "network_reachable": {
+              "confidence": 0.0,
+              "confidence_kind": "evidence_support",
+              "evidence_count": 0,
+              "method": "persistence",
+              "status": "predicted",
+              "value": false
+            }
+          }
+        }
+      ],
+      "q_values": [
+        {
+          "action": "observe",
+          "state_key": "charging|calm|ok|day",
+          "value": 0.6181,
+          "visits": 6
+        }
+      ],
+      "rewards": [
+        0.45,
+        0.45
+      ]
+    },
+    "policy_equal": true,
+    "restart_no_update": true,
+    "restart_payload_equal": true,
+    "schema_version": 6,
+    "stale_resource_status": "stale",
+    "stale_score_status": "stale",
+    "suppressed_action_selectable": true,
+    "suppression_reason": "low_disk"
+  },
+  "verified_base": "585affec56ddb0e4580f6df6926b9b6bde291dc0"
+}

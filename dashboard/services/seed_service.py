@@ -12,6 +12,7 @@ from .read_store import ReadStore, ServiceError, decode
 from .process import ProcessController
 from .storage import StorageService
 from .semantic_memory import SemanticReadService
+from .self_model import SelfModelReadService
 
 
 class SeedService:
@@ -218,6 +219,9 @@ class SeedService:
                     suppressed_reflection_count=sum(r['suppression_reason'] is not None for r in rows),
                     suppression_reasons=dict(Counter(r['suppression_reason'] for r in rows if r['suppression_reason'])),
                     failure_count=sum(r['failure_reason'] is not None for r in rows))
+
+    def self_model(self):
+        return SelfModelReadService(self.store, self.clock).get()
 
     def semantic_memories(self, signal=None, scope=None, status=None, after=0, limit=50):
         return SemanticReadService(self.store).memories(signal, scope, status, after, limit)

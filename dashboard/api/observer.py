@@ -20,6 +20,11 @@ def observer_router(service, slots):
     def learning(): return service.learning()
     @router.get('/concepts')
     def concepts(): return service.concepts()
+    @router.get('/self-model')
+    def self_model(request: Request):
+        if request.query_params:
+            raise ServiceError('invalid_query', 'Self model inspection accepts no query parameters.')
+        return service.self_model()
     @router.get('/world-beliefs')
     def world_beliefs(signal: str | None = Query(None, max_length=32),
                       scope: str | None = Query(None, max_length=16),

@@ -73,7 +73,7 @@ def test_prospective_order_and_exact_pre_action_payload(home, monkeypatch):
         events = [(r[0],json.loads(r[1])) for r in core.memory.db.execute(
             'SELECT category,data_json FROM events ORDER BY id')]
         assert [category for category,_ in events] == ['PERCEPTION','DECISION','PREDICTION','ACTION','REFLECTION',
-                                                       'ACTION','PERCEPTION','PREDICTION_ERROR','CURIOSITY','LEARNING','MEMORY']
+                                                       'ACTION','PERCEPTION','PREDICTION_ERROR','CURIOSITY','LEARNING','MEMORY','SELF_MODEL']
         assert events[2][1] == payload
     finally:
         core.close()
@@ -132,6 +132,6 @@ def test_prediction_joins_atomic_experience_and_does_not_backfill(home):
         assert [r[0] for r in rows] == [old_transition,new_transition]
         assert rows[0][1] is None and json.loads(rows[1][1]) == payload
         assert all(r[2] is None for r in rows)
-        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 5
+        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 6
     finally:
         core.close()
