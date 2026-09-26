@@ -8,7 +8,10 @@ pre-action evidence and the existing four internal actions. Recommend a separate
 and a small versioned utility rule. Preserve learning semantics and make every
 completed decision inspectable.
 
-**Design/specification: COMPLETE FOR OWNER REVIEW. Implementation: NOT STARTED.**
+**Design/specification: AMENDED AND COMPLETE FOR OWNER REVIEW. Implementation: NOT STARTED.**
+Amended 2026-09-26 following owner review: 0 Critical, 2 Important, 1 Minor design
+findings. This revision supersedes the original tie, durable-record and stale-expiry
+contracts at `3014625fe031b3b6d71f1d0320ce62b627569acf`; no implementation began.
 This document specifies future behavior; it does not authorize implementation.
 The owner explicitly authorized only this spec and the two tracker documents.
 B9–B10 remain NOT STARTED. Installed organism: UNTOUCHED.
@@ -93,7 +96,7 @@ Their B7 selection assumptions need explicitly scoped B8 adaptations, not deleti
    delay formulas and B2–B7 meanings. Store utility separately from Q.
 4. Persist exact selection-time evidence with each new completed autonomous
    transition; expose bounded read-only inspection without frontend work.
-5. Specify deterministic fallback, corrupt-data behavior, provenance, limits and
+5. Specify fallback reproducible with injected RNG, corrupt-data behavior, provenance, limits and
    hand-calculable acceptance. No claim of improved performance.
 
 ## Non-goals
@@ -116,7 +119,7 @@ Reads listed here are proposed B8 selection reads, not extra downstream B3–B7 
 | Load | Yes | Fresh `state_before.load_ratio` | None | Current perception | Observation | Constraint and forecast input | Missing is unknown; invalid explicit value aborts legacy-incompatible state | Yes | Immediate workload evidence |
 | Disk | Yes | Fresh `state_before.disk_free_pct` | None | Current perception | Observation | Constraint and forecast input | Same missing/invalid distinction as load | Yes | Resolves suppressed-work mismatch |
 | Network | Yes | `state_before.network` | None | Current perception | Observation | B2 input only | B2 unavailable rules | Prediction only | No action-specific generic danger rationale |
-| Candidate predictions | Not currently; yes after proposed reorder | B2 pure batch over completed `transitions` | One query, latest 200 raw rows | Shared ID cutoff and frozen contributor indexes | Descriptive action/global correlations | Immediate resource forecasts | Explicit missing/stale states; conservative effective penalties, then Q fallback if no usable resource forecast | Yes | Makes prediction prospective for selection |
+| Candidate predictions | Not currently; yes after proposed reorder | B2 pure batch over completed `transitions` | One query, latest 200 raw rows | Shared ID cutoff; compact support/freshness provenance | Descriptive action/global correlations | Immediate resource forecasts | Explicit missing/stale states; conservative effective penalties, then Q fallback if no usable resource forecast | Yes | Makes prediction prospective for selection |
 | B4 confidence/support/contradictions/presence | Yes | `world_beliefs`; action/global rows | Zero selected; alternative would read at most 20 identities | Lifetime cumulative evidence; no TTL; overlaps B2 transitions | Descriptive consistency | Could describe consistency, not calibrated uncertainty | Absent is unknown, never confidence zero interpreted as certainty | No | No unique required signal; avoids combining incompatible confidence meanings |
 | Current B5 curiosity score | No | `assess_curiosity` needs current B3 error/after | Zero | Post-outcome | Descriptive salience | None at selection | Excluded even if a previous score exists | No | Would leak future evidence or substitute a stale different outcome |
 | B6 semantic summaries | Yes | `semantic_memories` | Zero | Last explicit consolidation of B4 | Derived descriptive summary | No unique environmental forecast | Excluded | No | Duplicate underlying evidence; promotion is not another independent observation |
@@ -168,8 +171,9 @@ missing candidate identities are a decision-contract error, not permission to ex
 an arbitrary action. There are no dynamically registered tools.
 
 Each candidate has eligibility/reasons; raw Q/visits/row-absence; bounded components;
-exact B2 prediction; per-target contributor indexes and resource availability; and
-utility. Even constrained candidates have computed components when inputs are safe.
+compact three-target resource forecasts and utility. Full B2 predictions and contributor
+metadata exist only in the frozen in-memory result; the selected full prediction is
+stored once in its linked transition and identified in the record by canonical digest. Even constrained candidates have computed components when inputs are safe.
 Eligibility, selection and actual substantive action completion are separate facts.
 A valid recorded decision can lead to a suppressed/no-op action or fail before any
 completed transition; it does not certify that semantic work occurred.
@@ -293,22 +297,32 @@ network samples then use only the after Boolean. Do not tighten B2's global-acti
 sample rule merely because B4 rejects unknown actions. Batch provenance records
 which of the frozen rows actually contributed, not a later model summary.
 
-`history.rows` contains at most 200 `{id, completed_at}` entries in descending ID
-order; `cutoff_id` is the first ID, or null when empty/unavailable. Every candidate
-stores four arrays of zero-based indexes into this shared list; indexes follow its
-order, are distinct and match B2 evidence counts/method scopes. Persistence and
-unavailable targets have empty arrays. Malformed/nonfinite completion metadata is
-represented as null and makes any forecast using that row unavailable for scoring;
-B2 itself does not suddenly use timestamps in its statistical math.
+The in-memory snapshot retains at most 200 IDs/completion times and contributor
+membership sufficient to certify B2 evidence counts and action/global selection.
+None of that row ledger or contributor arrays is durable decision JSON. Persist
+only `history={status,reason,cutoff_transition_id,raw_rows_examined}` and the compact
+three-target candidate forecasts specified under Decision persistence.
 
-Freshness is a B8 scoring rule, not a B2 formula change. A historical resource forecast
-is usable when its support count >=2, all contributor completion times are finite
-and <= `selected_at`, and its newest contributor is no more than **300 seconds** old.
-Equality at 300 is fresh. Older contributors may still be in the latest-200 mixture;
-this is a recency-of-latest-support rule, not a claim that all evidence is recent.
-Record indexes/times so that limitation is visible. A future source time or missing
-time makes that signal `invalid`; otherwise an older newest source makes it `stale`.
-No TTL changes the stored candidate prediction; only its B8 scoring availability.
+Freshness remains a B8 scoring rule, not a B2 formula change. A historical resource
+forecast is usable when count>=2, every contributor completion time is finite,
+nonnegative and <= `selected_at`, and the greatest contributor completion time is
+no more than **300 seconds** old. Equality at 300 is fresh. Older contributors can
+remain in the latest-200 mixture; this tests newest support, not all-sample recency.
+
+For each target, compute transiently and persist only the maximum valid completion
+time and its source ID (highest ID breaks equal timestamp ties), plus
+`invalid_source_count`, the number of contributors with missing, nonnumeric,
+nonfinite or negative timestamps. The maximum includes finite future times, so a
+maximum >selected_at identifies future contamination. If no valid times exist,
+both newest-source fields are null. Thus count of invalid clocks plus maximum time
+preserves the original all-contributors clock check without storing every source.
+A nonzero invalid count or future maximum yields status `invalid`; otherwise age>300
+yields `stale`. These statuses make risk/uncertainty unsupported without changing B2
+forecast math. Persistence/unavailable targets have no contributor timestamps.
+
+This compact provenance explains the score and validates the writer's reported
+freshness decision; it cannot reconstruct samples or independently prove their
+original values. Do not claim full predictor replayability or rerun history on reads.
 
 An auxiliary read/VM/size/contract failure with valid captured Q produces one
 explicit empty-history batch before selection. All four predictions then retain
@@ -340,8 +354,9 @@ uses the unprotected battery formula. Missing battery forecasts remain missing
 even when charging is true. Network has no risk term. Current hard guards use
 20/.8/10 independently of these soft forecast ramps (40/.5/20).
 
-For a persistence-only, unavailable, stale or invalid resource forecast, record raw
-risk as null and status explicitly, then use **effective risk=1**. Missing evidence
+For a persistence-only, unavailable, stale or invalid resource forecast, retain its
+explicit compact status; raw risk is conceptually unavailable, then use **effective
+risk=1**. Do not store a redundant per-target raw-risk dictionary. Missing evidence
 cannot become a favorable zero risk. `forecast_resource_risk R` is the arithmetic
 mean of the three effective risks, always in [0,1]. This denominator never shrinks.
 No current observation is relabeled as supported action-conditioned prediction.
@@ -351,8 +366,9 @@ No current observation is relabeled as supported action-conditioned prediction.
 `model_uncertainty U` is a versioned **lack-of-evidence-support measure**. For each
 of the same three usable resource forecasts, raw uncertainty is
 `1 - min(.95, evidence_count / 20)`, identical to `1 - B2 confidence` after validating
-its consistency with count. Unsupported targets have raw uncertainty null and
-**effective uncertainty=1**. U is the mean over the fixed three targets.
+its consistency with count. Unsupported targets have no supported raw uncertainty and
+**effective uncertainty=1**. The compact forecast status/count/confidence reproduces
+this rule; no duplicate per-target raw-uncertainty dictionary is stored. U is the mean over the fixed three targets.
 
 This is not posterior uncertainty, prediction-error calibration or expected information
 gain. B4 consistency confidence and contradiction rate are not averaged into it.
@@ -422,28 +438,42 @@ makes clear that they did not determine the winner.
 
 Read applied epsilon once; require finite nonboolean [0,1]. Invalid configuration
 aborts before action. Draw `u=random()` once from an injected RNG, require 0<=u<1.
-Exploration occurs exactly when `u < epsilon`; epsilon 0 never explores and epsilon
-1 always explores. Explore uniformly via the injected RNG's `choice()` over eligible
-actions in canonical order, recording the chosen index. Never explore excluded actions.
+Exploration occurs exactly when `u < epsilon`; epsilon 0 never explores, epsilon 1
+always explores, and u==epsilon does not explore. This draw is separate from choice.
 
-For exploitation with `policy_basis=composite`, find maximum eligible utility;
-all candidates within **absolute 1e-12** of that maximum form the tie set (no relative
-or transitive tie grouping). Choose first in fixed priority **rest, observe, reflect,
-consolidate**. For legacy-Q fallback use exact raw-Q equality, then the same priority.
-This intentionally replaces random exploitation tie-breaking in the autonomous path;
-legacy `Learner.choose()` retains its original random ties.
+Construct `selection_candidates` in canonical action order after hard constraints:
+
+- Exploration: every eligible action.
+- Composite exploitation: eligible actions whose stored computed utility is within
+  **absolute 1e-12** of the eligible maximum. No relative/transitive tie grouping.
+- Legacy-Q fallback exploitation: eligible actions exactly equal to maximum eligible
+  **raw Q**. No tolerance or normalized-Q substitution.
+
+If the pool has one member, select it without calling choice. If it has multiple
+members, call the same injected RNG's uniform `choice(selection_candidates)` exactly
+once. Validate that the returned action belongs to the pool. The interface has no
+other stochastic selection operation. Runtime randomness is intentional; acceptance
+fixtures inject exact draws and choices. No hidden fixed action preference exists
+in tie handling. Rest is not favored merely because Q or utility ties.
+
+`choice_index` is an integer index into **selection_candidates** whenever choice
+was called, including exploration, composite exploit ties and raw-Q fallback ties.
+It is null exactly when that pool has one member. Do not index eligible_actions
+instead for a smaller exploitation tie pool. This also applies to defensive singleton
+rest fallback and singleton exploration. Record epsilon draw regardless of pool size.
 
 `selection_mode=explore` whenever epsilon fires, including degraded evidence;
 otherwise `exploit` for composite or `fallback` for legacy-Q basis.
-`policy_basis=composite|legacy_q` and `fallback_reason` are separate: degradation does
-not secretly turn epsilon off. `choice_index` is null outside exploration. Store the
-eligible pool/tie set in `selection_candidates`; utility cannot override constraints.
+`policy_basis=composite|legacy_q` and fallback_reason remain separate: degradation
+never secretly disables epsilon. Hard-constrained actions enter neither exploration
+nor tie pools. Legacy `Learner.choose()` remains unchanged; raw-Q ties now preserve
+its random-choice semantics while B8 excludes constrained candidates first.
 
 ## Missing/corrupt evidence fallback
 
 | Situation | Exact behavior |
 | --- | --- |
-| Some resource predictions usable | Composite ranking; unsupported targets effective R/U=1; retain statuses/null raw values |
+| Some resource predictions usable | Composite ranking; unsupported targets effective R/U=1; retain compact forecast statuses |
 | All eligible resource predictions unsupported, including pure persistence | Legacy raw-Q ordering under constraints; `fallback_reason=no_supported_resource_forecast` |
 | Auxiliary snapshot read/VM/size failure | Empty-history canonical B2 batch; legacy-Q basis; failure reason from fixed enum |
 | Invalid optional candidate batch | Discard batch, canonical empty-history predictions; `fallback_reason=invalid_prediction` |
@@ -451,7 +481,8 @@ eligible pool/tie set in `selection_candidates`; utility cannot override constra
 | Missing current resource fields with legacy-compatible shape | Preserve presence, constrain costly actions; observe/rest remain; prediction follows B2 unknown rules |
 | Malformed current state, Q, epsilon, RNG or candidate identity | Bounded ERROR; abort before action, no Q/experience/decision insert |
 | Unexpected empty eligible set with otherwise valid contract and no stop | Reassert resource-safe rest as sole eligible action; `policy_basis=legacy_q`, `fallback_reason=no_eligible_candidate`; all components still recorded; do not override an invalid-Q or owner-stop abort |
-| Owner stop | Cancel without selecting/executing another action, including rest |
+| Stale selection age >5s | Nonfatal skipped cycle, fixed stale_decision diagnostic, retry after the captured observe_interval; no completed-cycle effects |
+| Owner stop | Explicit stopped result; terminate without retry or another action, including rest |
 | Failed read-transaction cleanup | Abort storage error; never continue on an unsafe connection |
 | Corrupt previously stored decision | Read API returns explicit unavailable/corrupt status; no rescoring or rewrite |
 
@@ -482,130 +513,218 @@ This is a **designed resolution only**. Do not close the implemented issue or re
 
 1. Preserve settings application and inferred-wake handling. Check stop; take the
    existing detached pre-observation and PERCEPTION event. Validate legacy-compatible
-   input and capture the monotonic observation time plus wall `selected_at`.
+   input; capture monotonic observation time, wall `selected_at`, applied epsilon/alpha
+   and current `observe_interval` for this attempt. Generate decision_id for correlation.
 2. Under one lock/read transaction: state key, one Q query, one raw-history query.
    Release/restore the connection before computation/telemetry. No B4/B6/B7 reads.
-3. Compute all four B2 predictions from that frozen history. Freeze contributor
-   metadata; validate predictions; apply documented fallback if necessary.
-4. Compute all constraints and components, then the eligible set. Check owner stop.
-   Draw epsilon and choose using the prescribed basis/ties. Preflight the unchanged
-   selected Q update for finite representability without writing or sensing.
-5. Before action, check stop again. If more than **5 monotonic seconds** have elapsed
-   since the current pre-observation, abort `stale_decision` through the existing
-   ERROR/stop path; do not act, loop, re-perceive or claim a completed transition.
-   Emit bounded DECISION and selected PREDICTION; use the same frozen prediction.
-   Set existing runtime last-decision fields via the raw-Q adapter, then ACTION start.
-   Recheck stop and the same monotonic age limit immediately before dispatch; a race
-   here can leave selection telemetry
-   with no completed record, but must not execute after an observed stop.
-6. Perform existing action; ACTION complete; second perception; outcome; B3 evaluates
-   **that same** prediction. No resnapshot, regeneration or post-outcome scoring.
-7. Read B5's existing at-most-eight prior published beliefs, assess curiosity before
-   the current transition changes B4. Preserve B3/B5 formulas and event meanings.
-8. Compute existing reward from state_before; ordinary `Learner.update`; obtain new
-   raw Q as today. Atomically insert episode, transition, exact prediction/evaluation,
-   B4 queue, B5 assessment **and new decision record**. No utility is a learning target.
+3. Compute all four B2 predictions from the frozen history, validate the transient
+   source metadata and compact projections, and apply only documented auxiliary
+   fallbacks. Fundamental storage/Q/contract errors still raise; expiry never masks them.
+4. Check owner stop first, then age. More than **5 monotonic seconds** since the
+   pre-observation returns the skipped result below before RNG/selection telemetry.
+   Otherwise calculate constraints/components, choose via the injected RNG contract,
+   and freeze the exact selected prediction plus its canonical SHA-256 digest.
+5. Check stop and age again before the successful-selection DECISION event. Emit
+   DECISION and selected PREDICTION using the frozen result; preserve the raw-Q runtime
+   adapter and existing ACTION-start telemetry. Check stop and age immediately before
+   dispatch. A late expiry after telemetry emits the explicit terminal skipped diagnostic
+   with the same decision_id; no ACTION-complete or durable decision is invented. Only
+   after the final stop/age guard passes, perform the existing pure finite Q-update
+   preflight immediately before dispatch; stale attempts never reach reward preflight.
+6. Only after those checks, perform the existing action; ACTION complete; second
+   perception; outcome; B3 evaluates **the exact same selected prediction**. No
+   resnapshot/regeneration or post-outcome selection scoring.
+7. Read B5's at-most-eight prior published beliefs; assess curiosity before the current
+   transition changes B4. Preserve B3/B5 formulas and event meanings.
+8. Compute existing reward from state_before; ordinary Learner.update; obtain new raw
+   Q. Validate frozen prediction digest again and atomically insert episode, transition,
+   full selected prediction/evaluation, B4 queue, B5 assessment and compact decision
+   record. Utility is never a learning target.
 9. Preserve CURIOSITY summary, bounded B4 recovery, LEARNING/MEMORY, metadata, optional
-   claimed B5 reflection, then B7 publication and final runtime telemetry.
-10. Return existing delay for the selected action. Stop cancellation returns a
-    distinct `None` cycle result; `run()` exits on that result/stop before computing
-    a wait deadline. It does not treat cancellation as a completed rest cycle.
+   claimed B5 reflection, B7 publication and final runtime telemetry.
+10. Return an explicit immutable `CycleResult(status, delay_seconds, reason)` with
+    the disjoint meanings below; do not overload None as a whole cycle result.
 
-No complete physical-cycle transaction is claimed. Actions, telemetry and the
-existing separately committed Q update may precede a failed experience transaction.
-The record can only certify selection evidence for a completed linked transition,
-not that every observed external resource change was caused by its internal action.
+| Result | delay_seconds | reason | run() behavior |
+| --- | --- | --- | --- |
+| `completed` | Existing selected-action delay | null | Normal interruptible wait, then next autonomous cycle |
+| `skipped` | This attempt's applied observe_interval, integer 8..3600 (default 8) | `stale_decision` | Same interruptible wait, then fresh perception in a new cycle |
+| `stopped` | null | `owner_stop` | Terminate loop immediately; no retry |
+| Fatal storage/Q/contract failure | No result; raises | Existing bounded ERROR reason | Existing fatal error/shutdown path |
+
+Expiry equality at 5 seconds remains valid; only >5 skips. A skipped attempt performs
+**no action, reward evaluation/update, Q write/visit, experience episode, transition,
+decision record, second perception, B3 evaluation, B4 update, B5 assessment/attention,
+B6 consolidation or B7 publication**. Existing prior self-model records remain unchanged, not deleted.
+Startup/inferred-wake bookkeeping retains its separate existing meaning.
+
+On expiry emit exactly one bounded diagnostic, clear current_action/action_started_at,
+set runtime activity idle and next_observation_at to now+retry delay, and preserve
+last successful action/reward/cycle and last_error. An already emitted last_decision
+is selection-attempt provenance, not completion; its diagnostic explicitly expires
+it. No ERROR event, lifecycle ERROR, failed-process flag or shutdown is caused by
+ordinary stale expiry. A genuine diagnostic/storage failure remains fatal.
+
+`run()` first checks stop_event again after receiving a result, exiting even if a
+skipped/completed result was already produced. Otherwise it captures one monotonic
+deadline at return plus result.delay_seconds and uses
+its existing stop-event wait (<=2-second heartbeat/command polling slices). Do not
+subtract elapsed selection time from the retry delay or re-enter selection inside
+the same cycle. Thus repeated expiry attempts are at least observe_interval apart,
+with no busy loop, new scheduler/thread or new setting. Changed settings apply at
+the next cycle; this wait uses the captured value. Owner commands may still run
+through their separate existing path while waiting. Owner stop wins every guard and
+interrupts the wait immediately; it is never converted into stale retry. Invalid or
+backwards/nonfinite monotonic readings are a fatal clock contract error, not expiry.
+
+The selected prediction remains immutable through successful completion. Its full
+payload lives in the linked transition; the compact decision keeps the digest.
+Actions, telemetry and the separately committed Q update can still precede a later
+experience-transaction failure. No whole-physical-cycle transaction or causal effect
+of an internal action on external resources is claimed.
 
 ## Decision persistence
 
 | Choice | Evaluation |
 | --- | --- |
-| DECISION/runtime only | No schema, but events expire and runtime is current-only; loses durable transition evidence |
-| Nullable JSON on `transitions` | Direct atomic linkage, but alters the established row and mixes expanding contracts |
-| New transition-keyed `decision_records` | Additive, naturally absent for historical/owner records, clear validator and bounded read boundary; select |
+| DECISION/runtime only | Events expire and runtime is current-only; loses durable transition evidence |
+| Nullable JSON on transitions | Atomic linkage, but alters the established row and mixes growing contracts |
+| New transition-keyed decision_records | Additive, naturally absent historically, clear compact contract; retain this choice |
 
-One record per future completed autonomous transition. No writes on owner commands,
-startup, read, failed action/post-observation or incomplete cycle. Generate a 32-character
-lowercase hexadecimal `decision_id` before selection telemetry for correlation; it is
-not a transition ID and need not be globally indexed. At insertion attach the actual
-transition ID, not a guessed next ID. `created_at` is insertion wall time; `selected_at`
-is the selection-start wall time captured after the pre-observation, before evidence
-acquisition; it is not a claim about dispatch time. Wall clocks can go backward: do not require
-created_at >= selected_at or silently reorder timestamps.
+One compact record per future completed autonomous transition. No writes on owner
+commands, startup, reads, failed action/post-observation, stopped or stale skipped
+attempts. Generate a 32-character lowercase hexadecimal decision_id before evidence
+work for attempt/event correlation. It is not a guessed transition ID. Attach the
+actual new transition ID during the experience transaction. created_at is insertion
+wall time; selected_at is selection-start wall time captured after pre-observation,
+before evidence acquisition. Wall clocks can reverse: no created_at>=selected_at rule.
 
-The stored JSON is **at most 65,536 UTF-8 bytes**, strict finite JSON, no duplicate
-keys, maximum depth 12, maximum array length 200 and maximum 8,192 total object keys
-plus array elements. These limits include all nesting. Strings are at most 128 UTF-8
-bytes except fixed contracts still validated by exact enum. No raw history states,
-episodes, notes, hostnames, paths, tokens or free-form error text are included.
+The durable record limit is **16,384 UTF-8 bytes**, encoded with
+`json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=True,
+allow_nan=False).encode('utf-8')`. Strict JSON rejects duplicate/unknown keys,
+nonfinite values and Boolean-as-number. Depth<=8, arrays<=4 elements, total object
+keys plus array elements<=512; strings<=128 UTF-8 bytes and exact enums where defined.
+The three resource targets are a fixed object, not an open-ended registry. No source
+row ledger, contributor arrays, full B2 prediction copy, network forecast, episodes,
+notes, hostnames, paths, tokens or free-form errors appear in the record.
 
-The exact field contract is defined below and exemplified in full. Unknown fields
-or versions are invalid; do not reinterpret them. All numeric validations reject
-Boolean-as-number. IDs are integers 1..2^63−1; counts/indexes are integers; timestamps
-finite nonnegative numbers or explicit null only where allowed. Current input object
-contains only present keys from battery_pct, charging, load_ratio, disk_free_pct,
-network, local_hour with the state domains above; absent keys remain absent.
+Exact fields and domains:
 
-- Top-level fields: `model`, `model_version`, `weights_version`, `decision_id`,
-  `transition_id`, `created_at`, `selected_at`, `state_key`, `current`, `history`,
-  `epsilon`, `alpha`, `random_draw`, `choice_index`, `policy_basis`, `selection_mode`,
-  `eligible_actions`, `selection_candidates`, `selected_action`, `fallback_reason`,
-  `candidates`. Model=`decision_v1`, versions=1; state key must equal legacy state_key
-  on current inputs. Epsilon [0,1], alpha (0,1] per current configuration, draw [0,1).
-- `history`: exactly `status`, `reason`, `cutoff_id`, `rows`. Status=`ok|empty|unavailable`;
-  ok requires 1..200 rows; empty requires none and null reason/cutoff; unavailable
-  requires none, null cutoff and reason `history_read_error`,
-  `history_budget_exceeded`, `oversized_history` or `invalid_prediction`. Ok reason is null.
-  Row fields exactly `id`, `completed_at`; IDs unique descending, times finite or null.
-- `candidates`: exactly four action keys. Each has exactly `eligible`,
-  `constraint_reasons`, `q_value`, `visits`, `q_missing`, `components`, `resource_status`,
-  `raw_risk`, `raw_uncertainty`, `evidence_indexes`, `decision_utility`, `prediction`.
-  Eligibility/reasons must reproduce the guards; missing Q means exactly 0/0.
-- `components`: exactly `q_component`, `forecast_resource_risk`, `model_uncertainty`;
-  finite [0,1]. Utility finite [0,1], consistent with formula within 1e-12.
-  `resource_status`, `raw_risk`, `raw_uncertainty` have exactly the three numeric target
-  keys. Status=`usable|persistence|unavailable|stale|invalid`. Raw numbers in [0,1]
-  only when usable, otherwise null. Components reproduce the fixed effective defaults.
-- `evidence_indexes`: exactly all four B2 targets, each a unique in-range ordered
-  index list, length matching evidence_count. Invalid metadata may produce an invalid
-  resource status but must not invent supporting IDs. The source action-selection
-  match is certified during snapshot construction; read validation can check structure,
-  count/freshness, not re-query 200 source states to rerun inference.
-- `prediction`: exact existing B2 version-1 envelope and per-signal conditional
-  shape. Envelope fields action/signals/model/model_version/horizon. Four signals.
-  Unavailable: status/reason/evidence_count/confidence/confidence_kind only; reason
-  missing_current_value or invalid_current_value, count/confidence=0.
-  Predicted numeric: status/value/method/clamped/evidence_count/confidence/confidence_kind;
-  method action_mean_delta, global_mean_delta or persistence. Boolean predicted:
-  status/value/method/evidence_count/confidence/confidence_kind, plus probability_true
-  only for action_boolean_frequency or global_boolean_frequency. No Boolean clamped.
-  Confidence kind=evidence_support; count 0 for persistence/unavailable, otherwise
-  2..200; confidence exactly min(.95,count/20); numeric/network domains as B2.
-- Action lists are unique canonical-order subsets except exploitation tie set order
-  also canonical. Selection must satisfy epsilon, basis, tie priority, pool membership
-  and choice index (index into eligible list; null unless explore). The winning action
-  and candidate prediction.action must match SQL columns and linked transition.action.
-  Fallback reason null only for composite basis; nonnull for legacy_q. All eligible
-  unsupported implies legacy_q; partial usable evidence permits composite only unless
-  the explicit defensive empty-set fallback applies.
+- Top level: `model`, `model_version`, `weights_version`, `decision_id`, `transition_id`,
+  `created_at`, `selected_at`, `state_key`, `current`, `history`, `prediction_contract`,
+  `selected_prediction_sha256`, `epsilon`, `alpha`, `random_draw`, `choice_index`,
+  `policy_basis`, `selection_mode`, `eligible_actions`, `selection_candidates`,
+  `selected_action`, `fallback_reason`, `candidates`. Model=decision_v1 and versions=1.
+  No B8 record has shipped; this amendment revises the proposed v1 contract without
+  introducing a migration between two nonexistent B8 implementations.
+- IDs are exact integers 1..2^63−1; timestamps finite nonnegative numbers. Epsilon[0,1],
+  alpha(0,1], draw[0,1). `current` includes only present battery_pct, charging,
+  load_ratio, disk_free_pct, local_hour with the existing State/constraints domains;
+  network is omitted because it neither determines utility nor state_key. State_key
+  must match this projection. Missing fields remain absent. No separate raw-risk or
+  raw-uncertainty dictionaries are stored; effective defaults derive from status.
+- `prediction_contract`: exactly model=transition_delta_v1, model_version=1,
+  horizon=next_post_action_observation. One common envelope defines the interpretation
+  of all candidate resource projections; it is not four full prediction copies.
+- `history`: exactly status, reason, cutoff_transition_id, raw_rows_examined.
+  Status=`ok|empty|unavailable`. Count is an exact integer 0..200: raw rows materialized
+  by the bounded read before any discard. Ok requires count 1..200, cutoff highest
+  materialized ID, reason null. Empty requires count 0/cutoff null/reason null.
+  Unavailable requires a reason from history_read_error, history_budget_exceeded,
+  oversized_history, invalid_prediction. Read/budget errors before a completed fetch
+  report count 0/cutoff null; post-fetch size/batch rejection retains its known count
+  and cutoff, even though the effective forecasting history becomes empty. Count 0
+  iff cutoff null. Never guess a cutoff after a failed read. Cutoff<current transition ID.
+- `candidates`: exactly the four canonical actions. Each has exactly eligible,
+  constraint_reasons, q_value, visits, q_missing, components, decision_utility,
+  resource_forecasts. Boolean eligibility/missing flags; raw Q finite; visits integer
+  in the compatible range; q_missing=true implies Q0/visits0. Reasons are the fixed
+  ordered guard enums. Components has exactly q_component, forecast_resource_risk,
+  model_uncertainty, each finite[0,1]; utility finite[0,1]. Writer checks formulas and
+  guards against frozen evidence; readers validate stored facts without rescore.
+- `resource_forecasts`: exactly battery_pct, load_ratio, disk_free_pct. Each target
+  has exactly status, value, method, evidence_count, confidence,
+  newest_source_transition_id, newest_source_completed_at, invalid_source_count.
+  Status=`usable|persistence|unavailable|stale|invalid`. Value follows B2 numeric
+  domains, or null only for unavailable. Method=`action_mean_delta|global_mean_delta|
+  persistence` or null only for unavailable. Count 0/confidence 0 for unavailable or
+  persistence; otherwise count 2..200 and confidence=min(.95,count/20). Count cannot
+  exceed history.raw_rows_examined. Confidence means evidence_support, fixed by the
+  shared contract, not a second independently measured number.
+- For historical methods: invalid_source_count is integer 0..evidence_count and
+  counts unusable clock metadata, not missing numeric samples. If all contributor
+  clocks are invalid, both newest-source fields are null. Otherwise they are the
+  maximum valid contributor completion time and its ID (highest ID on equal time).
+  ID<=history cutoff and <linked transition ID. Invalid count>0 or a maximum later
+  than selected_at makes status invalid; otherwise age>300 makes stale; else usable.
+  Null source fields are also required for persistence/unavailable, with invalid
+  count 0. History empty/unavailable admits only persistence/unavailable projections.
+  A stale/invalid projection retains its actual forecast/support facts, but contributes
+  effective risk1/uncertainty1. Unavailable current value stores value/method null,
+  never a synthetic zero. All usable status rules retain the original fixed denominator.
+- All action lists are unique canonical-order subsets. Selected action is in the
+  eligible list and selection_candidates. Writer certifies the exact pool (eligible
+  exploration, tolerant utility maxima or exact raw-Q maxima). More than one pool
+  member requires choice_index in 0..len(pool)−1 and selected_action=pool[index]; a
+  singleton requires index null and that sole action. Mode/basis/epsilon/fallback
+  reason consistency follows the selection contract; no fixed tie priority remains.
+- `selected_prediction_sha256`: exactly 64 lowercase hex characters; canonical hash
+  rule below. SQL model/version/action/mode/created_at/transition mirrors must match
+  JSON; record selected_action matches linked transition.action. This digest links
+  the full selected prediction only; it is not a signature/authenticity claim about
+  the entire record or a replacement for predictor working evidence.
 
-Validate the frozen evidence fields before beginning the experience transaction.
-After inserting its transition, attach the actual transition ID and insertion time,
-then validate and serialize the complete record before inserting decision_records
-inside that same transaction. Any final size/linkage failure rolls the whole
-experience group back; do not reserve or guess a transition ID. Full-record bytes
-are compact JSON (`sort_keys=True`, `separators=(',', ':')`, `allow_nan=False`). The
-selected nested prediction, existing PREDICTION event, and transition prediction
-must be structurally identical and byte-identical under the **existing prediction
-serializer** `json.dumps(payload, sort_keys=True, allow_nan=False)`. Do not require
-literal substring equality against the compact outer record. Validate this equality
-before insert; detail reads also compare to the linked persisted prediction.
-In-memory record mutation, over-limit serialization or linkage mismatch aborts the
-experience transaction; no silent truncation or fake successful B8 record.
+The full selected B2 prediction's authoritative durable location remains
+**transitions.prediction_json**. Compute its digest before action over exactly:
 
-Healthy synthetic record (all forecasts have global support from the same two rows;
-current battery 80/load .2/disk 50, no charging; all three risks zero, U=.9;
-Q(reflect)=1 gives utility .375+.35+.015=.74):
+```text
+canonical = json.dumps(selected_prediction, sort_keys=True,
+                       ensure_ascii=True, allow_nan=False).encode('utf-8')
+selected_prediction_sha256 = hashlib.sha256(canonical).hexdigest()
+```
+
+This is the existing prediction serializer: default separators (including spaces),
+not the compact record encoding. No hashing raw SQL whitespace, no numeric coercion,
+no rounding (80 and80.0 have different canonical bytes). Validate the original B2
+payload first, compute and freeze the digest with the selected payload, and verify
+again before dispatch and before persistence. Digest mismatch then is a fatal mutation
+contract error, not stale retry. Pass that same full payload unchanged to PREDICTION,
+B3 and transition storage; the record stores only its digest and compact projections.
+
+Full selected B2 validation retains the original envelope action/signals/model/
+model_version/horizon and four signals. Numeric predicted fields are status/value/
+method/clamped/evidence_count/confidence/confidence_kind; methods are action_mean_delta,
+global_mean_delta or persistence. Boolean predicted fields omit clamped and add
+probability_true only for action_boolean_frequency/global_boolean_frequency; otherwise
+method=persistence. Unavailable fields are status/reason/evidence_count/confidence/
+confidence_kind only; reason missing_current_value or invalid_current_value.
+Confidence kind=evidence_support, count 0 for persistence/unavailable else 2..200,
+confidence=min(.95,count/20); value/probability domains remain B2's. All batch payloads
+receive this in-memory validation before projection; unselected full payloads are
+not written to decision_records. Full B2 payload limit remains 16,384 bytes.
+
+Validate frozen compact evidence and its selected digest before the transaction.
+After inserting the transition, attach actual transition ID/insertion time, validate
+and serialize the complete compact record before its insertion in the same transaction.
+Final size/linkage failure rolls back the entire experience group; no truncation or
+invented completion. Earlier Q/action effects retain their existing failure boundary.
+On list/detail reads strictly parse the linked full selected prediction, validate its
+contract, reserialize with the canonical rule and require the digest to match. A
+mismatch makes the record corrupt. Also compare the selected projection's B2 value,
+method/count/confidence to the selected transition prediction, not to regenerated
+history. A matching digest establishes linkage, not proof of the omitted samples.
+
+`decision_records` grows one compact record per completed autonomous transition;
+B8 introduces no pruning. The payload is deliberately minimized, but lifetime growth
+remains unbounded until a separately designed retention policy exists.
+
+Healthy full example: Q(reflect)=1, all candidates R0/U.9 from two global zero-delta
+samples (latest support ID2 at998); utility reflect=.74, other actions=.615. Unique
+winner reflect consumes no choice call and stores choice_index=null. The selected
+full B2 prediction has numeric values80.0/.2/50.0, global_mean_delta, count2,
+confidence .1, clamped=false; network=true with global_boolean_frequency,
+probability_true1.0/count 2/confidence .1. This defines the full canonical digest input. The full compact record encodes to
+**4,195 bytes**; its SHA-256 linkage is shown explicitly below.
 
 <!-- B8_HEALTHY_JSON -->
 ```json
@@ -623,23 +742,13 @@ Q(reflect)=1 gives utility .375+.35+.015=.74):
     "charging": false,
     "load_ratio": 0.2,
     "disk_free_pct": 50,
-    "network": true,
     "local_hour": 12
   },
   "history": {
     "status": "ok",
     "reason": null,
-    "cutoff_id": 2,
-    "rows": [
-      {
-        "id": 2,
-        "completed_at": 998
-      },
-      {
-        "id": 1,
-        "completed_at": 997
-      }
-    ]
+    "cutoff_transition_id": 2,
+    "raw_rows_examined": 2
   },
   "epsilon": 0.15,
   "alpha": 0.18,
@@ -670,82 +779,37 @@ Q(reflect)=1 gives utility .375+.35+.015=.74):
         "forecast_resource_risk": 0,
         "model_uncertainty": 0.9
       },
-      "resource_status": {
-        "battery_pct": "usable",
-        "load_ratio": "usable",
-        "disk_free_pct": "usable"
-      },
-      "raw_risk": {
-        "battery_pct": 0,
-        "load_ratio": 0,
-        "disk_free_pct": 0
-      },
-      "raw_uncertainty": {
-        "battery_pct": 0.9,
-        "load_ratio": 0.9,
-        "disk_free_pct": 0.9
-      },
-      "evidence_indexes": {
-        "battery_pct": [
-          0,
-          1
-        ],
-        "load_ratio": [
-          0,
-          1
-        ],
-        "disk_free_pct": [
-          0,
-          1
-        ],
-        "network_reachable": [
-          0,
-          1
-        ]
-      },
       "decision_utility": 0.615,
-      "prediction": {
-        "action": "observe",
-        "model": "transition_delta_v1",
-        "model_version": 1,
-        "horizon": "next_post_action_observation",
-        "signals": {
-          "battery_pct": {
-            "status": "predicted",
-            "value": 80.0,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "load_ratio": {
-            "status": "predicted",
-            "value": 0.2,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "disk_free_pct": {
-            "status": "predicted",
-            "value": 50.0,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "network_reachable": {
-            "status": "predicted",
-            "value": true,
-            "method": "global_boolean_frequency",
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support",
-            "probability_true": 1.0
-          }
+      "resource_forecasts": {
+        "battery_pct": {
+          "status": "usable",
+          "value": 80.0,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
+        },
+        "load_ratio": {
+          "status": "usable",
+          "value": 0.2,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
+        },
+        "disk_free_pct": {
+          "status": "usable",
+          "value": 50.0,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
         }
       }
     },
@@ -760,82 +824,37 @@ Q(reflect)=1 gives utility .375+.35+.015=.74):
         "forecast_resource_risk": 0,
         "model_uncertainty": 0.9
       },
-      "resource_status": {
-        "battery_pct": "usable",
-        "load_ratio": "usable",
-        "disk_free_pct": "usable"
-      },
-      "raw_risk": {
-        "battery_pct": 0,
-        "load_ratio": 0,
-        "disk_free_pct": 0
-      },
-      "raw_uncertainty": {
-        "battery_pct": 0.9,
-        "load_ratio": 0.9,
-        "disk_free_pct": 0.9
-      },
-      "evidence_indexes": {
-        "battery_pct": [
-          0,
-          1
-        ],
-        "load_ratio": [
-          0,
-          1
-        ],
-        "disk_free_pct": [
-          0,
-          1
-        ],
-        "network_reachable": [
-          0,
-          1
-        ]
-      },
       "decision_utility": 0.74,
-      "prediction": {
-        "action": "reflect",
-        "model": "transition_delta_v1",
-        "model_version": 1,
-        "horizon": "next_post_action_observation",
-        "signals": {
-          "battery_pct": {
-            "status": "predicted",
-            "value": 80.0,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "load_ratio": {
-            "status": "predicted",
-            "value": 0.2,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "disk_free_pct": {
-            "status": "predicted",
-            "value": 50.0,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "network_reachable": {
-            "status": "predicted",
-            "value": true,
-            "method": "global_boolean_frequency",
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support",
-            "probability_true": 1.0
-          }
+      "resource_forecasts": {
+        "battery_pct": {
+          "status": "usable",
+          "value": 80.0,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
+        },
+        "load_ratio": {
+          "status": "usable",
+          "value": 0.2,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
+        },
+        "disk_free_pct": {
+          "status": "usable",
+          "value": 50.0,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
         }
       }
     },
@@ -850,82 +869,37 @@ Q(reflect)=1 gives utility .375+.35+.015=.74):
         "forecast_resource_risk": 0,
         "model_uncertainty": 0.9
       },
-      "resource_status": {
-        "battery_pct": "usable",
-        "load_ratio": "usable",
-        "disk_free_pct": "usable"
-      },
-      "raw_risk": {
-        "battery_pct": 0,
-        "load_ratio": 0,
-        "disk_free_pct": 0
-      },
-      "raw_uncertainty": {
-        "battery_pct": 0.9,
-        "load_ratio": 0.9,
-        "disk_free_pct": 0.9
-      },
-      "evidence_indexes": {
-        "battery_pct": [
-          0,
-          1
-        ],
-        "load_ratio": [
-          0,
-          1
-        ],
-        "disk_free_pct": [
-          0,
-          1
-        ],
-        "network_reachable": [
-          0,
-          1
-        ]
-      },
       "decision_utility": 0.615,
-      "prediction": {
-        "action": "consolidate",
-        "model": "transition_delta_v1",
-        "model_version": 1,
-        "horizon": "next_post_action_observation",
-        "signals": {
-          "battery_pct": {
-            "status": "predicted",
-            "value": 80.0,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "load_ratio": {
-            "status": "predicted",
-            "value": 0.2,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "disk_free_pct": {
-            "status": "predicted",
-            "value": 50.0,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "network_reachable": {
-            "status": "predicted",
-            "value": true,
-            "method": "global_boolean_frequency",
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support",
-            "probability_true": 1.0
-          }
+      "resource_forecasts": {
+        "battery_pct": {
+          "status": "usable",
+          "value": 80.0,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
+        },
+        "load_ratio": {
+          "status": "usable",
+          "value": 0.2,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
+        },
+        "disk_free_pct": {
+          "status": "usable",
+          "value": 50.0,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
         }
       }
     },
@@ -940,93 +914,58 @@ Q(reflect)=1 gives utility .375+.35+.015=.74):
         "forecast_resource_risk": 0,
         "model_uncertainty": 0.9
       },
-      "resource_status": {
-        "battery_pct": "usable",
-        "load_ratio": "usable",
-        "disk_free_pct": "usable"
-      },
-      "raw_risk": {
-        "battery_pct": 0,
-        "load_ratio": 0,
-        "disk_free_pct": 0
-      },
-      "raw_uncertainty": {
-        "battery_pct": 0.9,
-        "load_ratio": 0.9,
-        "disk_free_pct": 0.9
-      },
-      "evidence_indexes": {
-        "battery_pct": [
-          0,
-          1
-        ],
-        "load_ratio": [
-          0,
-          1
-        ],
-        "disk_free_pct": [
-          0,
-          1
-        ],
-        "network_reachable": [
-          0,
-          1
-        ]
-      },
       "decision_utility": 0.615,
-      "prediction": {
-        "action": "rest",
-        "model": "transition_delta_v1",
-        "model_version": 1,
-        "horizon": "next_post_action_observation",
-        "signals": {
-          "battery_pct": {
-            "status": "predicted",
-            "value": 80.0,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "load_ratio": {
-            "status": "predicted",
-            "value": 0.2,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "disk_free_pct": {
-            "status": "predicted",
-            "value": 50.0,
-            "method": "global_mean_delta",
-            "clamped": false,
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support"
-          },
-          "network_reachable": {
-            "status": "predicted",
-            "value": true,
-            "method": "global_boolean_frequency",
-            "evidence_count": 2,
-            "confidence": 0.1,
-            "confidence_kind": "evidence_support",
-            "probability_true": 1.0
-          }
+      "resource_forecasts": {
+        "battery_pct": {
+          "status": "usable",
+          "value": 80.0,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
+        },
+        "load_ratio": {
+          "status": "usable",
+          "value": 0.2,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
+        },
+        "disk_free_pct": {
+          "status": "usable",
+          "value": 50.0,
+          "method": "global_mean_delta",
+          "evidence_count": 2,
+          "confidence": 0.1,
+          "newest_source_transition_id": 2,
+          "newest_source_completed_at": 998,
+          "invalid_source_count": 0
         }
       }
     }
-  }
+  },
+  "prediction_contract": {
+    "model": "transition_delta_v1",
+    "model_version": 1,
+    "horizon": "next_post_action_observation"
+  },
+  "selected_prediction_sha256": "4e37f7a1986ae0c28236684ed04cd8865f121082d1d3a4893c5cbc202c28d1a9"
 }
 ```
 
-Degraded synthetic record: empty history, low disk, Q(consolidate)=100 cannot
-bypass its constraint; Q(rest)=1 wins eligible raw-Q fallback. Persistence forecasts
-remain recorded facts about the B2 fallback, with null raw B8 risk/uncertainty and
-effective penalties of 1. This is its first transition.
+Degraded full example: empty history/current disk5, Q(consolidate)=100 but costly
+actions constrained; Q(observe)=Q(rest)=1, pool[observe,rest], injected choice_index0
+selects observe in raw-Q fallback (epsilon.15, draw.5). Both eligible utilities=.375;
+consolidate's hypothetical utility=.4975247524752475 cannot override its constraint.
+The selected full B2 payload has numeric persistence values80.0/.2/5.0, clamped=false,
+count 0/confidence 0.0; network=true persistence, count 0/confidence 0.0 and no probability.
+The compact record has no copy of that full payload; its digest links the transition.
+It encodes to **4,292 bytes**. Both complete records satisfy the 16,384-byte cap.
 
 <!-- B8_DEGRADED_JSON -->
 ```json
@@ -1044,19 +983,18 @@ effective penalties of 1. This is its first transition.
     "charging": false,
     "load_ratio": 0.2,
     "disk_free_pct": 5,
-    "network": true,
     "local_hour": 12
   },
   "history": {
     "status": "empty",
     "reason": null,
-    "cutoff_id": null,
-    "rows": []
+    "cutoff_transition_id": null,
+    "raw_rows_examined": 0
   },
   "epsilon": 0.15,
   "alpha": 0.18,
   "random_draw": 0.5,
-  "choice_index": null,
+  "choice_index": 0,
   "policy_basis": "legacy_q",
   "selection_mode": "fallback",
   "eligible_actions": [
@@ -1064,85 +1002,54 @@ effective penalties of 1. This is its first transition.
     "rest"
   ],
   "selection_candidates": [
+    "observe",
     "rest"
   ],
-  "selected_action": "rest",
+  "selected_action": "observe",
   "fallback_reason": "no_supported_resource_forecast",
   "candidates": {
     "observe": {
       "eligible": true,
       "constraint_reasons": [],
-      "q_value": 0,
-      "visits": 0,
-      "q_missing": true,
+      "q_value": 1,
+      "visits": 4,
+      "q_missing": false,
       "components": {
-        "q_component": 0.5,
+        "q_component": 0.75,
         "forecast_resource_risk": 1,
         "model_uncertainty": 1
       },
-      "resource_status": {
-        "battery_pct": "persistence",
-        "load_ratio": "persistence",
-        "disk_free_pct": "persistence"
-      },
-      "raw_risk": {
-        "battery_pct": null,
-        "load_ratio": null,
-        "disk_free_pct": null
-      },
-      "raw_uncertainty": {
-        "battery_pct": null,
-        "load_ratio": null,
-        "disk_free_pct": null
-      },
-      "evidence_indexes": {
-        "battery_pct": [],
-        "load_ratio": [],
-        "disk_free_pct": [],
-        "network_reachable": []
-      },
-      "decision_utility": 0.25,
-      "prediction": {
-        "action": "observe",
-        "model": "transition_delta_v1",
-        "model_version": 1,
-        "horizon": "next_post_action_observation",
-        "signals": {
-          "battery_pct": {
-            "status": "predicted",
-            "value": 80.0,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "load_ratio": {
-            "status": "predicted",
-            "value": 0.2,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "disk_free_pct": {
-            "status": "predicted",
-            "value": 5.0,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "network_reachable": {
-            "status": "predicted",
-            "value": true,
-            "method": "persistence",
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          }
+      "decision_utility": 0.375,
+      "resource_forecasts": {
+        "battery_pct": {
+          "status": "persistence",
+          "value": 80.0,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
+        },
+        "load_ratio": {
+          "status": "persistence",
+          "value": 0.2,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
+        },
+        "disk_free_pct": {
+          "status": "persistence",
+          "value": 5.0,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
         }
       }
     },
@@ -1159,69 +1066,37 @@ effective penalties of 1. This is its first transition.
         "forecast_resource_risk": 1,
         "model_uncertainty": 1
       },
-      "resource_status": {
-        "battery_pct": "persistence",
-        "load_ratio": "persistence",
-        "disk_free_pct": "persistence"
-      },
-      "raw_risk": {
-        "battery_pct": null,
-        "load_ratio": null,
-        "disk_free_pct": null
-      },
-      "raw_uncertainty": {
-        "battery_pct": null,
-        "load_ratio": null,
-        "disk_free_pct": null
-      },
-      "evidence_indexes": {
-        "battery_pct": [],
-        "load_ratio": [],
-        "disk_free_pct": [],
-        "network_reachable": []
-      },
       "decision_utility": 0.375,
-      "prediction": {
-        "action": "reflect",
-        "model": "transition_delta_v1",
-        "model_version": 1,
-        "horizon": "next_post_action_observation",
-        "signals": {
-          "battery_pct": {
-            "status": "predicted",
-            "value": 80.0,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "load_ratio": {
-            "status": "predicted",
-            "value": 0.2,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "disk_free_pct": {
-            "status": "predicted",
-            "value": 5.0,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "network_reachable": {
-            "status": "predicted",
-            "value": true,
-            "method": "persistence",
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          }
+      "resource_forecasts": {
+        "battery_pct": {
+          "status": "persistence",
+          "value": 80.0,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
+        },
+        "load_ratio": {
+          "status": "persistence",
+          "value": 0.2,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
+        },
+        "disk_free_pct": {
+          "status": "persistence",
+          "value": 5.0,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
         }
       }
     },
@@ -1238,69 +1113,37 @@ effective penalties of 1. This is its first transition.
         "forecast_resource_risk": 1,
         "model_uncertainty": 1
       },
-      "resource_status": {
-        "battery_pct": "persistence",
-        "load_ratio": "persistence",
-        "disk_free_pct": "persistence"
-      },
-      "raw_risk": {
-        "battery_pct": null,
-        "load_ratio": null,
-        "disk_free_pct": null
-      },
-      "raw_uncertainty": {
-        "battery_pct": null,
-        "load_ratio": null,
-        "disk_free_pct": null
-      },
-      "evidence_indexes": {
-        "battery_pct": [],
-        "load_ratio": [],
-        "disk_free_pct": [],
-        "network_reachable": []
-      },
       "decision_utility": 0.4975247524752475,
-      "prediction": {
-        "action": "consolidate",
-        "model": "transition_delta_v1",
-        "model_version": 1,
-        "horizon": "next_post_action_observation",
-        "signals": {
-          "battery_pct": {
-            "status": "predicted",
-            "value": 80.0,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "load_ratio": {
-            "status": "predicted",
-            "value": 0.2,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "disk_free_pct": {
-            "status": "predicted",
-            "value": 5.0,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "network_reachable": {
-            "status": "predicted",
-            "value": true,
-            "method": "persistence",
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          }
+      "resource_forecasts": {
+        "battery_pct": {
+          "status": "persistence",
+          "value": 80.0,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
+        },
+        "load_ratio": {
+          "status": "persistence",
+          "value": 0.2,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
+        },
+        "disk_free_pct": {
+          "status": "persistence",
+          "value": 5.0,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
         }
       }
     },
@@ -1315,73 +1158,47 @@ effective penalties of 1. This is its first transition.
         "forecast_resource_risk": 1,
         "model_uncertainty": 1
       },
-      "resource_status": {
-        "battery_pct": "persistence",
-        "load_ratio": "persistence",
-        "disk_free_pct": "persistence"
-      },
-      "raw_risk": {
-        "battery_pct": null,
-        "load_ratio": null,
-        "disk_free_pct": null
-      },
-      "raw_uncertainty": {
-        "battery_pct": null,
-        "load_ratio": null,
-        "disk_free_pct": null
-      },
-      "evidence_indexes": {
-        "battery_pct": [],
-        "load_ratio": [],
-        "disk_free_pct": [],
-        "network_reachable": []
-      },
       "decision_utility": 0.375,
-      "prediction": {
-        "action": "rest",
-        "model": "transition_delta_v1",
-        "model_version": 1,
-        "horizon": "next_post_action_observation",
-        "signals": {
-          "battery_pct": {
-            "status": "predicted",
-            "value": 80.0,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "load_ratio": {
-            "status": "predicted",
-            "value": 0.2,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "disk_free_pct": {
-            "status": "predicted",
-            "value": 5.0,
-            "method": "persistence",
-            "clamped": false,
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          },
-          "network_reachable": {
-            "status": "predicted",
-            "value": true,
-            "method": "persistence",
-            "evidence_count": 0,
-            "confidence": 0.0,
-            "confidence_kind": "evidence_support"
-          }
+      "resource_forecasts": {
+        "battery_pct": {
+          "status": "persistence",
+          "value": 80.0,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
+        },
+        "load_ratio": {
+          "status": "persistence",
+          "value": 0.2,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
+        },
+        "disk_free_pct": {
+          "status": "persistence",
+          "value": 5.0,
+          "method": "persistence",
+          "evidence_count": 0,
+          "confidence": 0.0,
+          "newest_source_transition_id": null,
+          "newest_source_completed_at": null,
+          "invalid_source_count": 0
         }
       }
     }
-  }
+  },
+  "prediction_contract": {
+    "model": "transition_delta_v1",
+    "model_version": 1,
+    "horizon": "next_post_action_observation"
+  },
+  "selected_prediction_sha256": "4dc446ec70f9233e55914f9d25157da1d6ccf9b4b0bb8979642a87cb980732de"
 }
 ```
 
@@ -1401,7 +1218,7 @@ CREATE TABLE decision_records (
     selection_mode TEXT NOT NULL
         CHECK(selection_mode IN ('exploit','explore','fallback')),
     data_json TEXT NOT NULL
-        CHECK(length(CAST(data_json AS BLOB)) <= 65536)
+        CHECK(length(CAST(data_json AS BLOB)) <= 16384)
 );
 ```
 
@@ -1433,8 +1250,21 @@ No live migration, backup or restoration is authorized by this design phase.
 
 ## Decision telemetry
 
-Extend the existing **DECISION** category; keep one event before action, not four
-candidate events or a new parallel category. Source becomes `decision`; message
+Successful-selection events use the contract below; stale expiry instead emits one
+terminal diagnostic in the existing DECISION category, source=decision, message
+`Decision attempt expired`. Its exact payload is model, model_version, decision_id,
+status=`skipped`, reason=`stale_decision`, phase=`before_selection_event|before_dispatch`,
+retry_delay_seconds (captured observe_interval). Cap: **512 UTF-8 bytes** using compact
+strict JSON. This event identifies an attempt, never an action completion; it has no
+transition ID, raw payloads or utility dump. The same decision_id explicitly expires
+any earlier DECISION/PREDICTION/ACTION-start telemetry after a late guard failure.
+Normal expiry occurs before successful-selection telemetry when possible. No ERROR
+category is used for ordinary expiry, so B7 failure counts are not polluted by it.
+
+For successful selection extend the existing **DECISION** category; emit one event
+before action, not four candidate events or a new parallel category. The terminal
+skipped diagnostic is an additional event only when a previously announced attempt
+expires; it is necessary to make the incomplete attempt explicit. Source becomes `decision`; message
 `Internal action selected`. Payload <= **2,048 UTF-8 bytes**. Exact fields:
 `model`, `model_version`, `decision_id`, `state_key`, `selected_action`,
 `selection_mode`, `policy_basis`, `eligible_actions`, `constraint_reasons` (four-action
@@ -1461,7 +1291,7 @@ Future `DecisionReadService(ReadStore)` and delegations/routes provide only:
   Read/validate payloads for the first limit rows only; never refill past corrupt rows.
 - `GET /api/decisions/{transition_id}`: one exact positive signed-64-bit ID.
   Return the full validated record with source transition linkage and verify selected
-  prediction equality. No history rescan or decision recomputation.
+  prediction digest. No history rescan, inference or decision rescoring.
 
 Validate identical bounds for direct Python and HTTP callers; reject unknown query
 keys, repeated scalar keys, nonintegers, nonfinite numbers and oversized IDs with 422.
@@ -1470,19 +1300,31 @@ raw-window bound. Reads use SQLite `mode=ro`, zero busy timeout, one read snapsh
 fixed table-name metadata query and `SELECT version ... LIMIT 2`; never instantiate
 Memory, probe processes, call service.status, perceive, publish B7, migrate or write.
 
-For each page row use a PK join to its transition; transfer at most **65,537** record
-bytes and **16,385** selected-prediction bytes (one sentinel beyond each limit).
-Validate model/versions/SQL mirrors, linkage, supported state key, domains, constraints,
-components, epsilon selection, counts/indexes, prediction structure and selected
-prediction equality. The current-input projection must also match the linked
-transition state_before projection; read its JSON with the same 16,385-byte cap.
-Malformed/oversized linked evidence makes that item corrupt, not an excuse to reread
-unbounded data. IDs in history must precede the linked transition ID; no source row
-must be opened to establish that structural invariant.
+For each page row use a PK join to its transition. Transfer at most **16,385 bytes
+for each of the compact record, linked selected prediction and state_before** (one
+sentinel beyond each 16,384-byte limit). Total payload cap: 49,155 bytes per item,
+2,457,750 bytes for a 50-item page, plus bounded scalar metadata. No source-history
+rows are loaded. History cutoff/newest-source IDs must precede linked transition ID;
+newest-source IDs cannot exceed the stored cutoff.
+
+Strictly validate field sets, types/domains, SQL mirrors, count/confidence/freshness
+consistency, eligible/pool membership, choice-index/mode/draw semantics, and selected
+projection equality to the linked full prediction's value/method/count/confidence.
+Require the selected-prediction canonical SHA-256 digest to match; mismatch is corrupt.
+Current's five-key projection must match the linked state_before projection. Reject
+oversized or malformed linked evidence without refill. The full selected prediction
+is read for digest validation only; detail returns the compact record, not another
+copy of that payload. It remains stored authoritatively in the transition.
+
+The read validator never calls the predictor or scorer, reconstructs unselected
+predictions, recalculates Q/R/U/utility, or reranks a historical decision. It validates
+the frozen reported components, pool and provenance, not a newly computed choice.
+Full formula/pool certification belongs to the pre-action writer and deterministic
+acceptance; a compact audit is not full replay or a tamper-proof evidence signature.
 
 List envelope: exactly `available`, `status`, `reason`, `items`, `next_cursor`.
 Available schema-7 list status=`stored`, reason=null, including an empty table.
-Each valid item is a <=2 KiB summary containing exactly `available=true`, `status=stored`,
+Each valid item is a <=1,024-byte summary containing exactly `available=true`, `status=stored`,
 `reason=null`, `transition_id`, `created_at`, `selected_at`, `model`, `model_version`,
 `selected_action`, `selection_mode`, `policy_basis`, `eligible_actions`,
 `constraint_reasons`, `q_value`, `decision_utility`, `fallback_reason`, `decision_id`.
@@ -1500,8 +1342,12 @@ or detail record=null. A missing home is unavailable/missing_home and is never c
 Unknown/ambiguous/future schema returns 409 incompatible_schema; schema7 missing the
 required table returns unavailable/error with reason missing_decision_table, never
 an upgrade. Busy/SQL-budget failure returns 503 decision_read_unavailable. Response
-bytes capped at **131,072 list**, **73,728 detail**; reject excess rather than truncate
-valid evidence. The API always describes stored selection time, not current policy.
+bytes capped at **53,248 list (52 KiB)**, **17,408 detail (17 KiB)**; reject excess rather than truncate
+valid evidence. Encode responses with the same compact strict JSON encoding as
+records. Fifty 1,024-byte summaries plus commas and the fixed envelope fit below
+53,248 bytes; a 16,384-byte record plus the fixed detail envelope fits below 17,408.
+No full selected prediction is returned, so a second 16 KiB response allowance is
+unnecessary. The API describes stored selection time, not current policy.
 
 At most four SELECTs per request: table metadata, version, list metadata (or direct
 payload join for detail), one batch PK payload join for list. Up to 51 metadata rows
@@ -1550,13 +1396,13 @@ process/LaunchAgent lifecycle and security middleware remain unchanged.
 | Source parsing / batch calculations | <=400 bounded source decodes, four candidates over same parsed data; no extra DB queries | Malformed ordinary rows consume slots |
 | Preselection B4/B6/B7/episode reads | **0** | Deliberately excluded |
 | Selection SQLite execution | 100,000 VM steps total across Q/history; callback every 1,000; busy_timeout=0 | Q failure abort; history-only failure may fallback after safe cleanup |
-| Current-state freshness | <=5 monotonic seconds from perception to dispatch check | stale_decision abort; no automatic retries |
-| Record | 65,536 bytes, depth12, arrays200, structural entries8,192 | Fail experience insert, no truncation |
+| Current-state freshness | <=5 monotonic seconds from perception to dispatch check | Nonfatal stale skip; retry after captured observe_interval 8..3600s; stop interrupts |
+| Record | 16,384 bytes, depth8, arrays4, structural entries512 | Compact projections/digest only; fail experience insert, no truncation |
 | Individual B2 payload | 16,384 bytes | Invalid optional batch → empty-history batch before selection |
-| DECISION event | 2,048 bytes | Contract error, no unbounded diagnostic |
+| Successful DECISION event / stale diagnostic | 2,048 / 512 bytes | Fixed fields, no raw evidence; ordinary expiry nonfatal |
 | Inspection | 50 items/page + one metadata lookahead; four SELECTs; 300,000 VM steps | Explicit 503/invalid item, no refill |
-| Inspection payload transfer | <=50 × (65,537+16,385+16,385) bytes, plus metadata | Sentinel checks, never transfer whole oversized blobs |
-| API serialized responses | List128 KiB; detail72 KiB | Explicit invalid response, not truncation |
+| Inspection payload transfer | <=50 × (16,385+16,385+16,385) =2,457,750 bytes; detail49,155; plus bounded metadata | Sentinel checks; no historical prediction reconstruction |
+| API serialized responses | List52 KiB; detail17 KiB; summaries1,024 bytes each | Compact JSON, explicit invalid response rather than truncation |
 | New threads / timers / scheduler / sensors / sockets / APIs outside local inspection | **0** | Not authorized |
 
 The read acquisition saves/restores prior busy timeout and removes the progress
@@ -1605,31 +1451,37 @@ B7 base, approved design commit and all eight prior artifact hashes. Do not crea
 that code/artifact in this phase.
 
 Unless specified, current state is battery80, charging=false, load=.2, disk50,
-network=true, hour12; epsilon0. All unmentioned Q values are 0. Source transitions
+network=true, hour12; epsilon 0. All unmentioned Q values are 0. Source transitions
 are inserted before the selected cycle; their timestamps satisfy freshness. Global
 zero-delta support can give all four actions identical predicted current resources.
 
 | Case | Literal evidence and expected result |
 | --- | --- |
-| 1. Q-only fallback | Empty history; Q(reflect)=.7, others0. All eligible, every raw risk/uncertainty null, effective R=U=1. Raw-Q winner reflect, same unique eligible legacy winner; mode fallback, reason no_supported_resource_forecast |
-| 2. Low disk | Current disk5; empty history; Q(consolidate)=100, Q(rest)=1. Reflect/consolidate constrained low_disk, pool observe/rest. Rest selected; legacy reward −.2, old rest Q1 → .784 at alpha.18; no autonomous B6 run. Separately issue owner consolidate with persisted disk5: accepted, low_disk audit, zero semantic work/Q/transition changes |
+| 1. Q-only fallback | Empty history; Q(reflect)=.7, others0. All eligible, every resource status persistence, effective R=U=1. Raw-Q winner reflect, same unique eligible legacy winner; mode fallback, reason no_supported_resource_forecast |
+| 2. Low disk | Current disk5; empty history; Q(consolidate)=100, Q(rest)=1. Reflect/consolidate constrained low_disk, pool observe/rest. Rest selected; legacy reward −.2, old rest Q1 → .784 at alpha.18; no autonomous B6 run. Repeat with Q(observe)=1 to tie eligible observe/rest: consolidate Q100 remains outside the tie pool. Separately issue owner consolidate with persisted disk5: accepted, low_disk audit, zero semantic work/Q/transition changes |
 | 3. Load/battery/boundaries | Current battery10, charging=false, load.9, disk50: reflect/consolidate reasons high_load and low_battery, observe/rest eligible. Q(rest)=1 wins fallback; reward2.2, Q1→1.216. At load.8,battery20,disk10 no known guard. At battery10,charging=true,load.2,disk50 no battery guard. Missing disk constrains costly actions as unknown_resources |
 | 4. Conflicting signals | 20 action-specific samples per action (80 total), confidence .95/U=.05. Q(reflect)=1 → Qcomponent .75; predicted reflect battery0/load1/disk0 → R1, utility .5175. Observe Q0 → .5; predicted80/.2/50 → R0, utility .7425. Rest and consolidate Q−1 → .25 and same safe forecast → .6175. Observe wins despite reflect's higher Q |
-| 5. Partial/all missing | Current disk absent, battery/load usable, charging=false. 20 samples support safe battery/load, so each candidate R=1/3, U=(.05+.05+1)/3=11/30. Observe Q0 → utility .25+7/30+.095 = .5783333333333334; raw disk risk/U null, not zero. Reflect/consolidate unknown_resources. Give rest Q−1 so observe wins composite. Then use empty history: all resources unsupported, legacy-Q fallback; no fabricated certainty |
-| 6. Exploration | Low-disk pool [observe,rest], epsilon1, draw.5, injected choice selects index0: observe. Q(consolidate)=100 cannot enter pool. Repeat with index1: rest. Epsilon0 performs no random choice; draw exactly epsilon does not explore |
-| 7. Tie | All Q0, 20 supported identical safe forecasts: utility .7425 for all; fixed tie priority picks rest. Difference <=1e-12 remains a tie; >1e-12 wins strictly. Qfallback uses exact raw equality, not tolerance |
-| 8. Prediction identity | During selected action append strongly contradictory source transitions and return a distinct after-state. B3 input, selected PREDICTION event, persisted transition and recorded selected candidate remain equal under canonical serialization; contributor cutoff excludes all added rows and current transition |
-| 9. Q compatibility | Healthy case1 reflect Q.7/visits4, legacy reward .45 → .655/visits5 at alpha.18. Every unselected Q row unchanged; utility never stored as Q or passed as reward. Repeat all actions under permitted state, epsilon0/1 and another valid alpha |
+| 5. Partial/all missing | Current disk absent, battery/load usable, charging=false. 20 samples support safe battery/load, so each candidate R=1/3, U=(.05+.05+1)/3=11/30. Observe Q0 → utility .25+7/30+.095 = .5783333333333334; disk value/method null and status unavailable, effective disk risk/U1. Reflect/consolidate unknown_resources. Give rest Q−1 so observe wins composite. Then use empty history: all resources unsupported, legacy-Q fallback; no fabricated certainty |
+| 6. Exploration | Low-disk pool [observe,rest], epsilon 1, draw.5, injected choice selects index0: observe. Q(consolidate)=100 cannot enter pool. Repeat with index1: rest. Epsilon0 never explores but can consume choice for a tie; draw exactly epsilon does not explore |
+| 7a. Composite tie | All Q0, 20 supported identical safe forecasts: utility .7425 for all. With epsilon 0/draw.5, pool[observe,reflect,consolidate,rest], injected index0 selects observe, repeat index1 selects reflect. Also test maxima differing5e-13 share the pool; difference2e-12 excludes the lower action. Choice uses the tolerant maximum pool only |
+| 7b. Cold-start raw-Q tie | Empty history/all Q0/epsilon 0/draw.5. All eligible, utility.25 each (audit only); exact raw-Q pool includes all four. Inject index0→observe and index1→reflect. No rest preference. Under disk5, tied costly actions are excluded before choice: pool[observe,rest], index1→rest |
+| 7c. Unique winner | Case1 reflect alone in pool, index=null, choice call count 0; epsilon random draw still occurs once. Repeat a unique composite winner. Singleton exploration also consumes no choice |
+| 8. Prediction identity | During selected action append strongly contradictory source transitions and return a distinct after-state. B3 input, selected PREDICTION event and persisted transition retain exact canonical equality; compact record digest matches that payload. Shared in-memory source cutoff excludes added/current rows; no durable ledger or full candidate copies |
+| 9. Q compatibility | Healthy case1 reflect Q.7/visits4, legacy reward .45 → .655/visits5 at alpha.18. Every unselected Q row unchanged; utility never stored as Q or passed as reward. Repeat all actions under permitted state, epsilon 0/1 and another valid alpha |
 | 10. Restart | Close/reopen schema7; exact record survives and detail is unchanged. Existing B1–B7 transitions still have zero invented decision records; migration creates empty table. Startup/read creates none |
 | 11. Auxiliary damage/freshness | Oversized history blob or injected history read failure with valid Q gives canonical empty-history batch and explicit reason. Newest support age300 usable, >300 stale; future/null contributor timestamp invalid. All unusable means Qfallback. Never reread beyond raw200 |
 | 12. Fundamental corruption/stop | Malformed/nonfinite Q, incompatible live state, invalid RNG, unsafe cleanup or stop prevents action/Q/experience/decision write; stop cancels without ERROR where otherwise healthy. Stop after DECISION can leave event only. Rest never overrides owner stop |
+| 13. Compact audit | Persist/reopen the two full examples: three resource projections per action, no history rows/contributor arrays/full predictions/network projections, selected digest matches linked canonical prediction, <=16,384 bytes. Mutate linked selected prediction → invalid_decision; read performs no prediction/scoring calls |
+| 14. Nonfatal stale skip | At default observe_interval8, monotonic age5.001s before selection event → skipped/stale_decision/delay8; one pre-perception, zero action/reward/Q/visits/transition/decision/B3–B7 updates. Diagnostic<=512 bytes; existing B7 snapshot unchanged. Advance wait7.999s: no new attempt; after8s a new cycle perceives fresh and can complete. Repeat expiry to prove no busy loop, and late expiry after DECISION to prove matching terminal attempt diagnostic |
+| 15. Stop/fatal distinction | Stop before expiry or during retry → stopped/no retry. Invalid Q/DB/clock/cleanup contract raises the fatal path even if elapsed time also exceeds5s; never relabel it skipped. No stale diagnostic after an observed owner stop |
+
 
 Case4 history is realizable: repeat per-action before/after numeric deltas −80/+.8/−50
 for reflect and zero for the other actions, with valid Boolean outcomes. The live
 current state is shared. This fixture establishes a scoring conflict, not a causal
 benefit of observe. Equality and expected totals use pytest.approx with abs1e-12
 except intentional exact tie/serialization assertions. The future artifact records
-component values, constraints, basis/mode, predictions, selected action, rewards/Q
+component values, compact forecasts, constraints, basis/mode, selected digest/action, rewards/Q
 and absence/availability, not invented development metrics.
 
 ## Test strategy
@@ -1638,13 +1490,13 @@ These are **future** tests, not tests written or executed in this design phase.
 
 | Future file | Concrete tests/acceptance |
 | --- | --- |
-| `tests/test_decision.py` | `test_q_normalization_literals_and_finite_extremes`, `test_weighted_totals_and_conflicting_signals`, `test_partial_missing_uses_fixed_denominators`, `test_all_unsupported_uses_raw_q_order`, `test_exact_and_tolerant_ties`, `test_constraints_match_semantic_guard`, `test_unknown_resources_and_charging_boundaries`, `test_epsilon_pool_and_draw_boundary`, `test_invalid_q_state_rng_and_update_abort`, `test_no_eligible_defensive_rest`, `test_freshness_boundary_and_bad_clocks`, `test_payload_strict_fields_versions_bounds_and_cross_field_consistency` |
-| `tests/test_predictor.py` | Add `test_batch_reads_one_raw200_snapshot`, `test_batch_matches_legacy_predict_per_action`, `test_candidate_source_indexes_match_exact_samples`, `test_size_failure_does_not_refill_or_partially_filter`, `test_batch_keeps_b2_global_network_extreme_math`, `test_batch_inference_has_no_sensor_network_or_write_calls` |
-| `tests/test_decision_cycle.py` | `test_predictions_precede_rng_selection_and_action`, `test_selected_prediction_identity_after_history_changes`, `test_q_reward_visits_adapter_and_learning_telemetry_compatibility`, `test_two_perceptions_and_fixed_probes`, `test_prior_beliefs_before_current_world_update`, `test_owner_commands_bypass_decision_and_low_disk_audit`, `test_stop_before_and_after_selection`, `test_stale_decision_aborts_without_extra_perception`, `test_transaction_failure_preserves_existing_q_boundary`, `test_sql_budget_and_cleanup_faults_preserve_interrupts` |
+| `tests/test_decision.py` | `test_q_normalization_literals_and_finite_extremes`, `test_weighted_totals_and_conflicting_signals`, `test_partial_missing_uses_fixed_denominators`, `test_all_unsupported_uses_raw_q_order`, `test_composite_tie_uses_injected_random_choice`, `test_q_fallback_tie_preserves_random_tie_semantics`, `test_constraints_exclude_actions_before_tie_choice`, `test_unique_winner_does_not_consume_choice_rng`, `test_constraints_match_semantic_guard`, `test_unknown_resources_and_charging_boundaries`, `test_epsilon_pool_and_draw_boundary`, `test_invalid_q_state_rng_and_update_abort`, `test_no_eligible_defensive_rest`, `test_freshness_boundary_and_bad_clocks`, `test_payload_strict_fields_versions_bounds_and_cross_field_consistency`, `test_compact_decision_record_under_byte_cap`, `test_decision_record_omits_history_row_ledger`, `test_decision_record_omits_unselected_full_predictions`, `test_selected_prediction_digest_matches_transition` |
+| `tests/test_predictor.py` | Add `test_batch_reads_one_raw200_snapshot`, `test_batch_matches_legacy_predict_per_action`, `test_transient_contributors_and_compact_freshness_summary_match_exact_samples`, `test_size_failure_does_not_refill_or_partially_filter`, `test_batch_keeps_b2_global_network_extreme_math`, `test_batch_inference_has_no_sensor_network_or_write_calls` |
+| `tests/test_decision_cycle.py` | `test_predictions_precede_rng_selection_and_action`, `test_selected_prediction_identity_after_history_changes`, `test_q_reward_visits_adapter_and_learning_telemetry_compatibility`, `test_two_perceptions_and_fixed_probes`, `test_prior_beliefs_before_current_world_update`, `test_owner_commands_bypass_decision_and_low_disk_audit`, `test_stop_before_and_after_selection`, `test_stale_decision_is_nonfatal_skipped_cycle`, `test_stale_decision_retry_has_no_q_or_transition_effect`, `test_stale_retry_does_not_spin`, `test_owner_stop_is_not_stale_retry`, `test_stale_skip_has_one_perception_and_bounded_diagnostic`, `test_late_expiry_marks_attempt_terminal`, `test_fatal_contract_error_is_not_stale`, `test_transaction_failure_preserves_existing_q_boundary`, `test_sql_budget_and_cleanup_faults_preserve_interrupts` |
 | `tests/test_decision_migrations.py` | `test_fresh_v7_and_empty_decision_table`, `test_v6_upgrade_backup_preserves_every_prior_row`, `test_all_older_ladders_and_final_step_rollback`, `test_failed_backup_prevents_upgrade`, `test_unsupported_ambiguous_schema_refused`, `test_reopen_and_no_backfill`, `test_decision_insert_failure_rolls_back_entire_experience_group` |
-| `tests/dashboard/test_decisions.py` | `test_list_detail_keysets_and_raw_corrupt_slot`, `test_exact_query_byte_and_vm_budgets`, `test_legacy_missing_future_schema_responses`, `test_link_and_selected_prediction_corruption`, `test_direct_http_bounds_and_unknown_filters`, `test_no_memory_migration_process_sensors_or_writes`, `test_valid_record_reopens_without_recompute` |
+| `tests/dashboard/test_decisions.py` | `test_list_detail_keysets_and_raw_corrupt_slot`, `test_exact_query_byte_and_vm_budgets`, `test_legacy_missing_future_schema_responses`, `test_link_and_selected_prediction_corruption`, `test_direct_http_bounds_and_unknown_filters`, `test_no_memory_migration_process_sensors_or_writes`, `test_valid_record_reopens_without_recompute`, `test_digest_mismatch_is_corrupt`, `test_detail_read_never_reruns_predictor` |
 | Existing B7 tests | Explicitly add v6→v7 stored-schema preservation/new-publication cases; unchanged self_model_v1 calculations/fields, zero B7 effect on selection and same read-only guarantees |
-| `tests/decision_scenario.py`, `tests/test_decision_scenario.py` | All 12 cases above, stable strict-JSON standalone CLI, exact saved future artifact, all eight historical hashes unchanged |
+| `tests/decision_scenario.py`, `tests/test_decision_scenario.py` | All 15 numbered cases above, including the three tie subcases, stable strict-JSON standalone CLI, exact saved future artifact, all eight historical hashes unchanged |
 
 Adapt existing cycle spies that force `Learner.choose()` to instead control B8
 selection evidence/RNG or a correctly frozen decision result. Keep legacy choose
@@ -1655,8 +1507,10 @@ and downstream independence assertions. Update strict event-order expectations f
 prediction computation before selection; selected PREDICTION telemetry still follows
 DECISION. No tests removed/skipped to hide changes.
 
-Old scenario action sequences/Q results can differ under B8 selection and deterministic
-ties; do not overwrite historical artifacts to make them look unchanged. Separate
+Adapt successful cycle return assertions to CycleResult(completed, existing delay, null);
+add distinct skipped/stopped assertions without weakening successful-cycle invariants.
+Old scenario action sequences/Q results can differ under B8 selection and injected
+random ties; do not overwrite historical artifacts to make them look unchanged. Separate
 unchanged formula fixtures from intentionally changed selection outputs in the new B8
 comparison. Existing B3/B4/B5/B6/B7 calculation fixtures retain their contracts; only
 actual schema/footprint and deliberate action-selection effects may differ. Run the
@@ -1681,11 +1535,11 @@ No B8 implementation plan is created under this design-only instruction.
 | Correlation mistaken for causation | Label forecasts as descriptive; immediate horizon; no promised battery/CPU benefit |
 | Heuristic weights/thresholds | Fixed/versioned, literal tests and owner review; not optimized or calibrated |
 | Missing support discourages actions | Explicit effective penalties, fixed denominator and raw-Q fallback; records expose the tradeoff |
-| Historical mixture and wall-clock changes | Latest200 window, exact contributor metadata, newest-support TTL and future-time rejection for scoring; older samples may remain |
-| Evidence becomes stale during work | Five-second monotonic pre-action guard; no unbounded resampling/retry |
+| Historical mixture and wall-clock changes | Latest200 transient evidence; compact invalid-clock count/maximum-time proof; newest-support TTL; older samples may remain and full replay is deliberately unavailable |
+| Evidence becomes stale during work | Five-second guard skips dispatch nonfatally; observe_interval wait between attempts prevents busy loops; repeated load can still postpone completed work |
 | Q saturation / extreme values | Document finite-tail ties; raw-Q fallback; finite update preflight; never repair stored values silently |
-| Rest tie preference changes behavior | Explicit policy decision, all-action fairness still possible through epsilon; no claim that ties make rest optimal |
-| Storage growth | Bounded per-record payload and PK inspection; no silent pruning; lifetime size still grows |
+| Hidden tie bias | No fixed action preference; uniform injected choice among eligible maxima, separately from epsilon; fixtures choose at least two different tied actions |
+| Storage growth | Compact projections/digest, 16 KiB cap and PK inspection; no redundant four-prediction/history ledger; lifetime growth remains unbounded without a separately designed retention policy |
 | Migration accidentally disables B7 | Explicit literal ladder versions and narrow v6/v7 B7 compatibility tests |
 | Pre-action events or Q survive later failure | Exact existing transactional boundary recorded; no fake completion or replay |
 | New validator diverges from writer | Shared pure B8 contract validation for writer/reader; cross-field and corruption fixtures |
@@ -1693,7 +1547,8 @@ No B8 implementation plan is created under this design-only instruction.
 
 ## Acceptance criteria
 
-Design acceptance: verified exact base and clean dedicated branch; fresh baseline;
+Design acceptance: verified exact base and clean dedicated branch; original fresh baseline;
+amendment verified at the requested design SHA without rerunning unchanged product tests;
 complete evidence inventory and alternatives; exact mathematics, exclusions, fallback,
 constraints, ordering, persistence/inspection/limits; complete healthy/degraded examples;
 future tests and file map; written self-review; exactly three documentation files
@@ -1708,12 +1563,13 @@ installed-home changes. The known mismatch can be marked closed only at that gat
 ## Open questions resolved
 
 - Separate DecisionSystem selected; Q is one of three weighted components.
-- Weights .50/.35/.15, transforms/ramps/TTL/ties fixed; no settings or tuning.
+- Weights .50/.35/.15 and transforms/ramps/TTL unchanged; injected random eligible ties; no settings or tuning.
 - B4/B5/B6/B7/goal/opportunity/cost inputs excluded for stated provenance reasons.
 - Unknown resources constrain costly autonomous actions; invalid legacy state/Q aborts.
 - Epsilon remains probabilistic on eligible actions even under legacy-Q fallback.
 - All four predictions share one history snapshot; selected prediction is never rerun.
-- Decision storage is a new schema7 table, atomic with experience, no historical backfill.
+- Decision storage is a compact 16 KiB schema7 record with selected-prediction digest, atomic with experience and no historical backfill.
+- Stale expiry skips work nonfatally, waits captured observe_interval and re-perceives; stop and fatal errors are distinct.
 - B7 receives only necessary schema compatibility, with historical schema6 snapshots preserved.
 - Owner commands bypass policy; rest is resource-safe fallback, not a way around stop.
 - Read-only APIs are future B8 audit scope, frontend/evaluation work remains later.
@@ -1729,8 +1585,8 @@ All paths in this table are proposed future edits, **not changes made now**.
 | --- | --- |
 | `seed/decision.py` (new) | Versioned acquisition, pure math/constraints, selection, frozen result and shared strict record validator |
 | `seed/learner.py` | Keep reward/update/legacy choose; only a small raw-Q adapter/helper if needed, without model dependencies |
-| `seed/predictor.py` | Pure shared forecasting helper plus one-snapshot batch and exact contributor indexes; old predict compatibility |
-| `seed/organism.py` | Reorder prediction/selection, frozen payload propagation, stop-cancellation handling and legacy telemetry adapter |
+| `seed/predictor.py` | Pure shared forecasting helper plus one-snapshot batch, transient contributors and compact provenance; old predict compatibility |
+| `seed/organism.py` | Reorder prediction/selection, frozen payload propagation, explicit completed/skipped/stopped CycleResult, bounded stale retry and legacy telemetry adapter |
 | `seed/memory.py` | Optional decision argument, validated atomic insert linked to actual transition ID; keep existing Q boundary |
 | `seed/migrations.py` | Add v7 table, retain explicit v6 support and correct literal sequential ladder |
 | `seed/self_model.py`, `dashboard/services/self_model.py` | Narrow actual-schema6/7 compatibility only; preserve self_model_v1 meaning/history |
@@ -1756,11 +1612,11 @@ ruling below checks the proposed contract; none claims future tests already pass
 | --- | --- |
 | 1. Pre-action truthfulness | PASS: current state/Q/prior transitions only; no current B3/B5 or B7 feedback |
 | 2. Prediction ordering | PASS: one raw200 snapshot, all four predictions before RNG/selection |
-| 3. Selected prediction identity | PASS: frozen shared payload and canonical equality across B3/event/record/transition |
+| 3. Selected prediction identity | PASS: frozen full payload equality across B3/event/transition; compact record canonical SHA-256 linkage checked before action/persistence and on reads |
 | 4. Q compatibility | PASS: raw adapter, unchanged reward/update/visits/schema; utility never learned; corrupt Q abort explicit |
 | 5. Low-disk closure | PASS as design: canonical guard excludes consolidate even at Q100; owner suppressed audit retained; running issue remains open |
 | 6. Constraints | PASS: Boolean eligibility applies before exploration/ranking; stop overrides rest |
-| 7. Missing evidence | PASS: raw null/status, effective risk/uncertainty1, fixed denominator, eligible raw-Q fallback |
+| 7. Missing evidence | PASS: compact unavailable status/null value, effective risk/uncertainty1, fixed denominator, eligible raw-Q fallback |
 | 8. No causal overclaim | PASS: descriptive action/global forecasts; no immediate rest-wait outcome claim |
 | 9. No fake information gain | PASS: two perceptions for every action; no observe bonus/opportunity engine |
 | 10. Bounded work | PASS: explicit Q/history/blob/structure/VM/page/event limits; no scans/refills; existing action costs not mislabeled bounded B8 work |
@@ -1777,5 +1633,20 @@ unknown absent resources from invalid legacy input; specify unsupported-history 
 persistence rather than invented predictions; distinguish compact outer JSON from
 canonical selected-prediction equality; keep all eight historical artifacts; state
 that low-disk closure is designed but not implemented.
+
+Owner-review amendment self-checks (0 Critical, 2 Important, 1 Minor design findings):
+
+- **Tie bias:** equal eligible values have no hidden fixed action preference. Tie
+  choice remains random through injected/testable RNG; choice_index addresses the
+  actual selection_candidates pool in all modes; unique pools consume no choice.
+- **Durable storage:** record contains only compact selection evidence and digest;
+  no redundant four-prediction/history-row ledger remains. 16 KiB cap verified by
+  both complete examples; digest validates linked selected prediction without replay.
+- **Stale expiry:** old pre-action evidence prevents dispatch without killing an
+  otherwise healthy organism. Retry waits observe_interval, cannot busy-loop, and
+  does not create a completed action/Q/experience/model update. Stop remains separate.
+
+These findings are resolved in the amended **design only**. No implementation finding
+is declared fixed, no production acceptance test ran, and implementation is unstarted.
 
 **Stop here for owner review. B8 implementation and B9–B10 remain NOT STARTED.**

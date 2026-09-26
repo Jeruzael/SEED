@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B8 design/specification only, COMPLETE FOR OWNER REVIEW on `seed-0.2-b8`, based on verified master `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`. B8 overall status is IN PROGRESS; implementation is NOT STARTED pending owner review and separate authorization. B0–B7 remain VERIFIED; source schema remains v6. B9–B10 remain NOT STARTED and unauthorized.** Deployment/live-device validation remains NOT PERFORMED; installed organism is UNTOUCHED. The low-disk mismatch remains OPEN in implemented code, with its proposed resolution in the [B8 design](superpowers/specs/2026-09-25-b8-decision-system-design.md). See the [B8 design record](#b8-design-execution-record--2026-09-25). Historical entries below retain their original status and evidence.
+**Current authorization: B8 design/specification amendment only, AMENDED AND COMPLETE FOR OWNER REVIEW on `seed-0.2-b8`, based on verified master `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`. B8 overall status is IN PROGRESS; implementation is NOT STARTED pending owner review and separate authorization. B0–B7 remain VERIFIED; source schema remains v6. B9–B10 remain NOT STARTED and unauthorized.** Deployment/live-device validation remains NOT PERFORMED; installed organism is UNTOUCHED. The low-disk mismatch remains OPEN in implemented code, with its proposed resolution in the [B8 design](superpowers/specs/2026-09-25-b8-decision-system-design.md). See the [B8 design record](#b8-design-execution-record--2026-09-25). Historical entries below retain their original status and evidence.
 
 ## Objective and architectural transition
 
@@ -63,7 +63,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
 | B7 | Self Model | VERIFIED | B3, B6 | 646 tests on Linux 3.11/3.13 and macOS 3.13; six scenarios on both 3.13 jobs; post-merge run 36104979944 | Schema v6; bounded descriptive singleton; no upstream influence |
-| B8 | Decision-System Upgrade | IN PROGRESS | B5, B7 | Fresh B7 baseline: 646 passed; six scenarios unchanged; no B8 tests added | Design COMPLETE FOR OWNER REVIEW; implementation NOT STARTED; [specification](superpowers/specs/2026-09-25-b8-decision-system-design.md) |
+| B8 | Decision-System Upgrade | IN PROGRESS | B5, B7 | Fresh B7 baseline: 646 passed; six scenarios unchanged; no B8 tests added | Design AMENDED AND COMPLETE FOR OWNER REVIEW; implementation NOT STARTED; [specification](superpowers/specs/2026-09-25-b8-decision-system-design.md) |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
 
@@ -1920,8 +1920,9 @@ Keep legacy reward/Q update/visits/alpha; use bounded Q component and forecast r
 risk/support uncertainty: `0.50*Q + 0.35*(1-R) + 0.15*(1-U)`. Hard costly-action
 resource constraints apply to exploration and exploitation. Epsilon remains the
 exploration probability among eligible actions. Unsupported auxiliary evidence falls
-back to eligible raw-Q ordering; fixed exploitation tie priority is rest, observe,
-reflect, consolidate. B4/B5/B6/B7 feedback, information gain, cost proxies and goals are
+back to eligible raw-Q ordering. Following owner review, exploitation/fallback ties
+use injected uniform random choice among eligible maxima; singleton winners consume
+no choice call, and choice_index identifies the actual selection_candidates pool. B4/B5/B6/B7 feedback, information gain, cost proxies and goals are
 excluded with explicit reasons. No resource or intelligence improvement is claimed.
 
 **Low-disk design:** keep the old reward; exclude autonomous consolidate when B6's
@@ -1930,7 +1931,8 @@ Owner commands retain their existing availability/audits. The issue remains OPEN
 implemented code until separately authorized implementation is verified.
 
 **Persistence/inspection proposal:** additive schema 7 `decision_records`, keyed to
-transitions, exact preselection candidate evidence, 64 KiB bound, atomic with the
+transitions, compact three-target candidate evidence and selected-prediction digest,
+16 KiB bound, atomic with the
 existing experience group and no historical backfill. Bounded DECISION summary and
 two future read-only inspection routes; no frontend. A necessary narrow B7 schema 6/7
 compatibility change is specified without changing self_model_v1 meaning or relabeling
@@ -1947,7 +1949,61 @@ follow-ups, verification guide, CI, dependencies and every baseline are untouche
 resolved hash and clean-tree result supplied after commit. No push/PR/merge, production
 implementation or live deployment is part of this delivery. Stop for owner review.
 
-B8 design/specification: **COMPLETE FOR OWNER REVIEW**.
+B8 design/specification: **AMENDED AND COMPLETE FOR OWNER REVIEW**.
 B8 implementation: **NOT STARTED**.
 B9–B10: **NOT STARTED**.
 Installed organism: **UNTOUCHED**.
+
+
+### B8 owner-review amendment — 2026-09-26
+
+The owner explicitly authorized SEED_B8_Design_Amendment_Instructions.md, documentation
+only. Starting clean `seed-0.2-b8`/origin branch HEAD was
+`3014625fe031b3b6d71f1d0320ce62b627569acf`, one commit ahead of verified master
+`92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`, zero behind. Fetch/checkout/status/log
+confirmed that state; no reset, new branch, implementation plan or source edit.
+
+**Owner review found 0 Critical, 2 Important, 1 Minor design findings.** The amended
+specification resolves these design findings only:
+
+1. **Important — deterministic rest tie bias:** remove fixed priority. Composite
+   ties use absolute 1e-12 tolerance, fallback ties use exact raw-Q equality, and an
+   injected choice selects uniformly among eligible tied maxima. Epsilon's separate
+   draw remains `u < epsilon`. Unique pools consume no choice; choice_index is null
+   then and otherwise indexes selection_candidates in every mode.
+2. **Important — oversized/redundant durable record:** 16,384-byte compact contract
+   with a four-field history summary, three resource projections per candidate,
+   components/Q/eligibility, and selected_prediction_sha256. No row/contributor ledger,
+   four full forecasts or duplicated selected prediction. The full selected B2 payload
+   remains in transitions.prediction_json; canonical digest equality is checked before
+   action/persistence and on bounded reads. Source-clock count/maximum metadata preserves
+   freshness validation. Lifetime growth remains unbounded; no pruning is introduced.
+3. **Minor — fatal stale expiry:** >5-second selection age skips without action,
+   reward/Q/visits, experience/transition/decision or completed-cycle B3–B7 updates.
+   A <=512-byte diagnostic expires the attempt. Explicit completed/skipped/stopped
+   CycleResult semantics keep retry distinct from stop/fatal errors. Retry waits the
+   captured observe_interval (default 8 seconds, validated 8..3600); fresh perception
+   occurs in the next normal cycle. Existing interruptible waits prevent busy loops.
+
+Read API limits now use 16,385-byte sentinels per record/prediction/pre-state,
+49,155 input payload bytes per item and 2,457,750 for 50 items, plus bounded metadata.
+List summaries<=1,024 bytes, list response<=53,248 bytes, detail<=17,408 bytes;
+detail returns compact record only. No inference, reconstruction or rescore on reads.
+The proposed v7 table changes only its JSON size CHECK; current schema is still 6.
+
+Validation: both complete JSON examples parse and encode to **4,195 / 4,292 bytes**
+with the exact compact encoding; selected-prediction digests checked against canonical
+B2 payloads; normalization/conflict/partial/degraded/tie arithmetic and API budgets
+recalculated. Markdown/links/whitespace and all eight historical artifact hashes
+checked. Product source/tests are unchanged; the product suite was not rerun for this
+amendment. The original 646-pass baseline above remains historical evidence.
+
+Only the B8 specification and two tracker documents change. Local commit title:
+`docs: refine B8 decision design`; resolved SHA and clean-tree status are reported
+in the handoff. No push/PR, code/tests/migration/API/UI, B9/B10 or installed-home work.
+The low-disk mismatch remains OPEN in implemented code.
+
+B8 design/specification: **AMENDED AND COMPLETE FOR OWNER REVIEW**.
+B8 implementation: **NOT STARTED**.
+B9–B10: **NOT STARTED**.
+Installed organism: **UNTOUCHED**. Stop for owner review.
