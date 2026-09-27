@@ -24,7 +24,7 @@ def test_upgrade_preserves_rows_backup_and_empty_snapshot(v5_home):
     with sqlite3.connect(path) as db: before=snapshot(db)
     m=Memory(path)
     try:
-        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0]==6
+        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0]==7
         assert m.db.execute('SELECT * FROM self_model_current').fetchall()==[]
         assert {t:[tuple(r) for r in m.db.execute(f'SELECT * FROM {t}')] for t in before}==before
     finally:m.close()
@@ -55,7 +55,7 @@ def test_final_step_failure_rolls_back_every_prior_version(legacy_home,version,m
 def test_fresh_database_has_no_invented_snapshot(tmp_path):
     m=Memory(tmp_path/'fresh'/'memory.sqlite3')
     try:
-        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0]==6
+        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0]==7
         assert m.db.execute('SELECT count(*) FROM self_model_current').fetchone()[0]==0
     finally:m.close()
 
@@ -69,7 +69,7 @@ def test_failed_backup_leaves_v5_intact(v5_home,monkeypatch):
         assert not db.execute("SELECT 1 FROM sqlite_master WHERE name='self_model_current'").fetchone()
 
 
-@pytest.mark.parametrize('versions',[[7],[999],[],[5,5],['broken']])
+@pytest.mark.parametrize('versions',[[8],[999],[],[5,5],['broken']])
 def test_unsupported_schema_refused_before_mutation(v5_home,versions):
     path=v5_home/'memory.sqlite3'
     with sqlite3.connect(path) as db:

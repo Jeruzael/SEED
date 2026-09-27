@@ -23,7 +23,7 @@ class SelfModelReadService:
                 if 'seed_schema' not in tables:
                     return absent('unavailable', 'legacy_schema')
                 versions = db.execute('SELECT version FROM seed_schema LIMIT 2').fetchall()
-                if len(versions) != 1 or type(versions[0][0]) is not int or not 1 <= versions[0][0] <= 6:
+                if len(versions) != 1 or type(versions[0][0]) is not int or not 1 <= versions[0][0] <= 7:
                     raise ServiceError('incompatible_schema', 'Self model cannot use this schema version.', 409)
                 if versions[0][0] < 6:
                     return absent('unavailable', 'legacy_schema')

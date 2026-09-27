@@ -110,7 +110,7 @@ class Memory:
 
     def record_transition_experience(self, *, state_before, action, state_after, outcome,
                                      legacy_reward, started_at, completed_at, note=None, prediction=None,
-                                     prediction_error=None, world_model_eligible=False, curiosity=None):
+                                     prediction_error=None, world_model_eligible=False, curiosity=None, decision=None):
         """Commit the linked experience pair together; never backfill old episodes."""
         before_json = json.dumps(validated_state(state_before), sort_keys=True, allow_nan=False)
         after_json = json.dumps(validated_state(state_after), sort_keys=True, allow_nan=False)
@@ -118,6 +118,14 @@ class Memory:
         prediction_json = None if prediction is None else json.dumps(prediction, sort_keys=True, allow_nan=False)
         error_json = None if prediction_error is None else json.dumps(prediction_error, sort_keys=True, allow_nan=False)
         assessment = None if curiosity is None else json.loads(json.dumps(curiosity, allow_nan=False))
+        draft = None
+        if decision is not None:
+            from .decision import certify_record
+            from .decision_record import compact
+            draft = json.loads(json.dumps(decision, allow_nan=False))
+            certify_record(draft, prediction=prediction, state_before=state_before, draft=True)
+            if draft['selected_action'] != action:
+                raise ValueError('invalid_decision_action')
         with self._lock, self.db:
             episode = self.db.execute(
                 'INSERT INTO episodes(ts,event,state_json,action,reward,note) VALUES(?,?,?,?,?,?)',
@@ -141,6 +149,12 @@ class Memory:
                     (transition.lastrowid,completed_at,*(assessment[key] for key in fields),
                      json.dumps(assessment['components'],sort_keys=True,allow_nan=False),
                      int(assessment['reflection_eligible']),assessment['suppression_reason']))
+            if draft is not None:
+                draft.update(transition_id=transition.lastrowid, created_at=time.time())
+                certify_record(draft, prediction=prediction, state_before=state_before)
+                self.db.execute('INSERT INTO decision_records VALUES(?,?,?,?,?,?,?)',
+                    (transition.lastrowid,draft['created_at'],draft['model'],draft['model_version'],
+                     action,draft['selection_mode'],compact(draft).decode('utf-8')))
             return episode.lastrowid, transition.lastrowid
 
     def set_q(self, state_key: str, action: str, value: float, visits: int):

@@ -59,7 +59,7 @@ def test_corruption_and_incompatible_versions_are_not_available(home,damage):
         if damage=='oversize':
             db.execute('PRAGMA ignore_check_constraints=ON')
             db.execute('UPDATE self_model_current SET data_json=?',(' '*40000,))
-        if damage=='future':db.execute('UPDATE seed_schema SET version=7')
+        if damage=='future':db.execute('UPDATE seed_schema SET version=8')
         if damage=='ambiguous':db.execute('INSERT INTO seed_schema VALUES(6)')
     r=client(home).get('/api/self-model')
     if damage in ('future','ambiguous'):

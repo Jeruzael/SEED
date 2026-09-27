@@ -1,7 +1,7 @@
 """Additive migrations: original episode, concept, policy and identity rows stay intact."""
 import sqlite3
 
-VERSION = 6
+VERSION = 7
 STATEMENTS = [
     'CREATE TABLE seed_schema(version INTEGER NOT NULL)',
     '''CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL,
@@ -123,12 +123,24 @@ V6_STATEMENTS = [
 ]
 
 
+V7_STATEMENTS = [
+    """CREATE TABLE decision_records(
+        transition_id INTEGER PRIMARY KEY REFERENCES transitions(id),
+        created_at REAL NOT NULL,
+        model TEXT NOT NULL CHECK(model='decision_v1'),
+        model_version INTEGER NOT NULL CHECK(model_version=1),
+        selected_action TEXT NOT NULL CHECK(selected_action IN ('observe','reflect','consolidate','rest')),
+        selection_mode TEXT NOT NULL CHECK(selection_mode IN ('exploit','explore','fallback')),
+        data_json TEXT NOT NULL CHECK(length(CAST(data_json AS BLOB))<=16384))""",
+]
+
+
 def schema_version(db: sqlite3.Connection) -> int:
     """Return 0 for unversioned storage; refuse ambiguous/unsupported versions."""
     if not db.execute("SELECT 1 FROM sqlite_master WHERE name='seed_schema'").fetchone():
         return 0
     rows = db.execute('SELECT version FROM seed_schema').fetchall()
-    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, 2, 3, 4, 5, VERSION):
+    if len(rows) != 1 or type(rows[0][0]) is not int or rows[0][0] not in (1, 2, 3, 4, 5, 6, VERSION):
         raise ValueError('Unsupported SEED schema version')
     return rows[0][0]
 
@@ -165,7 +177,12 @@ def migrate(db: sqlite3.Connection) -> None:
         if version == 5:
             for statement in V6_STATEMENTS:
                 db.execute(statement)
-            db.execute('UPDATE seed_schema SET version=?', (VERSION,))
+            db.execute('UPDATE seed_schema SET version=6')
+            version = 6
+        if version == 6:
+            for statement in V7_STATEMENTS:
+                db.execute(statement)
+            db.execute('UPDATE seed_schema SET version=7')
         db.commit()
     except BaseException:
         db.rollback()
