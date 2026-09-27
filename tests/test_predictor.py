@@ -181,3 +181,19 @@ def test_three_extreme_finite_deltas_do_not_overflow_mean(memory, before, after,
     assert signal['value'] == expected
     assert signal['evidence_count'] == 3
     json.dumps(result, allow_nan=False)
+
+
+def test_batch_is_shared_math_with_source_clock_summary_and_no_reads(memory):
+    from seed.predictor import Predictor
+    from seed.learner import ACTIONS
+    for action in ACTIONS:
+        for _ in range(2): history(memory,CURRENT,{**CURRENT,'battery_pct':49},action)
+    rows=[dict(r) for r in memory.db.execute('SELECT id,completed_at,action,state_before_json,state_after_json FROM transitions ORDER BY id DESC LIMIT 200')]
+    predictor=Predictor(memory)
+    expected={a:predictor.predict(CURRENT,a).to_dict() for a in ACTIONS}
+    trace=[]
+    memory.db.set_trace_callback(trace.append)
+    batch=predictor.predict_candidates(CURRENT,ACTIONS,snapshot=rows)
+    assert batch.predictions==expected
+    assert batch.contributors['observe']['battery_pct']==dict(newest_source_transition_id=2,newest_source_completed_at=2.0,invalid_source_count=0)
+    assert trace==[]

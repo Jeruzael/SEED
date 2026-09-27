@@ -62,6 +62,26 @@ def _unavailable(state, key):
             **_support(0)}
 
 
+@dataclass(frozen=True)
+class PredictionBatch:
+    predictions: dict
+    contributors: dict
+
+
+def _clock_summary(rows):
+    valid = []
+    invalid = 0
+    for row in rows:
+        clock = row.get('completed_at')
+        if type(clock) in (int, float) and math.isfinite(clock) and clock >= 0:
+            valid.append((clock, row.get('id', 0)))
+        else:
+            invalid += 1
+    newest = max(valid) if valid else (None, None)
+    return dict(newest_source_transition_id=newest[1],
+                newest_source_completed_at=newest[0], invalid_source_count=invalid)
+
+
 class Predictor:
     def __init__(self, memory):
         self.memory = memory
@@ -72,26 +92,44 @@ class Predictor:
         with self.memory._lock:
             rows = self.memory.db.execute('''SELECT action,state_before_json,state_after_json
                 FROM transitions ORDER BY id DESC LIMIT ?''', (HISTORY_LIMIT,)).fetchall()
+        return Prediction(**self.predict_candidates(state_before, (action,), snapshot=rows).predictions[action])
+
+    def predict_candidates(self, state_before, actions, *, snapshot):
+        """Pure batch inference over one caller-owned snapshot; decode each row once."""
         history = []
-        for row in rows:
+        for source in snapshot:
+            row = dict(source)
             before, after = _observation(row['state_before_json']), _observation(row['state_after_json'])
             if before is not None and after is not None:
-                history.append((row['action'], before, after))
+                history.append((row, before, after))
+        predictions, contributors = {}, {}
+        for action in actions:
+            prediction, sources = self._predict_parsed(state_before, action, history)
+            predictions[action], contributors[action] = prediction.to_dict(), sources
+        return PredictionBatch(predictions, contributors)
+
+    @staticmethod
+    def _predict_parsed(state_before, action, history):
         state = state_before if isinstance(state_before, dict) else {}
-        signals = {}
+        signals, sources = {}, {}
         for target in NUMERIC_TARGETS:
+            sources[target] = _clock_summary([])
             current = _numeric(state.get(target), target)
             if current is None:
                 signals[target] = _unavailable(state, target)
                 continue
             samples = []
-            for selected, before, after in history:
+            for row, before, after in history:
                 old, new = _numeric(before.get(target), target), _numeric(after.get(target), target)
                 if old is not None and new is not None:
-                    samples.append((selected, new - old))
-            evidence, level = _select_evidence(samples, action)
-            # Normalize to [-1,1] before summing: even summing x/n can overflow
-            # after rounding when several valid deltas approach float's limit.
+                    samples.append((row, new - old))
+            matched = [(row, delta) for row, delta in samples if row['action'] == action]
+            selected, level = (matched, 'action') if len(matched) >= MIN_SAMPLES else (samples, 'global')
+            if len(selected) < MIN_SAMPLES:
+                selected, level = [], 'persistence'
+            evidence = [delta for _, delta in selected]
+            sources[target] = _clock_summary([row for row, _ in selected])
+            # Preserve B2's scaled mean and clamp, including extreme finite values.
             scale = max((abs(value) for value in evidence), default=0)
             delta = scale * (math.fsum(value / scale for value in evidence) / len(evidence)) if scale else 0
             raw = current + delta
@@ -100,13 +138,11 @@ class Predictor:
             signals[target] = {'status': 'predicted', 'value': value,
                                'method': level + '_mean_delta' if evidence else 'persistence',
                                'clamped': value != raw, **_support(len(evidence))}
-
-        # Existing observations call this field "network"; keep that schema intact.
         current = state.get('network')
         if type(current) is not bool:
             signals['network_reachable'] = _unavailable(state, 'network')
         else:
-            samples = [(selected, after['network']) for selected, _, after in history
+            samples = [(row['action'], after['network']) for row, _, after in history
                        if type(after.get('network')) is bool]
             evidence, level = _select_evidence(samples, action)
             signal = {'status': 'predicted', 'method': 'persistence',
@@ -116,4 +152,4 @@ class Predictor:
                 signal.update(method=level + '_boolean_frequency', value=probability >= .5,
                               probability_true=probability)
             signals['network_reachable'] = signal
-        return Prediction(action=action, signals=signals)
+        return Prediction(action=action, signals=signals), sources
