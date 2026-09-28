@@ -25,18 +25,18 @@ def test_prospective_order_and_exact_pre_action_payload(home, monkeypatch):
         for _ in range(2): history(core.memory, {'battery_pct':80}, {'battery_pct':79})
         from seed.predictor import Predictor
         # Attach before B2 integration exists, so failure is missing invocation, not a missing attribute.
-        predictor = Predictor(core.memory)
-        original_predict = predictor.predict
+        predictor = core.predictor
+        original_predict = predictor.predict_candidates
         predicted = []
-        def predict(state, action):
+        def predict(state, actions, *, snapshot):
             trace.append('prediction')
-            assert len(observed) == 1 and state == BEFORE and action == 'reflect'
-            result = original_predict(state, action)
-            predicted.append(result.to_dict())
+            assert len(observed) == 1 and state == BEFORE and tuple(actions) == ('observe','reflect','consolidate','rest')
+            result = original_predict(state, actions, snapshot=snapshot)
+            predicted.append(result.predictions['reflect'])
             return result
-        monkeypatch.setattr(predictor,'predict',predict)
+        monkeypatch.setattr(predictor,'predict_candidates',predict)
         monkeypatch.setattr(core,'predictor',predictor,raising=False)
-        choose, perform = core.learner.choose, core.perform_action
+        choose, perform = core.decisions.select, core.perform_action
         reward, update = core.learner.reward, core.learner.update
         persist = core.memory.record_transition_experience
         def choose_traced(state):
@@ -56,13 +56,13 @@ def test_prospective_order_and_exact_pre_action_payload(home, monkeypatch):
         def store(**kwargs):
             trace.append('persistence')
             return persist(**kwargs)
-        monkeypatch.setattr(core.learner,'choose',choose_traced)
+        monkeypatch.setattr(core.decisions,'select',choose_traced)
         monkeypatch.setattr(core,'perform_action',act)
         monkeypatch.setattr(core.learner,'reward',evaluate)
         monkeypatch.setattr(core.learner,'update',learn)
         monkeypatch.setattr(core.memory,'record_transition_experience',store)
-        assert core.cycle() == 12
-        assert trace == ['before','decision','prediction','action','after','reward','update','persistence']
+        assert core.cycle().delay_seconds == 12
+        assert trace == ['before','prediction','decision','reward','action','after','reward','update','persistence']
         assert len(predicted) == 1 and len(observed) == 2
         stored = core.memory.db.execute('SELECT * FROM transitions ORDER BY id DESC LIMIT 1').fetchone()
         payload = json.loads(stored['prediction_json'])
@@ -81,7 +81,7 @@ def test_prospective_order_and_exact_pre_action_payload(home, monkeypatch):
 
 @pytest.mark.parametrize('action,reward,delay', [('observe',.45,8),('reflect',.45,12),
                                                 ('consolidate',0,20),('rest',0,35)])
-def test_prediction_values_do_not_influence_policy_reward_update_or_delay(home, monkeypatch, action, reward, delay):
+def test_prediction_values_preserve_legacy_reward_update_and_delay_for_selected_action(home, monkeypatch, action, reward, delay):
     calls = []
     def perceive(_body):
         calls.append(1)
@@ -91,17 +91,16 @@ def test_prediction_values_do_not_influence_policy_reward_update_or_delay(home, 
     try:
         core.learner.epsilon = 0
         core.memory.set_q(state_key(BEFORE),action,.7,4)
-        payload = {'model':'isolation_test','action':action,'signals':{
-            'battery_pct':{'status':'predicted','value':0},
-            'load_ratio':{'status':'predicted','value':1000000}}}
-        monkeypatch.setattr(core,'predictor',SimpleNamespace(
-            predict=lambda state,selected:SimpleNamespace(to_dict=lambda:payload)),raising=False)
-        assert core.cycle() == delay
-        row = core.memory.db.execute('SELECT * FROM transitions').fetchone()
+        # Real, valid prospective evidence; selecting the controlled action leaves
+        # legacy reward/update/delay formulas independent of forecast magnitudes.
+        for _ in range(2): history(core.memory,BEFORE,{**BEFORE,'battery_pct':0})
+        payload = core.predictor.predict(BEFORE,action).to_dict()
+        assert core.cycle().delay_seconds == delay
+        row = core.memory.db.execute('SELECT * FROM transitions ORDER BY id DESC LIMIT 1').fetchone()
         assert row['action'] == action and row['legacy_reward'] == reward
         assert core.memory.get_q(state_key(BEFORE),action) == pytest.approx((.7+.18*(reward-.7),5))
         assert json.loads(row['prediction_json']) == payload
-        assert json.loads(row['prediction_error_json'])['aggregate']['status'] == 'unavailable'
+        assert json.loads(row['prediction_error_json'])['aggregate']['status'] == 'evaluated'
         assert len(calls) == 2
     finally:
         core.close()
@@ -132,6 +131,6 @@ def test_prediction_joins_atomic_experience_and_does_not_backfill(home):
         assert [r[0] for r in rows] == [old_transition,new_transition]
         assert rows[0][1] is None and json.loads(rows[1][1]) == payload
         assert all(r[2] is None for r in rows)
-        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 6
+        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0] == 7
     finally:
         core.close()

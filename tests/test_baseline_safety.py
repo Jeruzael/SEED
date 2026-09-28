@@ -17,7 +17,7 @@ Body.perceive = lambda self: {'battery_pct':80,'charging':True,'load_ratio':.1,'
 core = SeedOrganism(Path(os.environ['SEED_HOME']))
 try:
     core.awaken()
-    assert core.cycle() in (8,12,20,35)
+    assert core.cycle().delay_seconds in (8,12,20,35)
     core.stop()
     assert core.stop_event.is_set()
     core.sleep(reason='process_stop')

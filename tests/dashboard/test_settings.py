@@ -22,7 +22,7 @@ def test_core_applies_revision(home,monkeypatch):
     try:
         SettingsStore(home).update({'epsilon':0,'name':'Sprout','observe_interval':30},0)
         core.memory.set_q('unknown|calm|ok|day','observe',1,1)
-        assert core.cycle()==30
+        assert core.cycle().delay_seconds==30
         assert core.identity['name']=='Sprout'
         assert core.learner.epsilon==0
     finally:core.close()

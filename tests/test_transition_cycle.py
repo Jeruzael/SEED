@@ -30,7 +30,7 @@ def test_cycle_observes_outcome_before_legacy_learning(home, monkeypatch, action
     try:
         core.learner.epsilon = 0
         core.memory.set_q(state_key(BEFORE), action, .7, 4)
-        choose, evaluate, update = core.learner.choose, core.learner.reward, core.learner.update
+        choose, evaluate, update = core.decisions.select, core.learner.reward, core.learner.update
         def choose_traced(state):
             trace.append('choose')
             return choose(state)
@@ -41,7 +41,7 @@ def test_cycle_observes_outcome_before_legacy_learning(home, monkeypatch, action
         def update_traced(decision, value):
             trace.append('update')
             return update(decision, value)
-        monkeypatch.setattr(core.learner, 'choose', choose_traced)
+        monkeypatch.setattr(core.decisions, 'select', choose_traced)
         monkeypatch.setattr(core.learner, 'reward', reward_traced)
         monkeypatch.setattr(core.learner, 'update', update_traced)
         perform = getattr(core, 'perform_action', None)
@@ -51,8 +51,8 @@ def test_cycle_observes_outcome_before_legacy_learning(home, monkeypatch, action
             assert core.memory.get_q(state_key(BEFORE), action) == (.7,4)
             return perform(selected, state=state)
         monkeypatch.setattr(core, 'perform_action', action_traced, raising=False)
-        assert core.cycle() == delay
-        assert trace == ['before','choose','action','after','reward','update']
+        assert core.cycle().delay_seconds == delay
+        assert trace == ['before','choose','reward','action','after','reward','update']
         assert core.memory.get_q(state_key(BEFORE), action) == pytest.approx((.7+.18*(reward-.7),5))
         row = core.memory.db.execute('SELECT * FROM transitions').fetchone()
         assert json.loads(row['state_before_json']) == BEFORE
