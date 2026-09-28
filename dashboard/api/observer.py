@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
+from seed.decision_record import compact
 from .stream import event_stream
 from ..services.read_store import ServiceError
 
@@ -25,6 +26,32 @@ def observer_router(service, slots):
         if request.query_params:
             raise ServiceError('invalid_query', 'Self model inspection accepts no query parameters.')
         return service.self_model()
+    def decision_query(request, allowed):
+        seen=set()
+        for key,value in request.query_params.multi_items():
+            if key not in allowed or key in seen or not value.isascii() or not value.isdigit():
+                raise ServiceError('invalid_query', 'Invalid decision query.')
+            seen.add(key)
+
+    @router.get('/decisions')
+    def decisions(request: Request):
+        decision_query(request, {'before','limit'})
+        # Avoid parsing unbounded integer strings even on Python versions without
+        # the interpreter's integer conversion limit.
+        if any(len(v)>19 for v in request.query_params.values()):
+            raise ServiceError('invalid_query', 'Invalid decision query.')
+        before=request.query_params.get('before')
+        limit=request.query_params.get('limit','20')
+        result=service.decisions(None if before is None else int(before),int(limit))
+        return Response(compact(result),media_type='application/json')
+
+    @router.get('/decisions/{transition_id}')
+    def decision(transition_id: str, request: Request):
+        decision_query(request,set())
+        if len(transition_id)>19 or not transition_id.isascii() or not transition_id.isdigit():
+            raise ServiceError('invalid_query', 'Invalid decision ID.')
+        return Response(compact(service.decision(int(transition_id))),media_type='application/json')
+
     @router.get('/world-beliefs')
     def world_beliefs(signal: str | None = Query(None, max_length=32),
                       scope: str | None = Query(None, max_length=16),

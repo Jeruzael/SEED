@@ -220,6 +220,14 @@ class SeedService:
                     suppression_reasons=dict(Counter(r['suppression_reason'] for r in rows if r['suppression_reason'])),
                     failure_count=sum(r['failure_reason'] is not None for r in rows))
 
+    def decisions(self, before=None, limit=20):
+        from .decisions import DecisionReadService
+        return DecisionReadService(self.store).list(before, limit)
+
+    def decision(self, transition_id):
+        from .decisions import DecisionReadService
+        return DecisionReadService(self.store).detail(transition_id)
+
     def self_model(self):
         return SelfModelReadService(self.store, self.clock).get()
 
