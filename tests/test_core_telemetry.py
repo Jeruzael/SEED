@@ -45,7 +45,7 @@ def test_cycle_emits_real_chain_and_evidence(home,monkeypatch):
         organism.memory.set_q(state_key(STATE),'reflect',.7,4)
         for _ in range(8):
             organism.memory.episode('experience',STATE)
-        assert organism.cycle()==12
+        assert organism.cycle().delay_seconds==12
         types=[r[0] for r in organism.memory.db.execute('SELECT category FROM events ORDER BY id')]
         assert all(t in types for t in ['PERCEPTION','DECISION','LEARNING','ACTION','MEMORY','CONCEPT'])
         rt=json.loads(organism.memory.db.execute('SELECT data_json FROM runtime').fetchone()[0])

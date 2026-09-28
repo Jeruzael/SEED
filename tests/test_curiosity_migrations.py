@@ -38,7 +38,7 @@ def test_v3_backup_upgrade_preserves_all_prior_rows_and_no_backfill(v3_home):
     with sqlite3.connect(path) as db: before=snapshot(db)
     m=Memory(path)
     try:
-        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0]==6
+        assert m.db.execute('SELECT version FROM seed_schema').fetchone()[0]==7
         assert {t:[tuple(r) for r in m.db.execute(f'SELECT * FROM {t}')] for t in before}==before
         assert m.db.execute('SELECT count(*) FROM curiosity_assessments').fetchone()[0]==0
         assert m.db.execute('SELECT count(*) FROM curiosity_runtime').fetchone()[0]==0

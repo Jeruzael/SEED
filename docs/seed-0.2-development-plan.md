@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: documentation-only B7 verification closure. B7 is VERIFIED at source/CI level on master `ab7c2b45508828685fc9b0a65807e08cee1cff98`; post-merge run 36104979944 passed 646 tests on all three Linux/macOS jobs. B0–B6 remain VERIFIED. B8–B10 remain NOT STARTED and unauthorized.** Deployment/live-device validation remains NOT PERFORMED, and the low-disk decision mismatch remains OPEN. See the [hosted verification closure](#b7-hosted-verification-closure--2026-09-25). Historical entries below retain their original status and evidence.
+**Current authorization: B8 documentation-only PR acceptance cleanup; no merge, deployment, B9 or B10 authorization.** The owner approved implementation on 2026-09-27 and continued it on 2026-09-28. B8 is **IMPLEMENTED** on `seed-0.2-b8` ([PR #12](https://github.com/Jeruzael/SEED/pull/12)), schema v7. Implementation SHA `acaccce889b18d165252c6977d41e5113e74e681` passed [hosted acceptance run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250), following the local 747-test pass. This evidence does not cover a subsequent documentation SHA. PR #12 is open; master remains B7/schema v6 at `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`. B8 is **NOT YET VERIFIED** because merge and exact post-merge master verification remain outstanding. Deployment/live-device validation is **NOT PERFORMED**; installed SEED is **UNTOUCHED**. B0–B7 retain historical VERIFIED status, and B9–B10 remain **NOT STARTED**. The low-disk autonomous mismatch is resolved in B8 source. Historical checkpoints below retain their earlier status; see [PR-head acceptance](#b8-pr-head-hosted-acceptance--2026-09-28).
 
 ## Objective and architectural transition
 
@@ -63,7 +63,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
 | B7 | Self Model | VERIFIED | B3, B6 | 646 tests on Linux 3.11/3.13 and macOS 3.13; six scenarios on both 3.13 jobs; post-merge run 36104979944 | Schema v6; bounded descriptive singleton; no upstream influence |
-| B8 | Decision-System Upgrade | NOT STARTED | B5, B7 | Not added or executed for B8 | Combine decision signals while retaining Q-value compatibility |
+| B8 | Decision-System Upgrade | IMPLEMENTED | B5, B7 | Local 747 tests; implementation SHA `acaccce` hosted 747 tests on Linux 3.11/3.13 and macOS 3.13; seven scenarios on both 3.13 jobs; run 36407866250 | Schema7; final docs-head checks, merge and exact post-merge master verification outstanding |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
 
@@ -145,7 +145,7 @@ First planned sprint: **B0 → B1 → B2 → B3**. Each requires a separate expl
 
 **Purpose:** Make the contextual bandit one signal among several instead of replacing it prematurely.
 
-**Candidate inputs:** Learned action value, predicted outcome, information gain, resource cost, uncertainty, constraint risk, and goal progress where goals are actually defined.
+**Implemented v1 inputs:** Existing raw Q, prospective battery/load/disk risk, historical support uncertainty, and resource eligibility. Information gain, goal progress and other candidate inputs from the initial roadmap were excluded by the approved B8 design.
 
 **Verification:** Decision inputs and selection-time values are inspectable; deterministic scenarios exercise resource constraints, missing predictions, conflicting signals, and fallback behavior. Q values remain compatible. New decision weights and utility meanings are explicitly specified and tested before behavior is described as improved.
 
@@ -1883,3 +1883,166 @@ The six standalone scenarios are `baseline_scenario`, `prediction_error_scenario
 **B7 status: VERIFIED at source/CI level. Schema: v6.** Deployment/live-device validation remains **NOT PERFORMED**; the installed organism is untouched. The low-disk reward/consolidation decision mismatch remains **OPEN**. B8–B10 remain **NOT STARTED**. B8 may begin only under separate explicit authorization and design scope.
 
 This closure changes only the five current-state documentation files. Production code, tests, schema/migrations, workflow behavior, dependencies and historical baselines remain unchanged. The documentation PR is separate from the verified B7 merge and must not be represented as covered by the earlier run.
+
+
+## B8 design execution record — 2026-09-25
+
+**Authorization:** the owner's SEED_B8_Decision_System_Design_Instructions.md and
+explicit instruction authorize design/specification only. Production implementation,
+migrations, tests, APIs, UI, B9–B10 and installation remain unauthorized.
+
+**Starting state:** fetched origin, checked out master, fast-forward pulled and
+verified clean HEAD/origin/master at `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`
+(PR #11 documentation closure), then created `seed-0.2-b8`. No reset/rewrite or B7
+branch reuse. Software version 0.2/schema 6 remain unchanged. Owner-supplied exact-master
+[run 36121878229](https://github.com/Jeruzael/SEED/actions/runs/36121878229) reports
+646 passes on Linux 3.11 / Linux 3.13 / macOS 3.13 and six scenarios on both 3.13 jobs; this
+phase does not claim another hosted artifact audit.
+
+**Fresh baseline:** `.venv/bin/python -m pytest -q` → **646 passed, zero failures or
+skips, two existing warnings**, Python 3.13.15, exit 0. All six standalone commands
+`.venv/bin/python -m tests.baseline_scenario`, `tests.prediction_error_scenario`,
+`tests.world_model_scenario`, `tests.curiosity_scenario`, `tests.semantic_scenario`
+and `tests.self_model_scenario` (each with the same interpreter/module invocation)
+exited 0 with valid JSON exactly matching saved B7 outputs. Resolved temporary homes
+and synthetic sensors only; ignored audit files under `.review-artifacts/b8-design/`.
+All eight B0–B7 artifact hashes remain unchanged; no installed home was accessed.
+
+**Deliverable:** [Decision-System Upgrade design](superpowers/specs/2026-09-25-b8-decision-system-design.md),
+including required evidence inventory, alternatives, exact math, strict healthy and
+degraded examples, future deterministic scenarios/tests/file map and 16-point written
+self-review. This is an inline design review, not independent code review or execution
+of future B8 acceptance tests.
+
+**Selected recommendation:** separate `decision_v1` with one keyed Q snapshot and
+one raw 200-row prediction-history snapshot; all four predictions precede selection.
+Keep legacy reward/Q update/visits/alpha; use bounded Q component and forecast resource
+risk/support uncertainty: `0.50*Q + 0.35*(1-R) + 0.15*(1-U)`. Hard costly-action
+resource constraints apply to exploration and exploitation. Epsilon remains the
+exploration probability among eligible actions. Unsupported auxiliary evidence falls
+back to eligible raw-Q ordering. Following owner review, exploitation/fallback ties
+use injected uniform random choice among eligible maxima; singleton winners consume
+no choice call, and choice_index identifies the actual selection_candidates pool. B4/B5/B6/B7 feedback, information gain, cost proxies and goals are
+excluded with explicit reasons. No resource or intelligence improvement is claimed.
+
+**Low-disk design:** keep the old reward; exclude autonomous consolidate when B6's
+known-resource guard would suppress work, and guard autonomous reflect equivalently.
+Owner commands retain their existing availability/audits. The issue remains OPEN in
+implemented code until separately authorized implementation is verified.
+
+**Persistence/inspection proposal:** additive schema 7 `decision_records`, keyed to
+transitions, compact three-target candidate evidence and selected-prediction digest,
+16 KiB bound, atomic with the
+existing experience group and no historical backfill. Bounded DECISION summary and
+two future read-only inspection routes; no frontend. A necessary narrow B7 schema 6/7
+compatibility change is specified without changing self_model_v1 meaning or relabeling
+old snapshots. Current schema, source, tests and endpoints are unchanged.
+
+**Validation and scope:** strict example JSON and literal score checks, proposed DDL
+syntax in a temporary in-memory database, required headings, relative links, whitespace,
+baseline hashes and exact documentation-only scope checked. These document checks do
+not implement B8 tests or run migration on SEED memory. Only this tracker,
+`docs/implementation-log.md` and the new spec change. README, architecture, review
+follow-ups, verification guide, CI, dependencies and every baseline are untouched.
+
+**Delivery:** local documentation-only commit `docs: design B8 decision system`;
+resolved hash and clean-tree result supplied after commit. No push/PR/merge, production
+implementation or live deployment is part of this delivery. Stop for owner review.
+
+B8 design/specification: **AMENDED AND COMPLETE FOR OWNER REVIEW**.
+B8 implementation: **NOT STARTED**.
+B9–B10: **NOT STARTED**.
+Installed organism: **UNTOUCHED**.
+
+
+### B8 owner-review amendment — 2026-09-26
+
+The owner explicitly authorized SEED_B8_Design_Amendment_Instructions.md, documentation
+only. Starting clean `seed-0.2-b8`/origin branch HEAD was
+`3014625fe031b3b6d71f1d0320ce62b627569acf`, one commit ahead of verified master
+`92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`, zero behind. Fetch/checkout/status/log
+confirmed that state; no reset, new branch, implementation plan or source edit.
+
+**Owner review found 0 Critical, 2 Important, 1 Minor design findings.** The amended
+specification resolves these design findings only:
+
+1. **Important — deterministic rest tie bias:** remove fixed priority. Composite
+   ties use absolute 1e-12 tolerance, fallback ties use exact raw-Q equality, and an
+   injected choice selects uniformly among eligible tied maxima. Epsilon's separate
+   draw remains `u < epsilon`. Unique pools consume no choice; choice_index is null
+   then and otherwise indexes selection_candidates in every mode.
+2. **Important — oversized/redundant durable record:** 16,384-byte compact contract
+   with a four-field history summary, three resource projections per candidate,
+   components/Q/eligibility, and selected_prediction_sha256. No row/contributor ledger,
+   four full forecasts or duplicated selected prediction. The full selected B2 payload
+   remains in transitions.prediction_json; canonical digest equality is checked before
+   action/persistence and on bounded reads. Source-clock count/maximum metadata preserves
+   freshness validation. Lifetime growth remains unbounded; no pruning is introduced.
+3. **Minor — fatal stale expiry:** >5-second selection age skips without action,
+   reward/Q/visits, experience/transition/decision or completed-cycle B3–B7 updates.
+   A <=512-byte diagnostic expires the attempt. Explicit completed/skipped/stopped
+   CycleResult semantics keep retry distinct from stop/fatal errors. Retry waits the
+   captured observe_interval (default 8 seconds, validated 8..3600); fresh perception
+   occurs in the next normal cycle. Existing interruptible waits prevent busy loops.
+
+Read API limits now use 16,385-byte sentinels per record/prediction/pre-state,
+49,155 input payload bytes per item and 2,457,750 for 50 items, plus bounded metadata.
+List summaries<=1,024 bytes, list response<=53,248 bytes, detail<=17,408 bytes;
+detail returns compact record only. No inference, reconstruction or rescore on reads.
+The proposed v7 table changes only its JSON size CHECK; current schema is still 6.
+
+Validation: both complete JSON examples parse and encode to **4,195 / 4,292 bytes**
+with the exact compact encoding; selected-prediction digests checked against canonical
+B2 payloads; normalization/conflict/partial/degraded/tie arithmetic and API budgets
+recalculated. Markdown/links/whitespace and all eight historical artifact hashes
+checked. Product source/tests are unchanged; the product suite was not rerun for this
+amendment. The original 646-pass baseline above remains historical evidence.
+
+Only the B8 specification and two tracker documents change. Local commit title:
+`docs: refine B8 decision design`; resolved SHA and clean-tree status are reported
+in the handoff. No push/PR, code/tests/migration/API/UI, B9/B10 or installed-home work.
+The low-disk mismatch remains OPEN in implemented code.
+
+B8 design/specification: **AMENDED AND COMPLETE FOR OWNER REVIEW**.
+B8 implementation: **NOT STARTED**.
+B9–B10: **NOT STARTED**.
+Installed organism: **UNTOUCHED**. Stop for owner review.
+
+
+## B8 implementation — 2026-09-28
+
+The owner reviewed the amendment and authorized implementation on 2026-09-27, then directed continuation on 2026-09-28. Work remained on `seed-0.2-b8` from approved design `4c24d7e`, using the [implementation plan](superpowers/plans/2026-09-27-seed-b8.md). No installed-home, push, merge, deployment, B9 or B10 work was performed.
+
+Implemented separate bounded snapshot/selection and pure frozen-record contracts; shared B2 batch inference; additive schema7 decision persistence; explicit completed/skipped/stopped cycle results; and two read-only decision endpoints. The current autonomous ordering is documented in [architecture](architecture.md#autonomous-cycle-and-ordering). Q values and visits remain raw, reward/update formulas and delays remain unchanged, and B4/B5/B6/B7 remain downstream-only. B7 accepts retained schema6 snapshots and reports schema7 only after a new publication.
+
+The [B8 comparison](baselines/seed-0.2-b8-comparison.json) covers fallback, low disk, constraints/equality/charging, conflicting and partial forecasts, exploration, both injected tie winners, epsilon equality, stale history, prospective payload identity, Q compatibility, owner low-disk audit, restart, and five-second stale boundaries. Its eight historical artifact hashes match the approved base. The eight-context autonomous control now selects observe four times and rest four times; degraded rest Q is 1.09575648 after four visits. A direct legacy Learner regression preserves the former observe/reflect/consolidate/rest sequence and historical formulas.
+
+Historical scenario compatibility uses explicit leaf changes: new control action/Q/support counts, current schema, two known source hashes (earlier body parser and B8 shared predictor), and seven fields in the policy-reflection fixture. That fixture now starts with eligible load .2 and observes load1e300; its B5 surprise magnitude, score .925 and already_reflected suppression remain exact. All other B3/B4/B5/B6/B7 calculation fields remain compared to immutable historical artifacts.
+
+Independent fresh-context review found 0 Critical and 2 Important issues: inconsistent frozen policy provenance accepted by the reader, and invalid UTF-8 scalar text failing an entire page. Six failing regressions proved them; both were fixed with structural support/reason validation and canonical SQL scalar projection. No review findings remain deferred. Additional regressions verify VM interruption, cleanup/lock release and KeyboardInterrupt, read-only corrupt-slot pagination, whole-experience rollback, owner stop, pre-telemetry state validation, and a full delayed nonfatal retry. Final command results are recorded in [verification](verification.md#b8-local-verification--2026-09-28).
+
+Status remains IMPLEMENTED pending hosted acceptance/owner review; local correctness evidence is not a claim of deployment or measured developmental improvement.
+
+
+### B8 PR-head hosted acceptance — 2026-09-28
+
+[PR #12 — Seed 0.2 b8](https://github.com/Jeruzael/SEED/pull/12) is **open**, from `seed-0.2-b8` to `master`, and is not merged. Base master at PR creation and at this checkpoint: `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb` (B7/schema v6). The exact verified implementation head is `acaccce889b18d165252c6977d41e5113e74e681`. [SEED verification run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250) completed **SUCCESS** for that head.
+
+| Exact check | Python | Tests | Standalone scenarios | Artifact ID |
+| --- | --- | --- | --- | --- |
+| `test (linux-py311)` | 3.11.16 | 747 passed; 2 existing warnings | Intentionally disabled by matrix | `10963505882` |
+| `test (linux-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed | `10963101024` |
+| `test (macos-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed | `10962179746` |
+
+The seven scenarios are `baseline_scenario`, `prediction_error_scenario`, `world_model_scenario`, `curiosity_scenario`, `semantic_scenario`, `self_model_scenario`, and `decision_scenario`. The owner-supplied artifact-inspection record confirms:
+
+- All three `checked_out_sha` values equal `acaccce889b18d165252c6977d41e5113e74e681`; each `dirty_tree` is empty.
+- `dependencies.exit = 0`, `pytest.exit = 0`, and successful `pip check` on every job.
+- The unchanged requirements-lock SHA-256 is `1fe34b077636964cde188c0f19317f7615f27200d4ac49aedeeb13df401fd769`.
+- Both Python 3.13 artifacts have `scenarios.exit = 0`, seven byte-for-byte identical Linux/macOS scenario JSON outputs, and empty scenario stderr.
+
+GitHub metadata and job logs were checked during this cleanup: PR state/base/head, run and job success, Python versions, 747-test results, scenario-step outcomes and all three artifact IDs match that record. The artifact-content findings above retain their supplied inspection provenance.
+
+Status at this acceptance checkpoint: implementation **IMPLEMENTED**; local verification **PASS**; hosted acceptance of the stated implementation SHA **PASS**; merged to master **NO**; exact post-merge master verification **NOT RUN**; B8 overall **NOT YET VERIFIED**. No deployment, live-memory migration or restart occurred; B9–B10 remain **NOT STARTED**.
+
+This documentation update creates a new PR head. Run 36407866250 does **not** cover it. All three exact checks must pass on the final documentation SHA before merge readiness; merge then requires owner direction, followed by verification of the exact merge commit on master before marking B8 VERIFIED. No history rewrite or automatic merge is authorized.

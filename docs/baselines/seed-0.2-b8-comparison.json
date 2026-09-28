@@ -1,0 +1,666 @@
+{
+  "approved_design": "4c24d7ed97dd913dbe6484b23945070573145824",
+  "batch": "B8",
+  "cases": {
+    "age_5.0": {
+      "decisions": 1,
+      "delay": 8,
+      "perceptions": 2,
+      "q_rows": 1,
+      "reason": null,
+      "status": "completed"
+    },
+    "age_5.001": {
+      "decisions": 0,
+      "delay": 8,
+      "perceptions": 1,
+      "q_rows": 0,
+      "reason": "stale_decision",
+      "status": "skipped"
+    },
+    "charging": {
+      "choice_index": 0,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.5
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [],
+        "observe": [],
+        "reflect": [],
+        "rest": []
+      },
+      "selected_action": "observe",
+      "selected_prediction_sha256": "6ccd631c0ebd4c5bd22d2403ca1cc8040ce515e6b75c96320f86b9d05be0044b",
+      "selection_candidates": [
+        "observe",
+        "reflect",
+        "consolidate",
+        "rest"
+      ],
+      "selection_mode": "fallback",
+      "utilities": {
+        "consolidate": 0.25,
+        "observe": 0.25,
+        "reflect": 0.25,
+        "rest": 0.25
+      }
+    },
+    "completed": {
+      "delay": 12,
+      "digest_matches": true,
+      "prediction_identity": true,
+      "q": [
+        0.6549999999999999,
+        5
+      ],
+      "record_bytes": 4305,
+      "status": "completed"
+    },
+    "composite_tie_0": {
+      "choice_index": 0,
+      "components": {
+        "forecast_resource_risk": 0.0,
+        "model_uncertainty": 0.75,
+        "q_component": 0.5
+      },
+      "fallback_reason": null,
+      "policy_basis": "composite",
+      "reasons": {
+        "consolidate": [],
+        "observe": [],
+        "reflect": [],
+        "rest": []
+      },
+      "selected_action": "observe",
+      "selected_prediction_sha256": "c97eca6a3e7f405b3b69755387cbf06c31607a5cb7484b5a14bc526dac48acc7",
+      "selection_candidates": [
+        "observe",
+        "reflect",
+        "consolidate",
+        "rest"
+      ],
+      "selection_mode": "exploit",
+      "utilities": {
+        "consolidate": 0.6375,
+        "observe": 0.6375,
+        "reflect": 0.6375,
+        "rest": 0.6375
+      }
+    },
+    "composite_tie_3": {
+      "choice_index": 3,
+      "components": {
+        "forecast_resource_risk": 0.0,
+        "model_uncertainty": 0.75,
+        "q_component": 0.5
+      },
+      "fallback_reason": null,
+      "policy_basis": "composite",
+      "reasons": {
+        "consolidate": [],
+        "observe": [],
+        "reflect": [],
+        "rest": []
+      },
+      "selected_action": "rest",
+      "selected_prediction_sha256": "48d678e9e876751b185c23cf340f8aff46abd0692152de8eb509352fb89412e7",
+      "selection_candidates": [
+        "observe",
+        "reflect",
+        "consolidate",
+        "rest"
+      ],
+      "selection_mode": "exploit",
+      "utilities": {
+        "consolidate": 0.6375,
+        "observe": 0.6375,
+        "reflect": 0.6375,
+        "rest": 0.6375
+      }
+    },
+    "conflict": {
+      "choice_index": null,
+      "components": {
+        "forecast_resource_risk": 0.0,
+        "model_uncertainty": 0.050000000000000044,
+        "q_component": 0.5
+      },
+      "fallback_reason": null,
+      "policy_basis": "composite",
+      "reasons": {
+        "consolidate": [],
+        "observe": [],
+        "reflect": [],
+        "rest": []
+      },
+      "selected_action": "observe",
+      "selected_prediction_sha256": "4145061cc324f0d963d20b43cb6cc775528277140056ffff2efa7ba11c639d31",
+      "selection_candidates": [
+        "observe"
+      ],
+      "selection_mode": "exploit",
+      "utilities": {
+        "consolidate": 0.6174999999999999,
+        "observe": 0.7424999999999999,
+        "reflect": 0.5175,
+        "rest": 0.6174999999999999
+      }
+    },
+    "epsilon_equality": {
+      "choice_index": null,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.75
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [],
+        "observe": [],
+        "reflect": [],
+        "rest": []
+      },
+      "selected_action": "rest",
+      "selected_prediction_sha256": "16742e4979ac08d8d19f873447391d6316057cdceb4400e2af8b7d84dcf76ecc",
+      "selection_candidates": [
+        "rest"
+      ],
+      "selection_mode": "fallback",
+      "utilities": {
+        "consolidate": 0.25,
+        "observe": 0.25,
+        "reflect": 0.25,
+        "rest": 0.375
+      }
+    },
+    "explore_0": {
+      "choice_index": 0,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.5
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [
+          "low_disk"
+        ],
+        "observe": [],
+        "reflect": [
+          "low_disk"
+        ],
+        "rest": []
+      },
+      "selected_action": "observe",
+      "selected_prediction_sha256": "4dc446ec70f9233e55914f9d25157da1d6ccf9b4b0bb8979642a87cb980732de",
+      "selection_candidates": [
+        "observe",
+        "rest"
+      ],
+      "selection_mode": "explore",
+      "utilities": {
+        "consolidate": 0.4975247524752475,
+        "observe": 0.25,
+        "reflect": 0.25,
+        "rest": 0.25
+      }
+    },
+    "explore_1": {
+      "choice_index": 1,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.5
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [
+          "low_disk"
+        ],
+        "observe": [],
+        "reflect": [
+          "low_disk"
+        ],
+        "rest": []
+      },
+      "selected_action": "rest",
+      "selected_prediction_sha256": "e6a3f38db2e99e8887b34d993883785693fc2ebe084a31d2fdee3e38ed070578",
+      "selection_candidates": [
+        "observe",
+        "rest"
+      ],
+      "selection_mode": "explore",
+      "utilities": {
+        "consolidate": 0.4975247524752475,
+        "observe": 0.25,
+        "reflect": 0.25,
+        "rest": 0.25
+      }
+    },
+    "fallback_tie_0": {
+      "choice_index": 0,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.75
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [
+          "low_disk"
+        ],
+        "observe": [],
+        "reflect": [
+          "low_disk"
+        ],
+        "rest": []
+      },
+      "selected_action": "observe",
+      "selected_prediction_sha256": "4dc446ec70f9233e55914f9d25157da1d6ccf9b4b0bb8979642a87cb980732de",
+      "selection_candidates": [
+        "observe",
+        "rest"
+      ],
+      "selection_mode": "fallback",
+      "utilities": {
+        "consolidate": 0.4975247524752475,
+        "observe": 0.375,
+        "reflect": 0.25,
+        "rest": 0.375
+      }
+    },
+    "fallback_tie_1": {
+      "choice_index": 1,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.75
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [
+          "low_disk"
+        ],
+        "observe": [],
+        "reflect": [
+          "low_disk"
+        ],
+        "rest": []
+      },
+      "selected_action": "rest",
+      "selected_prediction_sha256": "e6a3f38db2e99e8887b34d993883785693fc2ebe084a31d2fdee3e38ed070578",
+      "selection_candidates": [
+        "observe",
+        "rest"
+      ],
+      "selection_mode": "fallback",
+      "utilities": {
+        "consolidate": 0.4975247524752475,
+        "observe": 0.375,
+        "reflect": 0.25,
+        "rest": 0.375
+      }
+    },
+    "fresh_history_boundary": {
+      "choice_index": 0,
+      "components": {
+        "forecast_resource_risk": 0.0,
+        "model_uncertainty": 0.9,
+        "q_component": 0.5
+      },
+      "fallback_reason": null,
+      "policy_basis": "composite",
+      "reasons": {
+        "consolidate": [],
+        "observe": [],
+        "reflect": [],
+        "rest": []
+      },
+      "selected_action": "observe",
+      "selected_prediction_sha256": "5c47e1513f734f5d2be18b5bbf3381e750ae49bf1e30c6e31b438e24c55794ef",
+      "selection_candidates": [
+        "observe",
+        "reflect",
+        "consolidate",
+        "rest"
+      ],
+      "selection_mode": "exploit",
+      "utilities": {
+        "consolidate": 0.615,
+        "observe": 0.615,
+        "reflect": 0.615,
+        "rest": 0.615
+      }
+    },
+    "guard_equality": {
+      "choice_index": 0,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.5
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [],
+        "observe": [],
+        "reflect": [],
+        "rest": []
+      },
+      "selected_action": "observe",
+      "selected_prediction_sha256": "a87f6c16e20e0ad88d8bc1e5eb4d638d37f34ed0badc95bd5ba778e978eb9608",
+      "selection_candidates": [
+        "observe",
+        "reflect",
+        "consolidate",
+        "rest"
+      ],
+      "selection_mode": "fallback",
+      "utilities": {
+        "consolidate": 0.25,
+        "observe": 0.25,
+        "reflect": 0.25,
+        "rest": 0.25
+      }
+    },
+    "load_battery": {
+      "choice_index": null,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.75
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [
+          "high_load",
+          "low_battery"
+        ],
+        "observe": [],
+        "reflect": [
+          "high_load",
+          "low_battery"
+        ],
+        "rest": []
+      },
+      "selected_action": "rest",
+      "selected_prediction_sha256": "898f5d45c5bbc8b8e46614fb362eeef6074cf3fe170efbe1d8cd4dd97359eddf",
+      "selection_candidates": [
+        "rest"
+      ],
+      "selection_mode": "fallback",
+      "utilities": {
+        "consolidate": 0.25,
+        "observe": 0.25,
+        "reflect": 0.25,
+        "rest": 0.375
+      }
+    },
+    "low_disk": {
+      "choice_index": null,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.75
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [
+          "low_disk"
+        ],
+        "observe": [],
+        "reflect": [
+          "low_disk"
+        ],
+        "rest": []
+      },
+      "selected_action": "rest",
+      "selected_prediction_sha256": "e6a3f38db2e99e8887b34d993883785693fc2ebe084a31d2fdee3e38ed070578",
+      "selection_candidates": [
+        "rest"
+      ],
+      "selection_mode": "fallback",
+      "utilities": {
+        "consolidate": 0.4975247524752475,
+        "observe": 0.25,
+        "reflect": 0.25,
+        "rest": 0.375
+      }
+    },
+    "owner_low_disk": {
+      "decision_count": 1,
+      "reason": "low_disk",
+      "status": "suppressed"
+    },
+    "partial": {
+      "choice_index": null,
+      "components": {
+        "forecast_resource_risk": 0.3333333333333333,
+        "model_uncertainty": 0.3666666666666667,
+        "q_component": 0.5
+      },
+      "fallback_reason": null,
+      "policy_basis": "composite",
+      "reasons": {
+        "consolidate": [
+          "unknown_resources"
+        ],
+        "observe": [],
+        "reflect": [
+          "unknown_resources"
+        ],
+        "rest": []
+      },
+      "selected_action": "observe",
+      "selected_prediction_sha256": "93c73d9e6cbd634b47c17b6eb543b905f5a43d4e0c866dcec345e709f3cb1d51",
+      "selection_candidates": [
+        "observe"
+      ],
+      "selection_mode": "exploit",
+      "utilities": {
+        "consolidate": 0.5783333333333334,
+        "observe": 0.5783333333333334,
+        "reflect": 0.5783333333333334,
+        "rest": 0.4533333333333333
+      }
+    },
+    "q_fallback": {
+      "choice_index": null,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.7058823529411764
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [],
+        "observe": [],
+        "reflect": [],
+        "rest": []
+      },
+      "selected_action": "reflect",
+      "selected_prediction_sha256": "787d90cc6b09968f90e7a37c76dc31a4648e3c922a5746fc9d411a820ed4dcfc",
+      "selection_candidates": [
+        "reflect"
+      ],
+      "selection_mode": "fallback",
+      "utilities": {
+        "consolidate": 0.25,
+        "observe": 0.25,
+        "reflect": 0.3529411764705882,
+        "rest": 0.25
+      }
+    },
+    "restart": {
+      "count": 1,
+      "unchanged": true
+    },
+    "stale_history": {
+      "choice_index": 0,
+      "components": {
+        "forecast_resource_risk": 1.0,
+        "model_uncertainty": 1.0,
+        "q_component": 0.5
+      },
+      "fallback_reason": "no_supported_resource_forecast",
+      "policy_basis": "legacy_q",
+      "reasons": {
+        "consolidate": [],
+        "observe": [],
+        "reflect": [],
+        "rest": []
+      },
+      "selected_action": "observe",
+      "selected_prediction_sha256": "5c47e1513f734f5d2be18b5bbf3381e750ae49bf1e30c6e31b438e24c55794ef",
+      "selection_candidates": [
+        "observe",
+        "reflect",
+        "consolidate",
+        "rest"
+      ],
+      "selection_mode": "fallback",
+      "utilities": {
+        "consolidate": 0.25,
+        "observe": 0.25,
+        "reflect": 0.25,
+        "rest": 0.25
+      }
+    }
+  },
+  "control": {
+    "action_distribution": {
+      "observe": 4,
+      "rest": 4
+    },
+    "action_sequence": [
+      "observe",
+      "observe",
+      "observe",
+      "observe",
+      "rest",
+      "rest",
+      "rest",
+      "rest"
+    ],
+    "autonomous_perception_count": 16,
+    "concept_count": 0,
+    "context_coverage": 2,
+    "database_page_size": 4096,
+    "lifecycle_counts": {
+      "experience": 8,
+      "sleep": 1,
+      "wake": 1
+    },
+    "observation_count": 8,
+    "policy_coverage": 3,
+    "prediction_structure": {
+      "available": 32,
+      "coverage_pct": 100.0,
+      "evidence_counts": {
+        "battery_pct": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          2,
+          3
+        ],
+        "disk_free_pct": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          2,
+          3
+        ],
+        "load_ratio": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          2,
+          3
+        ],
+        "network_reachable": [
+          0,
+          0,
+          2,
+          3,
+          4,
+          5,
+          2,
+          3
+        ]
+      },
+      "method_groups": {
+        "action_specific": 16,
+        "global": 8,
+        "persistence": 8
+      },
+      "prediction_count": 8,
+      "prediction_error_count": 8,
+      "unavailable": 0
+    },
+    "q_values": [
+      {
+        "action": "observe",
+        "state_key": "charging|calm|ok|day",
+        "value": 0.2018844,
+        "visits": 3
+      },
+      {
+        "action": "observe",
+        "state_key": "low|busy|tight|night",
+        "value": -0.216,
+        "visits": 1
+      },
+      {
+        "action": "rest",
+        "state_key": "low|busy|tight|night",
+        "value": 1.09575648,
+        "visits": 4
+      }
+    ],
+    "returned_intervals_seconds": [
+      8,
+      8,
+      8,
+      8,
+      35,
+      35,
+      35,
+      35
+    ],
+    "transition_count": 8
+  },
+  "historical_artifact_sha256": {
+    "seed-0.1-baseline.json": "06aab67678a8dc1c1aa7e226e8ae36749cf0f6d4b6cf7f4a3d2d115d02e6ec65",
+    "seed-0.2-b1-comparison.json": "4ebb6e6fb84b8315a7b274f1c5f3f5e6fd192f73fc6a30a6b1eed929ee044b79",
+    "seed-0.2-b2-comparison.json": "3198b14635ad8cbb38360bf9dfdf26e9cb43dfd16524b2ce5a4abce25069c082",
+    "seed-0.2-b3-evaluation.json": "88a5a82bca073444ec0b1b8b9d98678c45f853bf323b22185de323ac2818e834",
+    "seed-0.2-b4-comparison.json": "f8f84f57b0eb2d6fa2e30f00751ec9097c7b244c29d57c76ce719b18177bf4c1",
+    "seed-0.2-b5-comparison.json": "01d98f21c2108e46cb676b52d27cafeb958b7e222964e13484a69620921a6896",
+    "seed-0.2-b6-comparison.json": "cfbea2c67261d600f713e59bb8cbb43616e8a122a3007f96f9cad477e3053ead",
+    "seed-0.2-b7-comparison.json": "cebf0800b3ae8ca4d58f212f9091304386c893b50de9a3856325def2b85db638"
+  },
+  "schema_version": 7,
+  "verified_master": "92e6aa47ec01d80e123e1c9a90c10f9e59e367fb"
+}

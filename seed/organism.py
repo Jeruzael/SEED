@@ -6,13 +6,15 @@ import statistics
 import threading
 import time
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .body import Body
 from .version import CORE_VERSION
 from .learner import Learner
 from .predictor import Predictor
+from .decision import DecisionSystem, summary as decision_summary
+from .decision_record import number, compact, validate_state
 from .prediction_error import evaluate_prediction
 from .world_model import WorldModel
 from .semantic_memory import Consolidator
@@ -29,6 +31,13 @@ from .transitions import validated_state, describe_outcome
 log = logging.getLogger('seed')
 
 
+@dataclass(frozen=True)
+class CycleResult:
+    status: str
+    delay_seconds: float | None
+    reason: str | None
+
+
 class SeedOrganism:
     def __init__(self, home: Path):
         self.home = Path(home)
@@ -39,6 +48,7 @@ class SeedOrganism:
             self.body = Body(self.home)
             self.learner = Learner(self.memory)
             self.predictor = Predictor(self.memory)
+            self.decisions = DecisionSystem(self.memory, self.predictor, self.learner)
             self.world_model = WorldModel(self.memory)
             self.world_model.recover()
             self.curiosity_attention = CuriosityAttention(self.memory)
@@ -162,17 +172,53 @@ class SeedOrganism:
         elif action == 'consolidate':
             self.consolidate(state=state)
 
+    def _decision_guard(self, observed_at, attempt_id, phase, retry_delay):
+        if self.stop_event.is_set():
+            self.telemetry.runtime(activity='idle', current_action=None, action_started_at=None)
+            return CycleResult('stopped', None, 'owner_stop')
+        now = time.monotonic()
+        if not number(now, 0) or not number(observed_at, 0) or now < observed_at:
+            raise ValueError('invalid_decision_clock')
+        if now - observed_at <= 5:
+            return None
+        diagnostic = dict(model='decision_v1', model_version=1, decision_id=attempt_id,
+                          status='skipped', reason='stale_decision', phase=phase,
+                          retry_delay_seconds=retry_delay)
+        if len(compact(diagnostic)) > 512:
+            raise ValueError('invalid_decision_event')
+        self.telemetry.emit('DECISION', 'decision', 'Decision attempt expired', diagnostic)
+        self.telemetry.runtime(activity='idle', current_action=None, action_started_at=None,
+                               next_observation_at=time.time()+retry_delay, heartbeat=time.time())
+        return CycleResult('skipped', retry_delay, 'stale_decision')
+
     def cycle(self):
+        if self.stop_event.is_set():
+            return CycleResult('stopped', None, 'owner_stop')
         self.apply_settings()
+        retry_delay = self.config['observe_interval']
+        if self.stop_event.is_set():
+            return CycleResult('stopped', None, 'owner_stop')
         self.infer_wake_if_needed()
         self.telemetry.runtime(activity='observing', current_action=None,
                                action_started_at=time.time(), heartbeat=time.time())
-        state_before = validated_state(self.body.perceive())
+        if self.stop_event.is_set():
+            return CycleResult('stopped', None, 'owner_stop')
+        observed = self.body.perceive()
+        observed_at = time.monotonic()
+        state_before = validate_state(validated_state(observed))
         self.telemetry.emit('PERCEPTION', 'body', 'Environment observed before action',
                             {**state_before, 'phase': 'before_action'})
-        decision = self.learner.choose(state_before)
-        self.telemetry.emit('DECISION', 'learner', f'Selected {decision.action.upper()}', asdict(decision))
-        prediction = self.predictor.predict(state_before, decision.action).to_dict()
+        attempt_id = uuid.uuid4().hex
+        prepared = self.decisions.prepare(state_before, selected_at=time.time(), decision_id=attempt_id)
+        interrupted = self._decision_guard(observed_at, attempt_id, 'before_selection_event', retry_delay)
+        if interrupted:
+            return interrupted
+        selection = self.decisions.select(prepared)
+        decision, prediction = selection.decision, selection.prediction
+        interrupted = self._decision_guard(observed_at, attempt_id, 'before_selection_event', retry_delay)
+        if interrupted:
+            return interrupted
+        self.telemetry.emit('DECISION', 'decision', 'Internal action selected', decision_summary(selection.record))
         self.telemetry.emit('PREDICTION', 'predictor', 'Prediction generated for immediate post-action observation',
                             prediction)
         started_at = time.time()
@@ -181,6 +227,10 @@ class SeedOrganism:
                                last_decision=asdict(decision))
         self.telemetry.emit('ACTION', 'organism', f'Started {decision.action}',
                             {'action': decision.action, 'phase': 'start'})
+        interrupted = self._decision_guard(observed_at, attempt_id, 'before_dispatch', retry_delay)
+        if interrupted:
+            return interrupted
+        self.decisions.preflight_update(selection)
         self.perform_action(decision.action, state=state_before)
         self.telemetry.emit('ACTION', 'organism', f'Completed {decision.action}',
                             {'action': decision.action, 'phase': 'complete'})
@@ -204,7 +254,7 @@ class SeedOrganism:
             state_before=state_before, action=decision.action, state_after=state_after,
             outcome=outcome, legacy_reward=reward, started_at=started_at,
             completed_at=completed_at, note=f'context={decision.state_key}', prediction=prediction,
-            prediction_error=prediction_error, world_model_eligible=True, curiosity=curiosity)
+            prediction_error=prediction_error, world_model_eligible=True, curiosity=curiosity, decision=selection.record)
         self.telemetry.emit('CURIOSITY', 'curiosity', 'Curiosity assessment recorded',
                             {**curiosity_summary({**curiosity, 'transition_id': transition_id}, 'assessed'),
                              'suppression_reason': curiosity['suppression_reason']})
@@ -227,7 +277,7 @@ class SeedOrganism:
                                action_started_at=time.time(), last_action=decision.action, last_reward=reward,
                                heartbeat=time.time(), last_successful_cycle=time.time(), next_observation_at=time.time() + delay,
                                epsilon=self.learner.epsilon, alpha=self.learner.alpha)
-        return delay
+        return CycleResult('completed', delay, None)
 
     def process_commands(self):
         if self.stop_event.is_set():
@@ -271,8 +321,10 @@ class SeedOrganism:
         try:
             self.awaken()
             while not self.stop_event.is_set():
-                delay = self.cycle()
-                deadline = time.monotonic() + delay
+                result = self.cycle()
+                if self.stop_event.is_set() or result.status == 'stopped':
+                    break
+                deadline = time.monotonic() + result.delay_seconds
                 while not self.stop_event.is_set() and time.monotonic() < deadline:
                     self.stop_event.wait(min(2, max(0, deadline - time.monotonic())))
                     self.telemetry.runtime(heartbeat=time.time())

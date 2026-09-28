@@ -23,6 +23,8 @@ def test_literal_self_model_acceptance_and_saved_artifact(tmp_path):
     assert p['suppressed_action_selectable'] and p['suppression_reason']=='low_disk'
     assert p['policy_equal'] and p['perceptions_per_run']==4
     artifact=json.loads((Path(__file__).parents[1]/'docs/baselines/seed-0.2-b7-comparison.json').read_text())
+    assert p['schema_version']==7
+    artifact['self_model']['schema_version']=7
     assert p==artifact['self_model']
 
 

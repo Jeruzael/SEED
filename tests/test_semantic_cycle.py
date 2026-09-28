@@ -26,7 +26,7 @@ def test_policy_consolidate_uses_fresh_before_state_and_keeps_checkpoint(home,mo
         core.memory.set_meta('last_state',{'load_ratio':9})
         core.learner.epsilon=0
         core.memory.set_q(state_key(BEFORE),'consolidate',.7,4)
-        assert core.cycle()==20
+        assert core.cycle().delay_seconds==20
         assert len(semantics(core.memory))==1, 'Existing consolidate must perform B6 semantic work'
         run=dict(core.memory.db.execute('SELECT * FROM consolidation_runs').fetchone())
         assert run['provenance']=='policy_selected' and run['status']=='completed'
@@ -64,21 +64,22 @@ def test_owner_same_engine_uses_latest_state_without_transition_or_reward(home,m
     finally:core.close()
 
 
-def test_suppression_preserves_selected_action_legacy_reward_and_delay(home,monkeypatch):
+def test_b8_excludes_suppressed_autonomous_consolidate_preserving_owner_guard(home,monkeypatch):
     high={**BEFORE,'load_ratio':.81}
-    states=iter([high,high])
-    monkeypatch.setattr('seed.body.Body.perceive',lambda _:next(states))
+    monkeypatch.setattr('seed.body.Body.perceive',lambda _:dict(high))
     core=SeedOrganism(home)
     try:
         source(core.memory)
         core.learner.epsilon=0
-        core.memory.set_q(state_key(high),'consolidate',.7,4)
-        expected=core.learner.reward(high,'consolidate')
-        assert core.cycle()==20
-        run=core.memory.db.execute('SELECT status,result_json FROM consolidation_runs').fetchone()
-        assert run is not None and run[0]=='suppressed'
-        assert json.loads(run[1])['reason']=='high_load' and not semantics(core.memory)
-        assert core.memory.get_q(state_key(high),'consolidate')==pytest.approx((.7+.18*(expected-.7),5))
+        core.memory.set_q(state_key(high),'consolidate',100,4)
+        core.memory.set_q(state_key(high),'rest',1,0)
+        assert core.cycle().delay_seconds==35
+        assert core.memory.get_meta('last_action')=='rest'
+        assert core.memory.db.execute('SELECT count(*) FROM consolidation_runs').fetchone()[0]==0
+        assert core.memory.get_q(state_key(high),'consolidate')==(100,4)
+        assert core.memory.get_q(state_key(high),'rest')==(1,1)
+        run=core.consolidate(state=high,provenance='owner_requested')
+        assert run['status']=='suppressed' and not semantics(core.memory)
     finally:core.close()
 
 
@@ -116,7 +117,7 @@ def test_semantic_state_has_no_upstream_influence_or_memory_deletion(tmp_path,mo
                 assert {t:[tuple(r) for r in core.memory.db.execute(f'SELECT * FROM {t}')] for t in preserved}==before
             core.learner.epsilon=0
             core.memory.set_q(state_key(BEFORE),action,.7,4)
-            delay=core.cycle()
+            delay=core.cycle().delay_seconds
             r=dict(core.memory.db.execute('SELECT * FROM transitions ORDER BY id DESC LIMIT 1').fetchone())
             curiosity=dict(core.memory.db.execute('SELECT * FROM curiosity_assessments').fetchone())
             for key in ('created_at','claimed_at','completed_at'):curiosity.pop(key)

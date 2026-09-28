@@ -62,8 +62,8 @@ def run_scenario(root: Path):
                                                       'disk_free_pct':disk-1,'network':network},
                         outcome={},legacy_reward=.45,started_at=900,completed_at=901)
                 old=[tuple(row) for row in core.memory.db.execute('SELECT * FROM transitions ORDER BY id')]
-                with patch.object(core.predictor,'predict',wraps=core.predictor.predict) as prediction:
-                    delay=core.cycle()
+                with patch.object(core.predictor,'predict_candidates',wraps=core.predictor.predict_candidates) as prediction:
+                    delay=core.cycle().delay_seconds
                 row=core.memory.db.execute('SELECT * FROM transitions ORDER BY id DESC LIMIT 1').fetchone()
                 q,visits=core.memory.get_q(state_key(CURRENT),'observe')
                 cases[label]={'prediction':json.loads(row['prediction_json']),

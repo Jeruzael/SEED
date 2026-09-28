@@ -16,7 +16,7 @@ def test_exact_downstream_slot_persisted_state_and_no_owner_or_restart_trigger(h
         core.memory.db.commit();core.process_commands()
         assert current(core.memory) is None
         core.learner.epsilon=0;core.memory.set_q(state_key(STATE),'observe',.7,4)
-        core.cycle()
+        core.cycle().delay_seconds
         p=current(core.memory)
         assert p is not None,'normal cycle must publish a B7 snapshot'
         assert p['source_transition_id']==1
@@ -55,7 +55,7 @@ def test_snapshot_presence_corruption_and_failure_never_change_upstream_outputs(
             with core.memory.db:core.memory.db.execute('INSERT INTO settings VALUES(1,1,?)',
                 (json.dumps({'epsilon':0,'prediction_error_curiosity':enabled}),))
             core.memory.set_q(state_key(STATE),action,.7,4)
-            delays=[core.cycle(),core.cycle()]
+            delays=[core.cycle().delay_seconds,core.cycle().delay_seconds]
             tables=('q_values','transitions','curiosity_assessments','world_beliefs','world_pending',
                     'world_model_processed','world_model_queue','semantic_memories','semantic_memory_history',
                     'consolidation_runs','concepts','concept_evidence')
@@ -78,13 +78,13 @@ def test_update_follows_attention_and_stop_remains_authoritative(home,monkeypatc
             core.memory.set_meta('last_state',{'battery_pct':1})
             return result
         monkeypatch.setattr(core.curiosity_attention,'execute',attention)
-        core.cycle()
+        core.cycle().delay_seconds
         assert current(core.memory)['observations']['battery_pct']['value']==80
         assert core.memory.get_meta('last_state')=={'battery_pct':1}
         old=current(core.memory)
         def stopping(*args,**kw):core.stop()
         monkeypatch.setattr(core.curiosity_attention,'execute',stopping)
-        core.cycle()
+        core.cycle().delay_seconds
         assert current(core.memory)==old and core.stop_event.is_set()
     finally:core.close()
 
@@ -112,7 +112,7 @@ def test_normal_cycle_keeps_exactly_two_existing_network_probes(home,monkeypatch
     monkeypatch.setattr(body.time,'localtime',lambda *args:localtime(1002))
     core=SeedOrganism(home)
     try:
-        core.cycle()
+        core.cycle().delay_seconds
         assert current(core.memory) is not None
         assert probes==[(('1.1.1.1',443),1.0)]*2
     finally:core.close()

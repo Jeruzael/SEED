@@ -57,7 +57,7 @@ def run_scenario(home: Path) -> dict:
             delays = []
             for _ in SEQUENCE:
                 now[0] += 1
-                delays.append(core.cycle())
+                delays.append(core.cycle().delay_seconds)
             core.sleep(reason='process_stop')
             db = core.memory.db
             counts = dict(db.execute('SELECT event,COUNT(*) FROM episodes GROUP BY event').fetchall())

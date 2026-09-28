@@ -20,7 +20,12 @@ def run_scenario(root):
         ('low_disk',{**AFTER,'disk_free_pct':5},'observe',True),
         ('policy_reflect',AFTER,'reflect',True),('owner_disabled',AFTER,'observe',False),
         ('partial',{'network':True},'observe',True),('unavailable',{},'observe',True)]:
-        states=iter([BEFORE,after])
+        before=BEFORE
+        if name=='policy_reflect':
+            # Eligible B8 current resources; retain a large post-action surprise.
+            before={**BEFORE,'load_ratio':.2}
+            after={**after,'load_ratio':1e300}
+        states=iter([before,after])
         perceptions=[]
         def perceive(body):
             perceptions.append(1)
@@ -31,15 +36,15 @@ def run_scenario(root):
                 core.memory.db.execute('INSERT INTO settings VALUES(1,1,?)',
                     (json.dumps({'epsilon':0,'prediction_error_curiosity':enabled}),))
                 core.memory.db.commit()
-                core.memory.set_q(state_key(BEFORE),action,.7,4)
-                delay=core.cycle()
+                core.memory.set_q(state_key(before),action,.7,4)
+                delay=core.cycle().delay_seconds
                 db=core.memory.db
                 transition=dict(db.execute('SELECT * FROM transitions').fetchone())
                 assessment=dict(db.execute('SELECT * FROM curiosity_assessments').fetchone())
                 assessment['components']=json.loads(assessment.pop('components_json'))
                 cases[name]=dict(assessment=assessment,action=transition['action'],reward=transition['legacy_reward'],
                     prediction=json.loads(transition['prediction_json']),evaluation=json.loads(transition['prediction_error_json']),
-                    q_value=core.memory.get_q(state_key(BEFORE),action)[0],delay=delay,perceptions=len(perceptions),
+                    q_value=core.memory.get_q(state_key(before),action)[0],delay=delay,perceptions=len(perceptions),
                     transition_count=db.execute('SELECT count(*) FROM transitions').fetchone()[0],
                     assessment_count=db.execute('SELECT count(*) FROM curiosity_assessments').fetchone()[0],
                     world_processed=db.execute('SELECT count(*) FROM world_model_processed').fetchone()[0],

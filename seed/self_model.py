@@ -368,7 +368,7 @@ def build_snapshot(evidence, now, transition_id, session_id):
         **perf_sources, storage=source(None, [], now, 'query_snapshot', 60,
             tables=['seed_schema', 'episodes', 'transitions', 'world_model_queue', 'semantic_memories']),
         consolidation=consolidation_source, runtime=runtime_source, errors=error_source)
-    storage = dict(schema_version=6, bounded_reads_succeeded=True,
+    storage = dict(schema_version=evidence['schema_version'], bounded_reads_succeeded=True,
                    page_size=evidence['page_size'], page_count=evidence['page_count'],
                    logical_allocated_bytes=evidence['page_size'] * evidence['page_count'])
     for key, ids in evidence['counts'].items():
@@ -501,7 +501,7 @@ def validate_snapshot(p):
     if s['samples']: require(math.isclose(s['accuracy_score'], 1 - s['mean_normalized_error'], abs_tol=1e-12, rel_tol=0))
     storage = p['memory']['storage']['value']
     keys(storage, ('schema_version', 'bounded_reads_succeeded', 'page_size', 'page_count', 'logical_allocated_bytes', *COUNT_TABLES))
-    require(type(storage['schema_version']) is int and storage['schema_version'] == 6 and storage['bounded_reads_succeeded'] is True)
+    require(type(storage['schema_version']) is int and storage['schema_version'] in (6, 7) and storage['bounded_reads_succeeded'] is True)
     require(integer(storage['page_size'], 1) and integer(storage['page_count']) and integer(storage['logical_allocated_bytes']))
     require(storage['logical_allocated_bytes'] == storage['page_size'] * storage['page_count'])
     for name in COUNT_TABLES:
@@ -587,7 +587,7 @@ def sql_budget(db, stop_event=None, operations=100000, cleanup_errors=None):
 
 def _read_evidence(db, tid):
     versions = db.execute('SELECT version FROM seed_schema LIMIT 2').fetchall()
-    require(len(versions) == 1 and type(versions[0][0]) is int and versions[0][0] == 6)
+    require(len(versions) == 1 and type(versions[0][0]) is int and versions[0][0] in (6, 7))
     row = db.execute('''SELECT id,started_at,completed_at,substr(CAST(action AS BLOB),1,129) AS action,
         substr(CAST(state_after_json AS BLOB),1,16385) AS state FROM transitions WHERE id=?''', (tid,)).fetchone()
     evaluations = db.execute('''SELECT id,started_at,completed_at,
@@ -605,7 +605,7 @@ def _read_evidence(db, tid):
         substr(CAST(provenance AS BLOB),1,129) AS provenance,substr(CAST(result_json AS BLOB),1,16385) AS result
         FROM consolidation_runs ORDER BY id DESC LIMIT 1''').fetchone()
     runtime = db.execute('SELECT substr(CAST(data_json AS BLOB),1,16385) AS data FROM runtime WHERE singleton=1').fetchone()
-    return dict(transition=row, evaluations=evaluations, event_cutoff=cutoff, errors=errors, counts=counts,
+    return dict(schema_version=versions[0][0], transition=row, evaluations=evaluations, event_cutoff=cutoff, errors=errors, counts=counts,
                 consolidation=run, runtime=runtime, page_size=db.execute('PRAGMA page_size').fetchone()[0],
                 page_count=db.execute('PRAGMA page_count').fetchone()[0])
 

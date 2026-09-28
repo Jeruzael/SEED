@@ -1,6 +1,6 @@
 # Reproducible SEED verification
 
-This guide covers current local verification and the GitHub Actions workflow introduced after B6. B7 adds the sixth deterministic self-model scenario.
+This guide covers current local verification and the GitHub Actions workflow introduced after B6. B8 adds the seventh deterministic decision scenario.
 The [hardening record](reviews/2026-09-23-post-b6-hardening.md) distinguishes fresh
 local evidence from historical B6 results and pending hosted checks.
 
@@ -39,7 +39,7 @@ result = dict(python=sys.version, executable=sys.executable, platform=platform.p
 Path('.review-artifacts/local/environment.json').write_text(json.dumps(result,indent=2)+'\n')
 PY
 .venv/bin/python -m pytest -q --junitxml=.review-artifacts/local/pytest.xml 2>&1 | tee .review-artifacts/local/pytest.log
-for scenario in baseline_scenario prediction_error_scenario world_model_scenario curiosity_scenario semantic_scenario self_model_scenario; do
+for scenario in baseline_scenario prediction_error_scenario world_model_scenario curiosity_scenario semantic_scenario self_model_scenario decision_scenario; do
   .venv/bin/python -m "tests.${scenario}" > ".review-artifacts/local/scenarios/${scenario}.json" 2> ".review-artifacts/local/scenarios/${scenario}.stderr.log"
   .venv/bin/python -m json.tool ".review-artifacts/local/scenarios/${scenario}.json" > /dev/null
 done
@@ -52,12 +52,10 @@ failed dependency setup; missing test/scenario files mean those checks did not
 complete. JSON validation alone is not a behavior comparison: investigate every
 difference against a saved pre-change run and the relevant historical artifact.
 
-Do not overwrite files under [baselines/](baselines/). For post-B6 hardening, all
-scenario behavior remains identical to the fresh starting run. The semantic
+Do not overwrite files under [baselines/](baselines/). Historical post-B6 hardening preserved scenario behavior. B8 intentionally changes autonomous selection; `tests/scenario_compatibility.py` checks explicit hand-derived changes and compares every other field. The semantic
 scenario renames current source digests from unchanged_b5_source_sha256 to
 source_sha256 because the authorized body parser correction changes body.py.
-Its regression test still compares every behavioral field and the other eleven
-source digests exactly. An environment-dependent footprint or a later approved
+Its regression test still compares every behavioral field and the remaining source digests exactly; B8 additionally changes predictor.py to share batch inference. An environment-dependent footprint or a later approved
 metadata difference must be explicitly explained, not broadly ignored.
 
 ## Hosted workflow
@@ -72,8 +70,8 @@ entry does not cancel the others. No failure is made non-blocking.
 | Matrix ID | Runner label | Python | Checks |
 | --- | --- | --- | --- |
 | linux-py311 | ubuntu-24.04 | 3.11 | Locked install, pip check, full pytest suite (including scenario tests) |
-| linux-py313 | ubuntu-24.04 | 3.13 | Same checks plus six standalone scenario commands and JSON validation |
-| macos-py313 | macos-15 | 3.13 | Same checks plus six standalone scenario commands and JSON validation |
+| linux-py313 | ubuntu-24.04 | 3.13 | Same checks plus seven standalone scenario commands and JSON validation |
+| macos-py313 | macos-15 | 3.13 | Same checks plus seven standalone scenario commands and JSON validation |
 
 PR runs explicitly check out `github.event.pull_request.head.sha`; push/manual
 runs use `github.sha`. This satisfies the closure requirement that artifact
@@ -173,3 +171,60 @@ correction; B7 needs separate owner authorization after source/CI closure.
 Both 3.13 jobs passed `baseline_scenario`, `prediction_error_scenario`, `world_model_scenario`, `curiosity_scenario`, `semantic_scenario` and `self_model_scenario`. The supplied artifact-inspection record confirms all three checkouts matched the merge SHA, had an empty `dirty_tree`, dependency installation exit 0, successful pip check, pytest exit 0 and an unchanged requirements-lock.txt hash. Seven historical B0–B6 artifacts remain unchanged.
 
 See the [final closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25). Deployment/live-device validation remains **NOT PERFORMED**, the low-disk decision mismatch remains **OPEN**, and B8–B10 remain **NOT STARTED**. These results verify the stated merge commit, not a later documentation PR head.
+
+## B8 local verification — 2026-09-28
+
+B8 is implemented on `seed-0.2-b8`, from reviewed amended design `4c24d7e`.
+The current local Python is **3.13.15**. With a fresh temporary `SEED_HOME`, the
+full suite passed **747 tests**, zero failures/skips, with the same two existing
+Starlette/httpx/anyio deprecation warnings. `pip check` reported no broken
+requirements; no dependency or lock changes were made. Core standard-library-only
+execution remains covered by the `python -S` regression. Compileall and
+`git diff --check` pass.
+
+All **seven** standalone scenario commands above completed with strict JSON.
+The B8 scenario repeated byte-for-byte and matched
+[seed-0.2-b8-comparison.json](baselines/seed-0.2-b8-comparison.json).
+All eight B0–B7 artifact files match `4c24d7e` byte-for-byte. Learner, sensors,
+prediction-error math, world model, curiosity/attention, semantic engine, settings,
+commands and requirements-lock sources also match that base. B8 intentionally
+changes prediction organization and autonomous eligibility/selection; historical
+comparison exceptions are explicit in `tests/scenario_compatibility.py`.
+
+Both complete amended-spec examples pass the implemented strict reader contract:
+healthy **4,195 bytes** with digest
+`4e37f7a1986ae0c28236684ed04cd8865f121082d1d3a4893c5cbc202c28d1a9`,
+and degraded **4,292 bytes** with digest
+`4dc446ec70f9233e55914f9d25157da1d6ccf9b4b0bb8979642a87cb980732de`.
+Record and selected-prediction serializers retain their distinct separators.
+
+Independent review found two Important reader issues and no Critical issues.
+Six regressions failed before correction and passed afterward: contradictory
+stored policy-support/failure provenance is rejected without rescoring, and invalid
+UTF-8 scalar evidence becomes one corrupt page slot instead of a whole-page error.
+No review findings are deferred. Tests also exercise VM budgets, cleanup failures,
+interrupt preservation, full-page/response limits, rollback, retained-v6 B7
+snapshots, stop precedence and bounded nonfatal stale retries.
+
+Local evidence is retained under `.review-artifacts/b8-final/` (ignored).
+At that local-only checkpoint, hosted CI, branch publication and a PR had not yet
+occurred. Hosted acceptance subsequently passed for implementation SHA `acaccce`,
+as recorded below. That result does not cover this later documentation update.
+B8 remains IMPLEMENTED pending final-head checks, owner-directed merge and exact
+post-merge master verification. Installation, live-memory migration and restart
+remain NOT PERFORMED; B9–B10 remain unauthorized and unstarted.
+
+
+## B8 PR-head hosted verification — 2026-09-28
+
+[PR #12](https://github.com/Jeruzael/SEED/pull/12), from `seed-0.2-b8` to `master`, is open and unmerged. Implementation head `acaccce889b18d165252c6977d41e5113e74e681` passed [SEED verification run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250). Master remains at `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb` (B7/schema v6); the feature branch implements schema v7.
+
+| Exact check | Python | Tests | Standalone scenarios |
+| --- | --- | --- | --- |
+| `test (linux-py311)` | 3.11.16 | 747 passed; 2 existing warnings | Intentionally not configured |
+| `test (linux-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed |
+| `test (macos-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed |
+
+Artifact IDs are `10963505882` (Linux 3.11), `10963101024` (Linux 3.13), and `10962179746` (macOS 3.13). The supplied artifact-inspection record confirms exact checkout SHA `acaccce889b18d165252c6977d41e5113e74e681`, empty `dirty_tree`, dependency and pytest exit codes 0, successful pip check, and unchanged lock hash `1fe34b077636964cde188c0f19317f7615f27200d4ac49aedeeb13df401fd769` on all three jobs. Both Python 3.13 artifacts confirm scenario exit 0, empty scenario stderr, and byte-identical outputs for all seven scenarios listed in the local reproduction commands. GitHub run/job metadata, logs and artifact IDs were corroborated during this cleanup; artifact-content findings are attributed to that supplied inspection record.
+
+**This verifies the stated implementation PR head only. It does not verify the future merge commit on master or the subsequent documentation commit.** The latter must receive its own three successful exact checks; expected results remain 747 tests per job and seven standalone scenarios on both Python 3.13 jobs. B8 remains **IMPLEMENTED, NOT YET VERIFIED**. PR #12 must not merge without owner direction; exact post-merge master verification is still required. Deployment/live-device validation is **NOT PERFORMED** and B9–B10 remain **NOT STARTED**.

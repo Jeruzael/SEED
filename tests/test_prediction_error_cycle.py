@@ -23,16 +23,16 @@ def test_error_order_original_prediction_once_and_exact_persistence(home,monkeyp
     try:
         core.learner.epsilon=0
         core.memory.set_q(state_key(BEFORE),'reflect',.7,4)
-        choose,predict,act=core.learner.choose,core.predictor.predict,core.perform_action
+        choose,predict,act=core.decisions.select,core.predictor.predict_candidates,core.perform_action
         outcome,reward,update=organism_module.describe_outcome,core.learner.reward,core.learner.update
         persist=core.memory.record_transition_experience
         def choose_spy(state):
             trace.append('decision');return choose(state)
-        def predict_spy(state,action):
+        def predict_spy(state,actions,*,snapshot):
             trace.append('prediction')
             assert len(observations)==1
-            result=predict(state,action)
-            predictions.append(result.to_dict())
+            result=predict(state,actions,snapshot=snapshot)
+            predictions.append(result.predictions['reflect'])
             return result
         def act_spy(action, state=None):
             trace.append('action');return act(action, state=state)
@@ -50,16 +50,16 @@ def test_error_order_original_prediction_once_and_exact_persistence(home,monkeyp
             trace.append('update');return update(decision,value)
         def persist_spy(**kwargs):
             trace.append('persistence');return persist(**kwargs)
-        monkeypatch.setattr(core.learner,'choose',choose_spy)
-        monkeypatch.setattr(core.predictor,'predict',predict_spy)
+        monkeypatch.setattr(core.decisions,'select',choose_spy)
+        monkeypatch.setattr(core.predictor,'predict_candidates',predict_spy)
         monkeypatch.setattr(core,'perform_action',act_spy)
         monkeypatch.setattr(organism_module,'describe_outcome',outcome_spy)
         monkeypatch.setattr(organism_module,'evaluate_prediction',error_spy,raising=False)
         monkeypatch.setattr(core.learner,'reward',reward_spy)
         monkeypatch.setattr(core.learner,'update',update_spy)
         monkeypatch.setattr(core.memory,'record_transition_experience',persist_spy)
-        assert core.cycle()==12
-        assert trace==['before','decision','prediction','action','after','outcome','prediction_error','reward','update','persistence']
+        assert core.cycle().delay_seconds==12
+        assert trace==['before','prediction','decision','reward','action','after','outcome','prediction_error','reward','update','persistence']
         assert len(predictions)==1 and len(evaluations)==1 and len(observations)==2
         row=core.memory.db.execute('SELECT * FROM transitions').fetchone()
         assert json.loads(row['prediction_json'])==predictions[0]
@@ -84,7 +84,7 @@ def test_different_prediction_errors_leave_policy_reward_and_delay_identical(tmp
         try:
             core.learner.epsilon=0
             core.memory.set_q(state_key(BEFORE),action,.7,4)
-            returned=core.cycle()
+            returned=core.cycle().delay_seconds
             row=core.memory.db.execute('SELECT * FROM transitions').fetchone()
             evaluation=json.loads(row['prediction_error_json'])
             runtime=json.loads(core.memory.db.execute('SELECT data_json FROM runtime').fetchone()[0])
@@ -123,5 +123,5 @@ def test_evaluation_pair_rollback_and_historical_b1_b2_integrity(home):
         assert rows[0]['prediction_json'] is None and rows[0]['prediction_error_json'] is None
         assert rows[1]['prediction_json'] is not None and rows[1]['prediction_error_json'] is None
         assert json.loads(rows[2]['prediction_error_json'])==evaluation
-        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0]==6
+        assert core.memory.db.execute('SELECT version FROM seed_schema').fetchone()[0]==7
     finally:core.close()

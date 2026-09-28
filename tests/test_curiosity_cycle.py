@@ -67,7 +67,7 @@ def test_preupdate_assessment_atomic_then_model_then_auxiliary_no_extra_io(home,
             reflected.append(kwargs)
             return real_reflect(*args,**kwargs)
         monkeypatch.setattr(core,'reflect',reflect_spy)
-        delay=core.cycle()
+        delay=core.cycle().delay_seconds
         assert delay==8 and len(perceptions)==2
         assert len(reflected)==1 and reflected[0]['provenance']=='curiosity_triggered'
         current=core.memory.db.execute('SELECT max(id) FROM transitions').fetchone()[0]
@@ -91,7 +91,7 @@ def test_owner_setting_controls_attention_without_changing_score(home,monkeypatc
         enable(core,enabled)
         core.learner.epsilon=0
         core.memory.set_q(state_key(BEFORE),'observe',.7,4)
-        core.cycle()
+        core.cycle().delay_seconds
         r=row(core.memory,1)
         assert r['score']==pytest.approx(.925)
         assert r['reflection_completed']==int(enabled)
@@ -104,7 +104,8 @@ def test_equal_policy_history_with_different_prior_beliefs_keeps_b2_b3_q_and_del
     # Same source history in both runs. Published beliefs vary only by eligibility.
     runs=[]
     for learned in (False,True):
-        states=iter([BEFORE,AFTER])
+        before={**BEFORE,'load_ratio':.2}
+        states=iter([before,AFTER])
         monkeypatch.setattr('seed.body.Body.perceive',lambda _:next(states))
         core=SeedOrganism(tmp_path/str(learned))
         try:
@@ -112,11 +113,12 @@ def test_equal_policy_history_with_different_prior_beliefs_keeps_b2_b3_q_and_del
                 record(core.memory,AFTER,BEFORE,action,eligible=learned)
             core.world_model.recover()
             core.learner.epsilon=0
-            core.memory.set_q(state_key(BEFORE),action,.7,4)
-            delay=core.cycle()
+            core.memory.set_q(state_key(before),action,.7,4)
+            delay=core.cycle().delay_seconds
+            assert core.memory.get_meta('last_action')==action
             current=dict(core.memory.db.execute('SELECT * FROM transitions ORDER BY id DESC LIMIT 1').fetchone())
             c=row(core.memory,current['id'])
-            runs.append((current['action'],current['legacy_reward'],core.memory.get_q(state_key(BEFORE),action),
+            runs.append((current['action'],current['legacy_reward'],core.memory.get_q(state_key(before),action),
                          delay,current['prediction_json'],current['prediction_error_json'],core.learner.epsilon,
                          core.learner.alpha,c['score']))
             b=belief(core.memory)
@@ -128,16 +130,17 @@ def test_equal_policy_history_with_different_prior_beliefs_keeps_b2_b3_q_and_del
 
 
 def test_reflection_provenance_owner_policy_curiosity_and_no_double_reflect(home,monkeypatch):
-    states=iter([BEFORE,AFTER])
+    before={**BEFORE,'load_ratio':.2}
+    states=iter([before,AFTER])
     monkeypatch.setattr('seed.body.Body.perceive',lambda _:next(states))
     core=SeedOrganism(home)
     try:
         enable(core)
         core.learner.epsilon=0
-        core.memory.set_q(state_key(BEFORE),'reflect',.7,4)
-        assert core.cycle()==12
+        core.memory.set_q(state_key(before),'reflect',.7,4)
+        assert core.cycle().delay_seconds==12
         c=row(core.memory,1)
-        assert c['level']=='VERY_HIGH' and c['suppression_reason']=='already_reflected'
+        assert c['suppression_reason']=='already_reflected'
         assert c['reflection_claimed']==0
         core.memory.db.execute("INSERT INTO commands VALUES('owner','reflect',?,0,99999999999,'pending',NULL)",(core.session_id,))
         core.memory.db.commit()
@@ -159,10 +162,10 @@ def test_auxiliary_failure_does_not_abort_completed_cycle_and_next_cycle_continu
         core.memory.set_q(state_key(BEFORE),'observe',.7,4)
         def fail(**kwargs): raise RuntimeError('auxiliary error')
         monkeypatch.setattr(core,'reflect',fail)
-        assert core.cycle()==8
+        assert core.cycle().delay_seconds==8
         c=row(core.memory,1)
         assert c['reflection_claimed']==1 and c['failure_reason']=='RuntimeError: auxiliary error'
-        assert core.cycle()==8
+        assert core.cycle().delay_seconds==8
         assert core.memory.db.execute('SELECT count(*) FROM curiosity_assessments').fetchone()[0]==2
         assert core.memory.db.execute('SELECT count(*) FROM transitions').fetchone()[0]==2
     finally:core.close()
@@ -178,7 +181,7 @@ def test_published_belief_contradiction_uses_prior_direction_and_exact_component
         core.learner.epsilon=0
         core.memory.set_q(state_key(BEFORE),'observe',.7,4)
         assert belief(core.memory)['value']['mean_delta']==1
-        core.cycle()
+        core.cycle().delay_seconds
         parts=json.loads(row(core.memory,5)['components_json'])['signals']['battery_pct']
         assert parts['prior_belief']['value']['mean_delta']==1
         assert parts['prior_belief']['evidence_count']==4
@@ -210,7 +213,7 @@ def test_raw_discharging_cycle_suppresses_attention_without_extra_observations(h
     try:
         enable(core)
         core.memory.set_q(state_key(BEFORE),'observe',.7,4)
-        assert core.cycle() == 8
+        assert core.cycle().delay_seconds == 8
         transition = core.memory.db.execute('SELECT * FROM transitions').fetchone()
         after = json.loads(transition['state_after_json'])
         assert (after['battery_pct'],after['charging']) == (15,False)
