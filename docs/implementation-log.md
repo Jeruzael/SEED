@@ -2,9 +2,9 @@
 
 This is a navigation index. The [development tracker](seed-0.2-development-plan.md) holds the canonical batch requirements, decisions, acceptance evidence, limitations and readiness gates. The [README](../README.md) explains current use; the [architecture guide](architecture.md) describes current implementation contracts.
 
-## Current implementation and acceptance state
+## Current verified source state
 
-**SEED 0.2 — B8 IMPLEMENTED; hosted acceptance passed for implementation SHA `acaccce889b18d165252c6977d41e5113e74e681`, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) remains open against master. [Run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250) passed 747 tests on all three Linux/macOS jobs and all seven standalone scenarios on both Python 3.13 jobs. The supplied artifact-inspection record confirms the exact clean checkout and successful dependency/test/scenario results; GitHub run/job metadata and logs corroborate acceptance. A new documentation head requires its own checks; merge and exact post-merge master verification remain outstanding, so B8 is **not yet VERIFIED**. Master remains B7/schema v6. Owner approval on 2026-09-27 authorized implementation; deployment/live-device validation remains **NOT PERFORMED**, and B9–B10 remain unstarted. See the [acceptance record](seed-0.2-development-plan.md#b8-pr-head-hosted-acceptance--2026-09-28).
+**SEED 0.2 — B8 VERIFIED at source/CI level, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged at master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`. Exact [post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed 747 tests on all three Linux/macOS jobs and all seven standalone scenarios on both Python 3.13 jobs. The supplied post-merge artifact-inspection record confirms exact clean checkouts and successful dependency/test/scenario results; GitHub run/job metadata, logs and artifact IDs/digests were independently corroborated for this closure. Owner approval on 2026-09-27 authorized implementation. Deployment/live-device validation remains **NOT PERFORMED**, installed SEED is **UNTOUCHED**, and B9–B10 remain **NOT STARTED**. See the [final B8 closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
 
 The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR #9 merge), schema v5, 542 tests. Historical B6 acceptance remains 497 passed at dc225af.
 
@@ -18,7 +18,7 @@ The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR 
 | B5 | VERIFIED | Bounded computational curiosity | [Execution record](seed-0.2-development-plan.md#b5-execution-log--2026-09-22), [comparison](baselines/seed-0.2-b5-comparison.json) |
 | B6 | VERIFIED | Semantic memory consolidation | [Execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23), [comparison](baselines/seed-0.2-b6-comparison.json) |
 | B7 | VERIFIED | Bounded descriptive self model | [Closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25), [comparison](baselines/seed-0.2-b7-comparison.json) |
-| B8 | IMPLEMENTED; hosted acceptance passed for `acaccce` | Bounded decision selection, compact persistence and read-only inspection | [PR-head acceptance](seed-0.2-development-plan.md#b8-pr-head-hosted-acceptance--2026-09-28); final docs-head checks, merge and master verification outstanding |
+| B8 | VERIFIED | Bounded decision selection, compact persistence and read-only inspection | [Closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29); exact master run 36443249417 |
 | B9–B10 | NOT STARTED | Development UI and evaluation | Separate authorization required |
 
 ## Post-B6 hardening — separate from B7

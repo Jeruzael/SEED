@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B8 documentation-only PR acceptance cleanup; no merge, deployment, B9 or B10 authorization.** The owner approved implementation on 2026-09-27 and continued it on 2026-09-28. B8 is **IMPLEMENTED** on `seed-0.2-b8` ([PR #12](https://github.com/Jeruzael/SEED/pull/12)), schema v7. Implementation SHA `acaccce889b18d165252c6977d41e5113e74e681` passed [hosted acceptance run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250), following the local 747-test pass. This evidence does not cover a subsequent documentation SHA. PR #12 is open; master remains B7/schema v6 at `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`. B8 is **NOT YET VERIFIED** because merge and exact post-merge master verification remain outstanding. Deployment/live-device validation is **NOT PERFORMED**; installed SEED is **UNTOUCHED**. B0–B7 retain historical VERIFIED status, and B9–B10 remain **NOT STARTED**. The low-disk autonomous mismatch is resolved in B8 source. Historical checkpoints below retain their earlier status; see [PR-head acceptance](#b8-pr-head-hosted-acceptance--2026-09-28).
+**Current authorization: B8 documentation-only verification closure on `docs/b8-verification-closure`, including publication and a closure PR; no automatic merge, deployment, B9 or B10 work.** B8 is **VERIFIED at source/CI level** on master `e0075e21f545921324aa5d5c9e2f4217b0a06cca` after [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged, schema v7. [Post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed 747 tests on each of Linux Python 3.11/3.13 and macOS Python 3.13; all seven scenarios passed on both Python 3.13 jobs. The owner approved implementation on 2026-09-27 and continued it on 2026-09-28. Deployment/live-device validation is **NOT PERFORMED**; installed SEED is **UNTOUCHED**. B0–B8 are verified at source/CI level, and B9–B10 remain **NOT STARTED**. The low-disk autonomous mismatch is resolved and verified at source/CI level. Historical checkpoints below retain their earlier status; see [final B8 closure](#b8-hosted-verification-closure--2026-09-29).
 
 ## Objective and architectural transition
 
@@ -63,7 +63,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
 | B7 | Self Model | VERIFIED | B3, B6 | 646 tests on Linux 3.11/3.13 and macOS 3.13; six scenarios on both 3.13 jobs; post-merge run 36104979944 | Schema v6; bounded descriptive singleton; no upstream influence |
-| B8 | Decision-System Upgrade | IMPLEMENTED | B5, B7 | Local 747 tests; implementation SHA `acaccce` hosted 747 tests on Linux 3.11/3.13 and macOS 3.13; seven scenarios on both 3.13 jobs; run 36407866250 | Schema7; final docs-head checks, merge and exact post-merge master verification outstanding |
+| B8 | Decision-System Upgrade | VERIFIED | B5, B7 | 747 tests on Linux 3.11/3.13 and macOS 3.13; seven scenarios on both 3.13 jobs; post-merge run 36443249417 | Schema v7; exact B8 merge verified at source/CI level; deployment not performed |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
 
@@ -2046,3 +2046,49 @@ GitHub metadata and job logs were checked during this cleanup: PR state/base/hea
 Status at this acceptance checkpoint: implementation **IMPLEMENTED**; local verification **PASS**; hosted acceptance of the stated implementation SHA **PASS**; merged to master **NO**; exact post-merge master verification **NOT RUN**; B8 overall **NOT YET VERIFIED**. No deployment, live-memory migration or restart occurred; B9–B10 remain **NOT STARTED**.
 
 This documentation update creates a new PR head. Run 36407866250 does **not** cover it. All three exact checks must pass on the final documentation SHA before merge readiness; merge then requires owner direction, followed by verification of the exact merge commit on master before marking B8 VERIFIED. No history rewrite or automatic merge is authorized.
+
+
+### B8 hosted verification closure — 2026-09-29
+
+#### Merge identity
+
+[PR #12](https://github.com/Jeruzael/SEED/pull/12) is merged into `master`. Final PR documentation head: `a8760bd2fab33c185ff25945bf74f31934666143`. B8 merge commit: `e0075e21f545921324aa5d5c9e2f4217b0a06cca`, with message `Merge pull request #12 from Jeruzael/seed-0.2-b8` / `Seed 0.2 b8`. Local master and GitHub master both matched this merge with a clean local working tree before closure edits. SSH fetch was unavailable to this session; the authenticated GitHub connection supplied the remote verification.
+
+#### Hosted run and matrix
+
+[Post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) (`SEED verification`) completed **SUCCESS**, event `push`, exact `head_sha = e0075e21f545921324aa5d5c9e2f4217b0a06cca`. All three jobs checked out that exact merge. This Sep 29 closure records the Sep 28 merge/run checkpoint.
+
+| Exact check | Python | Tests | Standalone scenarios |
+| --- | --- | --- | --- |
+| `test (linux-py311)` | 3.11.16 | 747 passed; 2 existing warnings | Intentionally not configured by matrix |
+| `test (linux-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed |
+| `test (macos-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed |
+
+#### Scenarios
+
+Both Python 3.13 jobs passed all seven standalone scenarios: `baseline_scenario`, `prediction_error_scenario`, `world_model_scenario`, `curiosity_scenario`, `semantic_scenario`, `self_model_scenario`, and `decision_scenario`. The supplied artifact audit confirms byte-for-byte identical Linux/macOS scenario JSON outputs and empty stderr for all fourteen executions. Linux Python 3.11 intentionally omits the standalone step; its full pytest suite still includes scenario tests.
+
+#### Artifact audit
+
+| Hosted artifact | Artifact ID | SHA-256 digest |
+| --- | --- | --- |
+| Linux Python 3.11 | `10978873702` | `fc928359b4ff8a8b723b412a3abed07734c0870be1e10c0f2da6d4469a7b9a43` |
+| Linux Python 3.13 | `10978124787` | `da9ac8764e56b0df48c7a022bc9854deaf3e756506e26592bd6268382f9563ae` |
+| macOS Python 3.13 | `10979428432` | `86e0c061282f17c69e97da615306958a31380b20a78b2cbff6673ca581fbb5b8` |
+
+The owner-supplied post-merge artifact-inspection record confirms:
+
+- All three `checked_out_sha` and `event_sha` values equal `e0075e21f545921324aa5d5c9e2f4217b0a06cca`; each `dirty_tree` is empty (`""`).
+- Every job has `dependencies.exit = 0`, `pytest.exit = 0`, and successful `pip check`.
+- The requirements-lock SHA-256 remains `1fe34b077636964cde188c0f19317f7615f27200d4ac49aedeeb13df401fd769`.
+- Both Python 3.13 artifacts have `scenarios.exit = 0`. All seven Linux/macOS scenario JSON outputs are byte-for-byte identical, and all fourteen scenario stderr logs are empty.
+
+During this closure, GitHub PR/merge identity, run event/head/success, exact job names, Python versions, 747-test results, scenario-step outcomes, and artifact IDs/digests were independently corroborated. Artifact-content findings above retain the supplied inspection provenance.
+
+#### Boundaries and final B8 status
+
+This verifies source/hosted CI behavior on the exact B8 merge commit. It does not constitute installation, live-memory migration, real-device sensor validation, or deployment certification. No install, restart, live-memory migration or deployment was performed; installed SEED remains **UNTOUCHED**.
+
+B0–B8: **VERIFIED at source/CI level**. B8 merge and exact post-merge hosted verification: **COMPLETE**. Schema: **v7** in source. B9–B10: **NOT STARTED**. Deployment/live-device validation: **NOT PERFORMED**. Autonomous low-disk eligibility is resolved and verified; legacy reward remains unchanged and consolidation does not reclaim disk.
+
+This six-file documentation closure is published for owner review and must not merge automatically. Normal CI applies to its PR head. After owner-directed merge, verify only documentation scope and its own green CI; the established B8 technical acceptance stays tied to `e0075e21f545921324aa5d5c9e2f4217b0a06cca`. A later documentation merge does not require another acceptance-documentation cycle.
