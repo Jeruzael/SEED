@@ -102,3 +102,74 @@ def test_reader_is_bounded_readonly_and_does_not_rescore(recorded,monkeypatch):
     queries.clear()
     assert DecisionReadService(store).detail(3)['available']
     assert len([q for q in queries if q.upper().startswith('SELECT')])==3
+
+@pytest.mark.parametrize('column',['prediction_json','state_before_json'])
+def test_oversized_linked_blob_consumes_slot_without_refill(recorded,column):
+    with sqlite3.connect(recorded/'memory.sqlite3') as db:
+        db.execute(f'UPDATE transitions SET {column}=? WHERE id=3',(' '*20000,))
+    response=client(recorded).get('/api/decisions?limit=1').json()
+    assert response['items']==[dict(available=False,status='error',reason='invalid_decision',transition_id=3)]
+    assert response['next_cursor']==2
+
+
+def test_reader_validates_stored_components_without_recalculating_utility(recorded):
+    with sqlite3.connect(recorded/'memory.sqlite3') as db:
+        data=json.loads(db.execute('SELECT data_json FROM decision_records WHERE transition_id=1').fetchone()[0])
+        data['candidates']['observe']['decision_utility']=.123
+        db.execute('UPDATE decision_records SET data_json=? WHERE transition_id=1',(json.dumps(data),))
+    assert client(recorded).get('/api/decisions/1').json()['record']['candidates']['observe']['decision_utility']==.123
+
+
+def test_busy_connection_returns_bounded_503_without_mutating(tmp_path):
+    recorded=tmp_path/'locked'
+    recorded.mkdir()
+    with sqlite3.connect(recorded/'memory.sqlite3') as db:
+        db.execute('CREATE TABLE seed_schema(version INTEGER)')
+        db.commit()
+        db.execute('BEGIN EXCLUSIVE')
+        response=client(recorded).get('/api/decisions')
+        assert response.status_code==503 and response.json()['error']['code']=='decision_read_unavailable'
+        db.rollback()
+
+
+def test_full_page_and_vm_budget_are_bounded(home,monkeypatch):
+    monkeypatch.setattr('seed.body.Body.perceive',lambda _:dict(STATE))
+    core=SeedOrganism(home);core.decisions.rng=RNG();core.learner.epsilon=0
+    for _ in range(51):core.cycle()
+    core.close()
+    c=client(home)
+    response=c.get('/api/decisions?limit=50')
+    assert response.status_code==200 and len(response.content)<=53248
+    assert len(response.json()['items'])==50 and response.json()['next_cursor']==1
+    monkeypatch.setattr('dashboard.services.decisions.READ_BUDGET',1000)
+    response=c.get('/api/decisions?limit=50')
+    assert response.status_code==503 and response.json()['error']['code']=='decision_read_unavailable'
+    monkeypatch.setattr('dashboard.services.decisions.READ_BUDGET',300000)
+    assert c.get('/api/decisions/1').status_code==200
+
+@pytest.mark.parametrize('damage',['composite_without_support','wrong_failure_reason'])
+def test_reader_rejects_policy_provenance_contradicting_frozen_support(recorded,damage):
+    with sqlite3.connect(recorded/'memory.sqlite3') as db:
+        data=json.loads(db.execute('SELECT data_json FROM decision_records WHERE transition_id=1').fetchone()[0])
+        if damage=='composite_without_support':
+            data.update(policy_basis='composite',selection_mode='exploit',fallback_reason=None)
+        else:data['fallback_reason']='history_read_error'
+        db.execute('UPDATE decision_records SET data_json=?,selection_mode=? WHERE transition_id=1',
+                   (json.dumps(data),data['selection_mode']))
+    result=client(recorded).get('/api/decisions/1')
+    assert result.status_code==200 and result.json()['reason']=='invalid_decision'
+
+@pytest.mark.parametrize('table,column',[('transitions','action'),('decision_records','model'),
+    ('decision_records','selected_action'),('decision_records','selection_mode')])
+def test_invalid_utf8_scalar_is_one_corrupt_slot_not_page_failure(recorded,table,column):
+    with sqlite3.connect(recorded/'memory.sqlite3') as db:
+        db.execute('PRAGMA ignore_check_constraints=ON')
+        pk='id' if table=='transitions' else 'transition_id'
+        db.execute(f"UPDATE {table} SET {column}=CAST(x'ff' AS TEXT) WHERE {pk}=3")
+    c=client(recorded)
+    detail=c.get('/api/decisions/3')
+    assert detail.status_code==200 and detail.json()['reason']=='invalid_decision'
+    page=c.get('/api/decisions?limit=2')
+    assert page.status_code==200 and page.json()['next_cursor']==1
+    assert page.json()['items'][0]['reason']=='invalid_decision'
+    assert page.json()['items'][1]['available']

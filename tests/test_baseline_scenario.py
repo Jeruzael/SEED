@@ -35,3 +35,24 @@ def test_simulation_cli_works_with_system_temporary_directory():
     result=subprocess.run([sys.executable,'-m','tests.baseline_scenario'],capture_output=True,text=True,timeout=10)
     assert result.returncode==0,result.stderr
     assert json.loads(result.stdout)['observation_count']==8
+
+
+def test_legacy_learner_retains_original_b0_action_sequence_and_values(home,monkeypatch):
+    from seed.memory import Memory
+    from seed.learner import Learner
+    from tests.baseline_scenario import SEQUENCE,STATE_A,STATE_B
+    monkeypatch.setattr('seed.learner.random.random',lambda:.5)
+    monkeypatch.setattr('seed.learner.random.choice',lambda pool:pool[0])
+    memory=Memory(home/'memory.sqlite3')
+    try:
+        learner=Learner(memory,epsilon=0)
+        actions=[]
+        for label in SEQUENCE:
+            state=STATE_A if label=='A' else STATE_B
+            decision=learner.choose(state);actions.append(decision.action)
+            learner.update(decision,learner.reward(state,decision.action))
+        assert actions==['observe','observe','observe','observe','reflect','consolidate','rest','rest']
+        assert memory.get_q('low|busy|tight|night','reflect')==pytest.approx((-.216,1))
+        assert memory.get_q('low|busy|tight|night','consolidate')==pytest.approx((-.036,1))
+        assert memory.get_q('low|busy|tight|night','rest')==pytest.approx((.6552,2))
+    finally:memory.close()

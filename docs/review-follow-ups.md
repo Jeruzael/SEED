@@ -2,10 +2,12 @@
 
 ## Low-disk reward versus suppressed consolidation
 
-**OPEN: separate owner authorization required.** Roadmap owner: B8 decision-system
+**RESOLVED IN B8 SOURCE; locally verified 2026-09-28.** The owner approved implementation on 2026-09-27. Autonomous reflect/consolidate are excluded below 10% disk even with Q=100; observe/rest remain eligible, and injected ties select either eligible maximum. Owner consolidation retains its low_disk audit and performs no semantic work. Legacy rewards and historical Q remain untouched. Tests: `test_low_disk_excludes_high_q_and_injected_tie_selects_either`, `test_b8_excludes_suppressed_autonomous_consolidate_preserving_owner_guard`, and `test_literal_b8_acceptance_and_saved_comparison`. Hosted B8 checks and deployment remain pending.
+
+**Historical finding:** Roadmap owner: B8 decision-system
 upgrade, unless the owner authorizes a distinct narrowly scoped change. Reproduced
 2026-09-23 against reviewed base f18ed31 and the unchanged learner/consolidator in
-post-B6 hardening. This issue is documented, not fixed.
+post-B6 hardening. This was documented for the separately approved B8 phase.
 
 The real `Learner.reward` in seed/learner.py awards consolidation for low disk,
 while `resource_suppression` in seed/semantic_memory.py suppresses semantic work
@@ -57,5 +59,4 @@ delete memories automatically, or rewrite historical rewards.
 | Restart with existing Q values | Historical policy values are preserved and the new decision rule behaves deterministically with them |
 | Memory preservation | No episode, transition, evaluation, belief, curiosity record or semantic revision is deleted or backfilled |
 
-The owner must approve the intended reward semantics and these scenarios before
-implementation. This follow-up does not authorize B8 or mark any later batch done.
+The owner subsequently approved the amended B8 contract, retaining legacy reward semantics and resolving autonomous eligibility. No disk-cleanup capability or B9/B10 completion is claimed.

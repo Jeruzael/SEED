@@ -1,3 +1,4 @@
+from seed.migrations import VERSION
 """Deterministic B7 acceptance: synthetic evidence, fixed clocks, temporary homes."""
 import json
 from pathlib import Path
@@ -39,7 +40,7 @@ def policy_run(home, enabled):
 def run_scenario(root):
     home=root/'evidence'
     m=Memory(home/'memory.sqlite3')
-    results=dict(fixture='SEED 0.2 B7 deterministic self-model inspection',schema_version=7)
+    results=dict(fixture='SEED 0.2 B7 deterministic self-model inspection',schema_version=VERSION)
     try:
         results['before_first_cycle']=SeedService(home,clock=lambda:1002).self_model()['reason']
         tid=record(m)

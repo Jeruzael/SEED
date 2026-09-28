@@ -235,6 +235,12 @@ def validate_record(record, *, prediction, state_before, draft=False, mirrors=No
             (len(pool)>1 and integer(index,0,len(pool)-1) and action==pool[index]))
     basis, mode, reason = record['policy_basis'],record['selection_mode'],record['fallback_reason']
     require(basis in ('composite','legacy_q'))
+    # Support/status and failure provenance are frozen structural facts. This
+    # does not recalculate components, rank candidates, or certify the pool.
+    supported = any(s['status']=='usable' for a in eligible
+                    for s in record['candidates'][a]['resource_forecasts'].values())
+    require(basis == ('composite' if supported else 'legacy_q'))
+    require(reason == (None if supported else history['reason'] or 'no_supported_resource_forecast'))
     require((basis=='composite' and reason is None) or (basis=='legacy_q' and reason in (*HISTORY_REASONS,'no_supported_resource_forecast','no_eligible_candidate')))
     if record['random_draw'] < record['epsilon']:
         require(mode=='explore' and pool==record['eligible_actions'])

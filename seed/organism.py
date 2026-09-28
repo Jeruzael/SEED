@@ -14,7 +14,7 @@ from .version import CORE_VERSION
 from .learner import Learner
 from .predictor import Predictor
 from .decision import DecisionSystem, summary as decision_summary
-from .decision_record import number, compact
+from .decision_record import number, compact, validate_state
 from .prediction_error import evaluate_prediction
 from .world_model import WorldModel
 from .semantic_memory import Consolidator
@@ -196,12 +196,16 @@ class SeedOrganism:
             return CycleResult('stopped', None, 'owner_stop')
         self.apply_settings()
         retry_delay = self.config['observe_interval']
+        if self.stop_event.is_set():
+            return CycleResult('stopped', None, 'owner_stop')
         self.infer_wake_if_needed()
         self.telemetry.runtime(activity='observing', current_action=None,
                                action_started_at=time.time(), heartbeat=time.time())
+        if self.stop_event.is_set():
+            return CycleResult('stopped', None, 'owner_stop')
         observed = self.body.perceive()
         observed_at = time.monotonic()
-        state_before = validated_state(observed)
+        state_before = validate_state(validated_state(observed))
         self.telemetry.emit('PERCEPTION', 'body', 'Environment observed before action',
                             {**state_before, 'phase': 'before_action'})
         attempt_id = uuid.uuid4().hex

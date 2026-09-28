@@ -9,13 +9,14 @@ READ_BUDGET = 300000
 # preserves orphan corruption as a consumed page slot, rather than refilling it.
 PAYLOAD = '''SELECT d.transition_id,
  CASE WHEN typeof(d.created_at) IN ('integer','real') THEN d.created_at ELSE NULL END AS created_at,
- substr(d.model,1,129) AS model,
+ CASE WHEN d.model='decision_v1' THEN 'decision_v1' ELSE 'invalid' END AS model,
  CASE WHEN typeof(d.model_version)='integer' THEN d.model_version ELSE NULL END AS model_version,
- substr(d.selected_action,1,129) AS selected_action,substr(d.selection_mode,1,129) AS selection_mode,
+ CASE WHEN d.selected_action IN ('observe','reflect','consolidate','rest') THEN d.selected_action ELSE 'invalid' END AS selected_action,
+ CASE WHEN d.selection_mode IN ('exploit','explore','fallback') THEN d.selection_mode ELSE 'invalid' END AS selection_mode,
  substr(CAST(d.data_json AS BLOB),1,16385) AS data,
  substr(CAST(t.prediction_json AS BLOB),1,16385) AS prediction,
  substr(CAST(t.state_before_json AS BLOB),1,16385) AS state_before,
- substr(t.action,1,129) AS action
+ CASE WHEN t.action IN ('observe','reflect','consolidate','rest') THEN t.action ELSE 'invalid' END AS action
  FROM decision_records d LEFT JOIN transitions t ON t.id=d.transition_id'''
 
 

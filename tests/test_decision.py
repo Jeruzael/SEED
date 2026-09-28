@@ -199,3 +199,59 @@ def test_selected_prediction_api_accepts_integer_insertion_clock(system,monkeypa
     monkeypatch.setattr('seed.memory.time.time',lambda:100)
     _,tid=store(system,selected)
     assert DecisionReadService(ReadStore(system.memory.path.parent)).detail(tid)['available']
+
+
+def test_history_vm_budget_fallback_leaves_connection_usable(system,monkeypatch):
+    for _ in range(200):history(system.memory,STATE,STATE)
+    monkeypatch.setattr('seed.decision.READ_BUDGET',1000)
+    result=choose(system)
+    assert result.record['history']==dict(status='unavailable',reason='history_budget_exceeded',cutoff_transition_id=None,raw_rows_examined=0)
+    assert not system.memory.db.in_transaction
+    assert system.memory.db.execute('PRAGMA busy_timeout').fetchone()[0]==2000
+    assert system.memory.db.execute('SELECT count(*) FROM transitions').fetchone()[0]==200
+
+
+def test_cleanup_failure_is_fatal_and_independent_steps_still_run(system):
+    real=system.memory.db
+    calls=[]
+    class BrokenCleanup:
+        def __getattr__(self,key):return getattr(real,key)
+        def rollback(self):
+            calls.append('rollback')
+            real.rollback()
+            raise RuntimeError('cleanup fault')
+        def set_progress_handler(self,fn,n):
+            if fn is None:calls.append('remove_progress')
+            return real.set_progress_handler(fn,n)
+        def execute(self,sql,*a):
+            if sql=='PRAGMA busy_timeout=2000':calls.append('restore_timeout')
+            return real.execute(sql,*a)
+    system.memory.db=BrokenCleanup()
+    try:
+        with pytest.raises(RuntimeError,match='decision_read_cleanup_failed'):choose(system)
+        assert calls==['rollback','remove_progress','restore_timeout']
+        assert not real.in_transaction and system.rng.calls==[]
+        # A different thread can acquire the lock after the failure.
+        import threading
+        acquired=[]
+        def take():
+            with system.memory._lock:acquired.append(True)
+        t=threading.Thread(target=take);t.start();t.join(1)
+        assert acquired==[True]
+    finally:system.memory.db=real
+
+
+def test_keyboard_interrupt_survives_cleanup_failure(system):
+    real=system.memory.db
+    class Interrupting:
+        def __getattr__(self,key):return getattr(real,key)
+        def execute(self,sql,*a):
+            if 'FROM q_values' in sql:raise KeyboardInterrupt()
+            return real.execute(sql,*a)
+        def rollback(self):
+            real.rollback();raise RuntimeError('cleanup fault')
+    system.memory.db=Interrupting()
+    try:
+        with pytest.raises(KeyboardInterrupt):choose(system)
+        assert not real.in_transaction and real.execute('PRAGMA busy_timeout').fetchone()[0]==2000
+    finally:system.memory.db=real

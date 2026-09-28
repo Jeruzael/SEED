@@ -4,7 +4,7 @@
 
 SEED is an experimental developmental agent that treats a MacBook as its body and first environment. It observes local conditions, remembers experience, predicts immediate outcomes, measures prediction error, and retains descriptive patterns within owner-controlled boundaries.
 
-**Current source: SEED 0.2 — verified through B7.** SQLite schema **v6**. Post-merge [hosted verification](https://github.com/Jeruzael/SEED/actions/runs/36104979944) passed **646 tests on each job**: Linux Python 3.11.16, Linux Python 3.13.15, and macOS Python 3.13.15, on master `ab7c2b45508828685fc9b0a65807e08cee1cff98`. All six standalone scenarios passed on both Python 3.13 jobs. The [closure record](docs/seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25) documents source/CI evidence. Deployment/live-device validation was **not performed**; source updates do not install, restart, or migrate the live organism.
+**Current source: SEED 0.2 — B8 implemented, schema v7.** The owner-approved decision system is implemented on `seed-0.2-b8`; local verification and independent review are recorded in the [B8 implementation record](docs/seed-0.2-development-plan.md#b8-implementation--2026-09-28). Hosted B8 CI and deployment have not been performed. B0–B7 retain their historical verified status; the last B7 [hosted run](https://github.com/Jeruzael/SEED/actions/runs/36104979944) passed 646 tests on Linux Python 3.11/3.13 and macOS Python 3.13. Source changes do not install, restart or migrate the installed organism.
 
 Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. The macOS test-isolation correction passes **542 tests** locally and on all three hosted Linux/macOS jobs for correction commit `cb70d00`; all verification artifacts were inspected. [Corrective PR #9](https://github.com/Jeruzael/SEED/pull/9) records checks for its current head. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
 
@@ -18,13 +18,14 @@ Post-B6 hardening corrects current battery-state parsing, separates source and r
 | B5 | Bounded computational curiosity | VERIFIED |
 | B6 | Semantic memory consolidation | VERIFIED |
 | B7 | Descriptive self model | VERIFIED |
-| B8–B10 | Decision upgrade, development UI, evaluation | NOT STARTED |
+| B8 | Bounded decision system and stored decision inspection | IMPLEMENTED; local verification |
+| B9–B10 | Development UI and evaluation | NOT STARTED |
 
-See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B8–B10 require separate explicit authorization.
+See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B9–B10 require separate explicit authorization.
 
 ## What SEED does
 
-SEED runs as a normal user-owned macOS process. Its existing body observes battery and charging state, load, free disk space, network reachability, local time, and machine identity. A small contextual bandit selects from four predefined internal actions:
+SEED runs as a normal user-owned macOS process. Its existing body observes battery and charging state, load, free disk space, network reachability, local time, and machine identity. A bounded decision system combines existing Q values with supported resource forecasts, selecting from four predefined internal actions:
 
 | Action | Internal work | Delay after the completed cycle |
 | --- | --- | --- |
@@ -39,8 +40,9 @@ A normal autonomous cycle performs **two perceptions**. Each retains the existin
 
 ```text
 perceive state_before
-→ choose predefined internal action
-→ predict immediate post-action observation
+→ read one Q/history snapshot and predict all four candidate outcomes
+→ apply resource constraints and select an eligible action
+→ freeze the selected prediction and compact decision evidence
 → perform action (consolidate may revise semantic memory)
 → perceive state_after
 → describe observed differences
@@ -49,7 +51,7 @@ perceive state_before
 → calculate unchanged legacy reward from state_before
 → update contextual Q value
 → atomically store episode, transition, prediction, evaluation,
-  curiosity assessment, and world-model queue entry
+  curiosity assessment, world-model queue entry, and decision record
 → process at most 100 queued transitions into world beliefs
 → optionally perform one guarded existing reflection
 → publish one bounded descriptive self-model snapshot
@@ -57,7 +59,15 @@ perceive state_before
 → wait for the selected action delay
 ```
 
-The prediction is made before the action and is never regenerated after seeing the outcome. Curiosity uses the world model before it learns from this transition. Policy-selected consolidation uses already-published beliefs; the current transition is not persisted until later in the cycle.
+All candidate predictions are made before selection; the selected prediction is made before the action and is never regenerated after seeing the outcome. Curiosity uses the world model before it learns from this transition. Policy-selected consolidation uses already-published beliefs; the current transition is not persisted until later in the cycle.
+
+## Bounded decisions
+
+`decision_v1` ranks eligible actions by `.50 × Q_component + .35 × (1 − resource_risk) + .15 × (1 − uncertainty)`, where `Q_component = .5 + .5 × q/(1 + abs(q))`. Only historically supported battery/load/disk forecasts contribute certainty; missing, stale or invalid support is conservative. With no supported eligible forecast, selection falls back to raw Q ordering. Exploration and tied maxima use the injected random source over eligible actions. Reward, Q updates, settings and action delays retain their existing formulas.
+
+Autonomous reflect/consolidate are excluded for high load, low uncharged battery, low disk or unknown required resources. Observe/rest remain resource eligible. This closes the autonomous [low-disk decision mismatch](docs/review-follow-ups.md) while preserving owner-command guards and historical Q values.
+
+An attempt more than five monotonic seconds old is skipped before dispatch. It records a small diagnostic, performs no action/learning/experience persistence, and retries after the captured observation interval; owner stop interrupts the wait. Completed decisions retain a compact record capped at 16 KiB with a canonical SHA-256 link to the selected transition prediction. `/api/decisions` and `/api/decisions/{transition_id}` inspect those stored records without rescoring. This adds no UI, external action or improvement claim.
 
 ## Prediction and error
 
@@ -112,27 +122,27 @@ Version fields have separate meanings:
 | `/api/bootstrap` → `core_source_version` | Core source accompanying the dashboard (0.2), not evidence of an installed upgrade |
 | `dashboard_version`, `dashboard_edition` | Dashboard component identity: 0.1, Observer Edition |
 | Bootstrap `version` | Preserved legacy label: 0.1 Observer Edition |
-| `supported_schema_version` | Schema supported by this source (6), not the inspected database's actual schema |
+| `supported_schema_version` | Schema supported by this source (7), not the inspected database's actual schema |
 
 Unavailable runtime stays unavailable, and older/stopped telemetry keeps its reported version. The overview labels this “Reported core version.” No build commit is inferred from the dashboard checkout.
 
 ## Learning and capability boundaries
 
-The contextual bandit, epsilon, alpha, legacy reward, and Q update remain unchanged:
+The legacy learner, epsilon, alpha, reward and Q-update formulas remain unchanged:
 
 ```text
 Q_new = Q_old + alpha × (reward - Q_old)
 ```
 
-Predictions, evaluation scores, world beliefs, curiosity scores, semantic memories, and the self model do not change action selection or that update. B5's optional reflection is the current limited use of prediction error for additional internal activity. B8 owns future decision integration.
+B8 uses supported resource predictions in autonomous selection. Evaluation scores, world beliefs, curiosity scores, semantic memories and the self model do not feed into that selection or Q update. B5 can still add one owner-enabled guarded reflection after learning.
 
 SEED does not resist shutdown, prevent sleep, hide, escalate privileges, replicate itself, change security settings, acquire tools, choose arbitrary network destinations, execute generated commands, or modify its own source. Owner authority remains part of its design.
 
 ## Persistence and compatibility
 
-The current SQLite schema is **v6**. Supported older memory is backed up before upgrade through the write-capable `Memory` path; migrations are additive. Unsupported or ambiguous schema versions are refused. The dashboard's observer reads do not migrate storage.
+The current SQLite schema is **v7**. Supported older memory is backed up before upgrade through the write-capable `Memory` path; migrations are additive. Unsupported or ambiguous schema versions are refused. The dashboard's observer reads do not migrate storage.
 
-Historical absences are valid: pre-B1 episodes may lack transitions; B1 transitions may lack predictions; B2 predictions may lack evaluations; pre-B4/B5 history may lack queued world-model evidence or curiosity assessments. Migration invents none of these. A later explicit consolidation may consume already-published eligible B4 beliefs. The v6 migration adds an empty singleton table without synthesizing a self model from history.
+Historical absences are valid: pre-B1 episodes may lack transitions; B1 transitions may lack predictions; B2 predictions may lack evaluations; pre-B4/B5 history may lack queued world-model evidence or curiosity assessments. Migration invents none of these. A later explicit consolidation may consume already-published eligible B4 beliefs. The v6 migration adds an empty self-model singleton, and v7 adds an empty decision_records table. Neither synthesizes historical records. Retained B7 schema6 snapshots stay unchanged until a new completed cycle publishes schema7.
 
 Experience persistence, world-model updates, and semantic revisions have separate transaction boundaries. The **entire cycle is not atomic**: a Q update, reflection, consolidation, or telemetry may commit before a later experience-persistence failure.
 
@@ -157,6 +167,7 @@ Run deterministic scenarios with temporary homes and synthetic observations:
 .venv/bin/python -m tests.curiosity_scenario
 .venv/bin/python -m tests.semantic_scenario
 .venv/bin/python -m tests.self_model_scenario
+.venv/bin/python -m tests.decision_scenario
 ```
 
 Saved [baseline artifacts](docs/baselines/) are immutable evidence for their respective batches. Current executions can legitimately report a newer schema or a larger database footprint; compatibility tests explicitly account for these changes.
@@ -185,7 +196,7 @@ The local dashboard can be started from a development environment with its depen
 .venv/bin/python -m dashboard
 ```
 
-It binds to `127.0.0.1:8765` by default and uses `SEED_HOME`, or the standard SEED data directory when unset. Observer mode reads existing storage without constructing another organism. Explicit `--operator` mode enables local controls and requires the complete current schema. B4–B7 add bounded inspection APIs; the broader B9 development UI remains unimplemented. See [inspection endpoints](docs/architecture.md#dashboard-and-inspection).
+It binds to `127.0.0.1:8765` by default and uses `SEED_HOME`, or the standard SEED data directory when unset. Observer mode reads existing storage without constructing another organism. Explicit `--operator` mode enables local controls and requires the complete current schema. B4–B8 add bounded inspection APIs; the broader B9 development UI remains unimplemented. See [inspection endpoints](docs/architecture.md#dashboard-and-inspection).
 
 Stop the installed organism:
 
@@ -203,7 +214,7 @@ Actual macOS sleep suspends the process. Wake is inferred from a large wall-cloc
 
 ## Known limitations and next work
 
-- Ambiguous battery output remains unknown. Unknown-state guard policy is unchanged, and historical charging observations may contain the pre-hardening parser defect.
+- Ambiguous battery output remains unknown. B8 excludes costly autonomous work when required resources are unknown; earlier B5/B6 guards retain their semantics. Historical charging observations may contain the pre-hardening parser defect.
 - Prediction covers the immediate post-action observation; it does not cover the later rest interval.
 - Global fallback combines contexts, and action-conditioned statistics do not establish causation.
 - Confidence, accuracy, curiosity, and semantic thresholds are engineering measures, not calibrated certainty or intelligence scores.
@@ -212,6 +223,6 @@ Actual macOS sleep suspends the process. Wake is inferred from a large wall-cloc
 - Evidence markers, run audits, and semantic history grow with use. B6 adds no forgetting.
 - Semantic knowledge is limited to B4's four signals and global/action scopes. It has no cross-signal concepts, multi-step temporal patterns, causal reasoning, or decision influence.
 
-The [low-disk reward mismatch](docs/review-follow-ups.md) remains open: legacy reward can favor consolidation while low disk suppresses its semantic work. Consolidation is not disk cleanup; a decision change requires separate authorization.
+The [low-disk decision mismatch](docs/review-follow-ups.md) is resolved for autonomous B8 selection. Legacy reward remains unchanged for compatibility; consolidation does not reclaim disk space.
 
-**B8–B10 remain unstarted.** B7 exposes descriptive evidence only. Prediction metrics use the latest 100 raw records, storage counts saturate at 1,001, and failure summaries cover retained events rather than a lifetime failure rate. Full evidence and remaining gates are in the [B7 execution record](docs/seed-0.2-development-plan.md#b7-implementation-record--2026-09-24).
+**B9–B10 remain unstarted.** B7 exposes descriptive evidence only. Prediction metrics use the latest 100 raw records, storage counts saturate at 1,001, and failure summaries cover retained events rather than a lifetime failure rate. Full evidence and remaining gates are in the [B7 execution record](docs/seed-0.2-development-plan.md#b7-implementation-record--2026-09-24).

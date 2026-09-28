@@ -112,3 +112,19 @@ def test_stale_retry_waits_full_interval_and_stop_interrupts(core,monkeypatch):
     with sqlite3.connect(core.home/'memory.sqlite3') as db:
         assert db.execute('SELECT count(*) FROM decision_records').fetchone()[0]==0
         assert db.execute("SELECT count(*) FROM events WHERE category='ERROR'").fetchone()[0]==0
+
+
+def test_invalid_current_state_is_rejected_before_perception_event(core,monkeypatch):
+    monkeypatch.setattr(core.body,'perceive',lambda:{**STATE,'load_ratio':None})
+    with pytest.raises(ValueError,match='invalid_state'):core.cycle()
+    assert core.memory.db.execute("SELECT count(*) FROM events WHERE category='PERCEPTION'").fetchone()[0]==0
+    assert_no_completion(core)
+
+
+def test_stop_during_settings_does_not_take_an_observation(core,monkeypatch):
+    apply=core.apply_settings
+    def stop_after_settings():apply();core.stop()
+    monkeypatch.setattr(core,'apply_settings',stop_after_settings)
+    monkeypatch.setattr(core.body,'perceive',lambda:pytest.fail('observation after owner stop'))
+    assert core.cycle().status=='stopped'
+    assert_no_completion(core)

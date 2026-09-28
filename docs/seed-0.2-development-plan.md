@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B8 design/specification amendment only, AMENDED AND COMPLETE FOR OWNER REVIEW on `seed-0.2-b8`, based on verified master `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`. B8 overall status is IN PROGRESS; implementation is NOT STARTED pending owner review and separate authorization. B0–B7 remain VERIFIED; source schema remains v6. B9–B10 remain NOT STARTED and unauthorized.** Deployment/live-device validation remains NOT PERFORMED; installed organism is UNTOUCHED. The low-disk mismatch remains OPEN in implemented code, with its proposed resolution in the [B8 design](superpowers/specs/2026-09-25-b8-decision-system-design.md). See the [B8 design record](#b8-design-execution-record--2026-09-25). Historical entries below retain their original status and evidence.
+**Current authorization: reviewed B8 implementation, approved 2026-09-27 and continued 2026-09-28. B8 is IMPLEMENTED on `seed-0.2-b8`, based on amended design `4c24d7e` and verified master `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`; current source schema is v7. Local verification and independent review are recorded below. Hosted B8 CI and deployment/live-device validation are NOT PERFORMED; installed SEED is UNTOUCHED. B0–B7 retain historical VERIFIED status. B9–B10 remain NOT STARTED and unauthorized.** The low-disk autonomous decision mismatch is resolved through eligibility while preserving legacy rewards and owner-command guards. Historical entries retain their checkpoint status; see [B8 implementation](#b8-implementation--2026-09-28).
 
 ## Objective and architectural transition
 
@@ -63,7 +63,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
 | B7 | Self Model | VERIFIED | B3, B6 | 646 tests on Linux 3.11/3.13 and macOS 3.13; six scenarios on both 3.13 jobs; post-merge run 36104979944 | Schema v6; bounded descriptive singleton; no upstream influence |
-| B8 | Decision-System Upgrade | IN PROGRESS | B5, B7 | Fresh B7 baseline: 646 passed; six scenarios unchanged; no B8 tests added | Design AMENDED AND COMPLETE FOR OWNER REVIEW; implementation NOT STARTED; [specification](superpowers/specs/2026-09-25-b8-decision-system-design.md) |
+| B8 | Decision-System Upgrade | IMPLEMENTED | B5, B7 | Local full-suite and deterministic acceptance; independent review findings fixed | Schema7; bounded candidate forecasts/utility, injected ties, compact digest-linked decisions, stale retry; hosted checks pending |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
 
@@ -145,7 +145,7 @@ First planned sprint: **B0 → B1 → B2 → B3**. Each requires a separate expl
 
 **Purpose:** Make the contextual bandit one signal among several instead of replacing it prematurely.
 
-**Candidate inputs:** Learned action value, predicted outcome, information gain, resource cost, uncertainty, constraint risk, and goal progress where goals are actually defined.
+**Implemented v1 inputs:** Existing raw Q, prospective battery/load/disk risk, historical support uncertainty, and resource eligibility. Information gain, goal progress and other candidate inputs from the initial roadmap were excluded by the approved B8 design.
 
 **Verification:** Decision inputs and selection-time values are inspectable; deterministic scenarios exercise resource constraints, missing predictions, conflicting signals, and fallback behavior. Q values remain compatible. New decision weights and utility meanings are explicitly specified and tested before behavior is described as improved.
 
@@ -2007,3 +2007,18 @@ B8 design/specification: **AMENDED AND COMPLETE FOR OWNER REVIEW**.
 B8 implementation: **NOT STARTED**.
 B9–B10: **NOT STARTED**.
 Installed organism: **UNTOUCHED**. Stop for owner review.
+
+
+## B8 implementation — 2026-09-28
+
+The owner reviewed the amendment and authorized implementation on 2026-09-27, then directed continuation on 2026-09-28. Work remained on `seed-0.2-b8` from approved design `4c24d7e`, using the [implementation plan](superpowers/plans/2026-09-27-seed-b8.md). No installed-home, push, merge, deployment, B9 or B10 work was performed.
+
+Implemented separate bounded snapshot/selection and pure frozen-record contracts; shared B2 batch inference; additive schema7 decision persistence; explicit completed/skipped/stopped cycle results; and two read-only decision endpoints. The current autonomous ordering is documented in [architecture](architecture.md#autonomous-cycle-and-ordering). Q values and visits remain raw, reward/update formulas and delays remain unchanged, and B4/B5/B6/B7 remain downstream-only. B7 accepts retained schema6 snapshots and reports schema7 only after a new publication.
+
+The [B8 comparison](baselines/seed-0.2-b8-comparison.json) covers fallback, low disk, constraints/equality/charging, conflicting and partial forecasts, exploration, both injected tie winners, epsilon equality, stale history, prospective payload identity, Q compatibility, owner low-disk audit, restart, and five-second stale boundaries. Its eight historical artifact hashes match the approved base. The eight-context autonomous control now selects observe four times and rest four times; degraded rest Q is 1.09575648 after four visits. A direct legacy Learner regression preserves the former observe/reflect/consolidate/rest sequence and historical formulas.
+
+Historical scenario compatibility uses explicit leaf changes: new control action/Q/support counts, current schema, two known source hashes (earlier body parser and B8 shared predictor), and seven fields in the policy-reflection fixture. That fixture now starts with eligible load .2 and observes load1e300; its B5 surprise magnitude, score .925 and already_reflected suppression remain exact. All other B3/B4/B5/B6/B7 calculation fields remain compared to immutable historical artifacts.
+
+Independent fresh-context review found 0 Critical and 2 Important issues: inconsistent frozen policy provenance accepted by the reader, and invalid UTF-8 scalar text failing an entire page. Six failing regressions proved them; both were fixed with structural support/reason validation and canonical SQL scalar projection. No review findings remain deferred. Additional regressions verify VM interruption, cleanup/lock release and KeyboardInterrupt, read-only corrupt-slot pagination, whole-experience rollback, owner stop, pre-telemetry state validation, and a full delayed nonfatal retry. Final command results are recorded in [verification](verification.md#b8-local-verification--2026-09-28).
+
+Status remains IMPLEMENTED pending hosted acceptance/owner review; local correctness evidence is not a claim of deployment or measured developmental improvement.
