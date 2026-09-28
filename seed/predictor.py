@@ -153,3 +153,12 @@ class Predictor:
                               probability_true=probability)
             signals['network_reachable'] = signal
         return Prediction(action=action, signals=signals), sources
+
+
+def empty_history_batch(state, actions):
+    """Canonical auxiliary fallback, independent of an injected batch provider."""
+    predictions, contributors = {}, {}
+    for action in actions:
+        prediction, source = Predictor._predict_parsed(state, action, [])
+        predictions[action], contributors[action] = prediction.to_dict(), source
+    return PredictionBatch(predictions, contributors)

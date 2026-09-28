@@ -7,7 +7,7 @@ import pytest
 def test_deterministic_semantic_revision_scenario(tmp_path):
     from tests.semantic_scenario import run_scenario
     result=run_scenario(tmp_path)
-    assert result['schema_version']==6
+    assert result['schema_version']==7
     stages=result['stages']
     assert [s['run']['created_count'] for s in stages]==[2,0,0,0]
     assert [s['run']['revised_count'] for s in stages]==[0,0,0,2]
@@ -26,14 +26,14 @@ def test_b5_compatibility_and_saved_b6_artifact(tmp_path):
     from tests.semantic_scenario import run_comparison
     result=run_comparison(tmp_path)
     reference=json.loads((Path(__file__).parents[1]/'docs/baselines/seed-0.2-b5-comparison.json').read_text())
-    assert result['curiosity']['cases']==reference['curiosity']['cases']
+    from tests.scenario_compatibility import assert_control, control_expected, curiosity_expected
+    assert result['curiosity']['cases']==curiosity_expected(reference['curiosity']['cases'])
     prior=json.loads((Path(__file__).parents[1]/'docs/baselines/seed-0.2-b4-comparison.json').read_text())
     assert result['world_model']['metrics']==reference['world_metrics']
     assert result['evaluation_snapshot']['metrics']==reference['prediction_error_metrics']
     for key,value in prior['world_model'].items():
         if key!='schema_version':assert result['world_model'][key]==value
-    for key,value in reference['control'].items():
-        if key not in ('database_footprint','database_page_count'):assert result['control'][key]==value
+    assert_control(result['control'],reference['control'])
     assert result['evaluation_snapshot']['metrics']==prior['evaluation_snapshot']['metrics']
     for name,case in prior['evaluation_snapshot']['cases'].items():
         for key,value in case.items():
@@ -45,13 +45,17 @@ def test_b5_compatibility_and_saved_b6_artifact(tmp_path):
     expected['source_sha256']=expected.pop('unchanged_b5_source_sha256')
     expected['source_sha256']['body.py']=hashlib.sha256(
         (Path(__file__).parents[1]/'seed/body.py').read_bytes()).hexdigest()
-    # B7 adds storage only; compare every other historical behavioral field.
+    # B8 changes selection and shared predictor organization; retain other hashes.
+    expected['source_sha256']['predictor.py']=hashlib.sha256(
+        (Path(__file__).parents[1]/'seed/predictor.py').read_bytes()).hexdigest()
+    expected['curiosity']['cases']=curiosity_expected(expected['curiosity']['cases'])
+    expected['control']=control_expected(expected['control'])
     for key in ('curiosity','world_model','semantic_memory'):
-        assert result[key]['schema_version']==6
-        expected[key]['schema_version']=6
+        assert result[key]['schema_version']==7
+        expected[key]['schema_version']=7
     for case in expected['evaluation_snapshot']['cases'].values():
-        case['schema_version']=6
+        case['schema_version']=7
     for key in ('database_footprint','database_page_count'):
         result['control'].pop(key)
-        expected['control'].pop(key)
+        expected['control'].pop(key,None)
     assert result==expected

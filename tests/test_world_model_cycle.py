@@ -37,8 +37,8 @@ def test_core_world_learning_follows_committed_transition(home,monkeypatch):
         monkeypatch.setattr(core.memory,'record_transition_experience',persist_spy)
         monkeypatch.setattr(model,'recover',recover_spy)
         core.learner.epsilon=0
-        core.cycle()
-        core.cycle()
+        core.cycle().delay_seconds
+        core.cycle().delay_seconds
         assert trace==['persist','model','persist','model']
         assert len(perceptions)==4
         assert belief(core.memory)['evidence_count']==2
@@ -96,7 +96,7 @@ def test_world_state_does_not_change_predictor_error_policy_reward_or_delay(tmp_
         try:
             core.learner.epsilon=0
             core.memory.set_q(state_key(BEFORE),action,.7,4)
-            delay=core.cycle()
+            delay=core.cycle().delay_seconds
             row=dict(core.memory.db.execute('SELECT * FROM transitions ORDER BY id DESC LIMIT 1').fetchone())
             runtime=json.loads(core.memory.db.execute('SELECT data_json FROM runtime').fetchone()[0])
             runs.append((row['action'],row['legacy_reward'],row['prediction_json'],row['prediction_error_json'],
@@ -116,7 +116,7 @@ def test_cycle_model_failure_leaves_real_transition_recoverable(home,monkeypatch
     try:
         core.memory.db.execute("""CREATE TRIGGER fail_model BEFORE INSERT ON world_model_processed
                                  BEGIN SELECT RAISE(ABORT,'world failed'); END""")
-        with pytest.raises(sqlite3.IntegrityError,match='world failed'): core.cycle()
+        with pytest.raises(sqlite3.IntegrityError,match='world failed'): core.cycle().delay_seconds
         assert core.memory.db.execute('SELECT count(*) FROM transitions').fetchone()[0]==1
         assert core.memory.db.execute('SELECT count(*) FROM world_model_queue').fetchone()[0]==1
         assert core.memory.db.execute('SELECT count(*) FROM world_pending').fetchone()[0]==0

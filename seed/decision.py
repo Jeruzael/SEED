@@ -6,7 +6,7 @@ import random
 import sqlite3
 import uuid
 from .learner import ACTIONS, Decision, state_key
-from .predictor import NUMERIC_TARGETS
+from .predictor import NUMERIC_TARGETS, empty_history_batch
 from .semantic_memory import resource_suppression
 from .decision_record import (CONTRACT, MAX_ID, compact, number, integer, validate_state,
                               projection, validate_prediction, prediction_digest, validate_record)
@@ -171,8 +171,8 @@ class DecisionSystem:
         attempt_id = uuid.uuid4().hex if decision_id is None else decision_id
         key=state_key(state)
         q,rows,history = self._snapshot(key)
-        batch = self.predictor.predict_candidates(state,ACTIONS,snapshot=rows)
         try:
+            batch = self.predictor.predict_candidates(state,ACTIONS,snapshot=rows)
             if set(batch.predictions)!=set(ACTIONS) or set(batch.contributors)!=set(ACTIONS):
                 raise ValueError('invalid_prediction')
             for action in ACTIONS:
@@ -182,9 +182,9 @@ class DecisionSystem:
             candidates=self._candidates(q,batch,state,selected_at)
             # Validate transient contributor projections as well as the full payload.
             self._draft(state,key,selected_at,attempt_id,epsilon,alpha,history,batch,candidates,.5,validate_only=True)
-        except (ValueError,TypeError,KeyError,OverflowError):
+        except (ValueError,TypeError,KeyError,OverflowError,AttributeError,RecursionError):
             history.update(status='unavailable',reason='invalid_prediction')
-            batch=self.predictor.predict_candidates(state,ACTIONS,snapshot=[])
+            batch=empty_history_batch(state,ACTIONS)
             candidates=self._candidates(q,batch,state,selected_at)
         return dict(state=state,key=key,selected_at=selected_at,decision_id=attempt_id,
                     epsilon=epsilon,alpha=alpha,history=history,batch=batch,candidates=candidates)

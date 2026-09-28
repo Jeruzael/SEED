@@ -249,6 +249,9 @@ def validate_record(record, *, prediction, state_before, draft=False, mirrors=No
         require(compact(signal['value']) == compact(full.get('value')))
     if mirrors is not None:
         for key in ('transition_id','created_at','model','model_version','selected_action','selection_mode'):
-            require(type(mirrors[key]) is type(record[key]) and mirrors[key]==record[key])
+            if key == 'created_at':
+                require(number(mirrors[key],0) and mirrors[key]==record[key])
+            else:
+                require(type(mirrors[key]) is type(record[key]) and mirrors[key]==record[key])
         require(mirrors['action']==action)
     return record

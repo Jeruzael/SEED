@@ -26,7 +26,7 @@ def policy_run(home, enabled):
             core.learner.epsilon=0
             core.memory.set_q(state_key(STATE),'observe',.7,4)
             if not enabled:core.self_model.update=lambda *args:'skipped'
-            delays=[core.cycle(),core.cycle()]
+            delays=[core.cycle().delay_seconds,core.cycle().delay_seconds]
             rows=[dict(r) for r in core.memory.db.execute('SELECT * FROM transitions ORDER BY id')]
             return dict(actions=[r['action'] for r in rows],rewards=[r['legacy_reward'] for r in rows],
                 predictions=[json.loads(r['prediction_json']) for r in rows],
@@ -39,7 +39,7 @@ def policy_run(home, enabled):
 def run_scenario(root):
     home=root/'evidence'
     m=Memory(home/'memory.sqlite3')
-    results=dict(fixture='SEED 0.2 B7 deterministic self-model inspection',schema_version=6)
+    results=dict(fixture='SEED 0.2 B7 deterministic self-model inspection',schema_version=7)
     try:
         results['before_first_cycle']=SeedService(home,clock=lambda:1002).self_model()['reason']
         tid=record(m)
@@ -75,11 +75,11 @@ def run_scenario(root):
         core=SeedOrganism(home)
         try:
             core.learner.epsilon=0;core.memory.set_q(state_key(STATE),'observe',.7,4)
-            core.cycle()
+            core.cycle().delay_seconds
             results['new_cycle_advances']=current(core.memory)['source_transition_id']==tid+1
             old=current(core.memory)
             core.memory.db.execute("CREATE TRIGGER fail_b7 BEFORE INSERT ON self_model_current BEGIN SELECT RAISE(ABORT,'fixture'); END")
-            core.cycle()
+            core.cycle().delay_seconds
             results['failed_write_preserves_snapshot']=current(core.memory)==old
         finally:core.close()
     m=Memory(root/'suppressed'/'memory.sqlite3')

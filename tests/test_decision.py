@@ -179,3 +179,23 @@ def test_existing_transaction_is_not_rolled_back(system):
     with pytest.raises(ValueError,match='existing_transaction'): choose(system)
     assert system.memory.db.in_transaction
     system.memory.db.rollback()
+
+
+def test_invalid_optional_prediction_batch_uses_canonical_empty_history(system,monkeypatch):
+    from types import SimpleNamespace
+    for _ in range(2): history(system.memory,STATE,STATE)
+    monkeypatch.setattr(system.predictor,'predict_candidates',lambda *a,**kw:SimpleNamespace(predictions={'broken':{}},contributors={}))
+    result=choose(system)
+    assert result.record['history']==dict(status='unavailable',reason='invalid_prediction',cutoff_transition_id=2,raw_rows_examined=2)
+    assert result.record['fallback_reason']=='invalid_prediction'
+    assert result.prediction['signals']['battery_pct']['method']=='persistence'
+
+
+def test_selected_prediction_api_accepts_integer_insertion_clock(system,monkeypatch):
+    from tests.test_decision_migrations import store
+    from dashboard.services.decisions import DecisionReadService
+    from dashboard.services.read_store import ReadStore
+    selected=choose(system)
+    monkeypatch.setattr('seed.memory.time.time',lambda:100)
+    _,tid=store(system,selected)
+    assert DecisionReadService(ReadStore(system.memory.path.parent)).detail(tid)['available']
