@@ -228,3 +228,35 @@ remain NOT PERFORMED; B9–B10 remain unauthorized and unstarted.
 Artifact IDs are `10963505882` (Linux 3.11), `10963101024` (Linux 3.13), and `10962179746` (macOS 3.13). The supplied artifact-inspection record confirms exact checkout SHA `acaccce889b18d165252c6977d41e5113e74e681`, empty `dirty_tree`, dependency and pytest exit codes 0, successful pip check, and unchanged lock hash `1fe34b077636964cde188c0f19317f7615f27200d4ac49aedeeb13df401fd769` on all three jobs. Both Python 3.13 artifacts confirm scenario exit 0, empty scenario stderr, and byte-identical outputs for all seven scenarios listed in the local reproduction commands. GitHub run/job metadata, logs and artifact IDs were corroborated during this cleanup; artifact-content findings are attributed to that supplied inspection record.
 
 **This verifies the stated implementation PR head only. It does not verify the future merge commit on master or the subsequent documentation commit.** The latter must receive its own three successful exact checks; expected results remain 747 tests per job and seven standalone scenarios on both Python 3.13 jobs. B8 remains **IMPLEMENTED, NOT YET VERIFIED**. PR #12 must not merge without owner direction; exact post-merge master verification is still required. Deployment/live-device validation is **NOT PERFORMED** and B9–B10 remain **NOT STARTED**.
+
+
+## B8 post-merge verification closure — 2026-09-29
+
+**B8 is VERIFIED at source/CI level on master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged from final documentation head `a8760bd2fab33c185ff25945bf74f31934666143`. Exact [post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) (`SEED verification`, event `push`, `head_sha = e0075e21f545921324aa5d5c9e2f4217b0a06cca`) completed **SUCCESS**. This closure records the Sep 28 merge/run checkpoint; the local and PR-head sections above remain historical evidence.
+
+| Exact check | Python | Tests | Standalone scenarios |
+| --- | --- | --- | --- |
+| `test (linux-py311)` | 3.11.16 | 747 passed; 2 existing warnings | Intentionally not configured by matrix |
+| `test (linux-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed |
+| `test (macos-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed |
+
+Both Python 3.13 jobs passed `baseline_scenario`, `prediction_error_scenario`, `world_model_scenario`, `curiosity_scenario`, `semantic_scenario`, `self_model_scenario`, and `decision_scenario`.
+
+| Hosted artifact | Artifact ID | SHA-256 digest |
+| --- | --- | --- |
+| Linux Python 3.11 | `10978873702` | `fc928359b4ff8a8b723b412a3abed07734c0870be1e10c0f2da6d4469a7b9a43` |
+| Linux Python 3.13 | `10978124787` | `da9ac8764e56b0df48c7a022bc9854deaf3e756506e26592bd6268382f9563ae` |
+| macOS Python 3.13 | `10979428432` | `86e0c061282f17c69e97da615306958a31380b20a78b2cbff6673ca581fbb5b8` |
+
+The owner-supplied post-merge artifact-inspection record confirms:
+
+- All three `checked_out_sha` and `event_sha` values equal `e0075e21f545921324aa5d5c9e2f4217b0a06cca`; each `dirty_tree` is empty (`""`).
+- Every job has `dependencies.exit = 0`, `pytest.exit = 0`, and successful `pip check`.
+- The requirements-lock SHA-256 remains `1fe34b077636964cde188c0f19317f7615f27200d4ac49aedeeb13df401fd769`.
+- Both Python 3.13 artifacts have `scenarios.exit = 0`. All seven Linux/macOS scenario JSON outputs are byte-for-byte identical, and all fourteen scenario stderr logs are empty.
+
+During this closure, GitHub PR/merge identity, run event/head/success, exact job names, Python versions, 747-test results, scenario-step outcomes, and artifact IDs/digests were independently corroborated. Artifact-content findings above retain the supplied inspection provenance.
+
+B8 merge verification and exact post-merge hosted verification are **COMPLETE**. This acceptance covers source/CI behavior on the B8 merge, not installation, live-memory migration, real-device sensors or deployment certification. Deployment/live-device validation remains **NOT PERFORMED**, installed SEED is **UNTOUCHED**, and B9–B10 remain **NOT STARTED**.
+
+The documentation closure PR receives its own normal CI and requires owner-directed merge. Its later docs-only merge does not replace or invalidate B8 technical acceptance at `e0075e21f545921324aa5d5c9e2f4217b0a06cca` and does not require another acceptance-documentation commit. See the [canonical closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
