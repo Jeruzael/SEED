@@ -2,9 +2,9 @@
 
 This is a navigation index. The [development tracker](seed-0.2-development-plan.md) holds the canonical batch requirements, decisions, acceptance evidence, limitations and readiness gates. The [README](../README.md) explains current use; the [architecture guide](architecture.md) describes current implementation contracts.
 
-## Current verified source state
+## Current source and design state
 
-**SEED 0.2 — B8 VERIFIED at source/CI level, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged at master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`. Exact [post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed 747 tests on all three Linux/macOS jobs and all seven standalone scenarios on both Python 3.13 jobs. The supplied post-merge artifact-inspection record confirms exact clean checkouts and successful dependency/test/scenario results; GitHub run/job metadata, logs and artifact IDs/digests were independently corroborated for this closure. Owner approval on 2026-09-27 authorized implementation. Deployment/live-device validation remains **NOT PERFORMED**, installed SEED is **UNTOUCHED**, and B9–B10 remain **NOT STARTED**. See the [final B8 closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
+**SEED 0.2 — B0–B8 VERIFIED at source/CI level, schema v7. B9 design/specification COMPLETE FOR OWNER REVIEW; B9 overall IN PROGRESS, implementation NOT STARTED.** Current verified source baseline is master `af05f6566c026cd5438453dada85c92e1a4f2bc4` (PR #13 documentation closure); exact [run 36454551620](https://github.com/Jeruzael/SEED/actions/runs/36454551620) passed 747 tests on all three Linux/macOS jobs and all seven standalone scenarios on both Python 3.13 jobs. B8 technical acceptance remains [PR #12](https://github.com/Jeruzael/SEED/pull/12), merge `e0075e21f545921324aa5d5c9e2f4217b0a06cca`, and [post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417); its [closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29) remains historical evidence. The [B9 specification](superpowers/specs/2026-09-29-b9-astra-development-ui-design.md) authorizes no implementation or publication. B10 remains **NOT STARTED**. Deployment/live-device validation remains **NOT PERFORMED** and installed SEED is **UNTOUCHED**.
 
 The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR #9 merge), schema v5, 542 tests. Historical B6 acceptance remains 497 passed at dc225af.
 
@@ -19,7 +19,8 @@ The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR 
 | B6 | VERIFIED | Semantic memory consolidation | [Execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23), [comparison](baselines/seed-0.2-b6-comparison.json) |
 | B7 | VERIFIED | Bounded descriptive self model | [Closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25), [comparison](baselines/seed-0.2-b7-comparison.json) |
 | B8 | VERIFIED | Bounded decision selection, compact persistence and read-only inspection | [Closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29); exact master run 36443249417 |
-| B9–B10 | NOT STARTED | Development UI and evaluation | Separate authorization required |
+| B9 | IN PROGRESS | Astra Development UI design complete for owner review; implementation NOT STARTED | [Design record](seed-0.2-development-plan.md#b9-design-execution-record--2026-09-29); fresh existing dashboard baseline 160 passed, 2 warnings |
+| B10 | NOT STARTED | Development evaluation | Separate authorization required |
 
 ## Post-B6 hardening — separate from B7
 
@@ -89,3 +90,12 @@ implementation is NOT STARTED, B9–B10 are NOT STARTED, and installed SEED is U
 Owner-approved implementation follows amended design `4c24d7e`. Candidate inference now precedes selection from one bounded Q/history snapshot. Completed cycles atomically persist compact decision evidence and a digest link to the unchanged selected B2 prediction. Stale attempts are nonfatal skipped cycles with a full interruptible observation-interval retry. Schema7 and bounded read-only decision inspection are implemented; B7 compatibility is narrow and no frontend is added.
 
 The new [comparison artifact](baselines/seed-0.2-b8-comparison.json) anchors all eight unchanged historical artifacts. Independent review's two Important reader findings were reproduced and fixed; no findings are deferred. See the [tracker](seed-0.2-development-plan.md#b8-implementation--2026-09-28) and [verification evidence](verification.md#b8-local-verification--2026-09-28). Hosted CI, merge and installed-organism deployment remain separate owner-directed steps.
+
+
+## B9 design — 2026-09-29
+
+The [Astra specification](superpowers/specs/2026-09-29-b9-astra-development-ui-design.md) extends the existing Observer Edition 0.1 shell with seven DEVELOPMENT views. It defines a bounded stored prediction/evaluation read API, narrow safeguards for proven older-reader gaps, frozen-record presentation, exact ID links, state/time vocabulary, accessibility/responsive wireframes and future acceptance fixtures. Learning and Decisions remain distinct; legacy Concepts and B6 Semantic Memory remain distinct. B7/B8 readers and schema v7 remain unchanged.
+
+Branch `seed-0.2-b9` starts at verified master `af05f6566c026cd5438453dada85c92e1a4f2bc4`. Fresh characterization on Python **3.13.15** with a temporary `SEED_HOME`: **160 existing dashboard tests passed, 2 existing warnings in 2.57s**. No new tests, full-suite/scenario/browser rerun or screenshots are claimed. Only the specification, development tracker and this log change; no implementation plan, production code, dependencies, migration, deployment, installed-home access or B10 work. The [tracker record](seed-0.2-development-plan.md#b9-design-execution-record--2026-09-29) holds the exact scope and verification details.
+
+B9 overall is **IN PROGRESS**, design/specification **COMPLETE FOR OWNER REVIEW**, implementation **NOT STARTED**. B0–B8 remain **VERIFIED at source/CI level**; B10 **NOT STARTED**; deployment/live-device validation **NOT PERFORMED**; installed organism **UNTOUCHED**. Local documentation commit only; stop for owner review without pushing or opening a PR.
