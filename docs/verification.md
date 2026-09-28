@@ -171,3 +171,43 @@ correction; B7 needs separate owner authorization after source/CI closure.
 Both 3.13 jobs passed `baseline_scenario`, `prediction_error_scenario`, `world_model_scenario`, `curiosity_scenario`, `semantic_scenario` and `self_model_scenario`. The supplied artifact-inspection record confirms all three checkouts matched the merge SHA, had an empty `dirty_tree`, dependency installation exit 0, successful pip check, pytest exit 0 and an unchanged requirements-lock.txt hash. Seven historical B0–B6 artifacts remain unchanged.
 
 See the [final closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25). Deployment/live-device validation remains **NOT PERFORMED**, the low-disk decision mismatch remains **OPEN**, and B8–B10 remain **NOT STARTED**. These results verify the stated merge commit, not a later documentation PR head.
+
+## B8 local verification — 2026-09-28
+
+B8 is implemented on `seed-0.2-b8`, from reviewed amended design `4c24d7e`.
+The current local Python is **3.13.15**. With a fresh temporary `SEED_HOME`, the
+full suite passed **747 tests**, zero failures/skips, with the same two existing
+Starlette/httpx/anyio deprecation warnings. `pip check` reported no broken
+requirements; no dependency or lock changes were made. Core standard-library-only
+execution remains covered by the `python -S` regression. Compileall and
+`git diff --check` pass.
+
+All **seven** standalone scenario commands above completed with strict JSON.
+The B8 scenario repeated byte-for-byte and matched
+[seed-0.2-b8-comparison.json](baselines/seed-0.2-b8-comparison.json).
+All eight B0–B7 artifact files match `4c24d7e` byte-for-byte. Learner, sensors,
+prediction-error math, world model, curiosity/attention, semantic engine, settings,
+commands and requirements-lock sources also match that base. B8 intentionally
+changes prediction organization and autonomous eligibility/selection; historical
+comparison exceptions are explicit in `tests/scenario_compatibility.py`.
+
+Both complete amended-spec examples pass the implemented strict reader contract:
+healthy **4,195 bytes** with digest
+`4e37f7a1986ae0c28236684ed04cd8865f121082d1d3a4893c5cbc202c28d1a9`,
+and degraded **4,292 bytes** with digest
+`4dc446ec70f9233e55914f9d25157da1d6ccf9b4b0bb8979642a87cb980732de`.
+Record and selected-prediction serializers retain their distinct separators.
+
+Independent review found two Important reader issues and no Critical issues.
+Six regressions failed before correction and passed afterward: contradictory
+stored policy-support/failure provenance is rejected without rescoring, and invalid
+UTF-8 scalar evidence becomes one corrupt page slot instead of a whole-page error.
+No review findings are deferred. Tests also exercise VM budgets, cleanup failures,
+interrupt preservation, full-page/response limits, rollback, retained-v6 B7
+snapshots, stop precedence and bounded nonfatal stale retries.
+
+Local evidence is retained under `.review-artifacts/b8-final/` (ignored).
+The workflow now includes the seventh scenario, but **hosted B8 CI has not run**;
+no branch push, PR, merge, installation, live-memory migration or restart was
+performed. The roadmap records B8 as **IMPLEMENTED** pending hosted acceptance
+and owner review. B9–B10 remain unauthorized and unstarted.
