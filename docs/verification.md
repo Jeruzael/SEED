@@ -207,7 +207,24 @@ interrupt preservation, full-page/response limits, rollback, retained-v6 B7
 snapshots, stop precedence and bounded nonfatal stale retries.
 
 Local evidence is retained under `.review-artifacts/b8-final/` (ignored).
-The workflow now includes the seventh scenario, but **hosted B8 CI has not run**;
-no branch push, PR, merge, installation, live-memory migration or restart was
-performed. The roadmap records B8 as **IMPLEMENTED** pending hosted acceptance
-and owner review. B9–B10 remain unauthorized and unstarted.
+At that local-only checkpoint, hosted CI, branch publication and a PR had not yet
+occurred. Hosted acceptance subsequently passed for implementation SHA `acaccce`,
+as recorded below. That result does not cover this later documentation update.
+B8 remains IMPLEMENTED pending final-head checks, owner-directed merge and exact
+post-merge master verification. Installation, live-memory migration and restart
+remain NOT PERFORMED; B9–B10 remain unauthorized and unstarted.
+
+
+## B8 PR-head hosted verification — 2026-09-28
+
+[PR #12](https://github.com/Jeruzael/SEED/pull/12), from `seed-0.2-b8` to `master`, is open and unmerged. Implementation head `acaccce889b18d165252c6977d41e5113e74e681` passed [SEED verification run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250). Master remains at `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb` (B7/schema v6); the feature branch implements schema v7.
+
+| Exact check | Python | Tests | Standalone scenarios |
+| --- | --- | --- | --- |
+| `test (linux-py311)` | 3.11.16 | 747 passed; 2 existing warnings | Intentionally not configured |
+| `test (linux-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed |
+| `test (macos-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed |
+
+Artifact IDs are `10963505882` (Linux 3.11), `10963101024` (Linux 3.13), and `10962179746` (macOS 3.13). The supplied artifact-inspection record confirms exact checkout SHA `acaccce889b18d165252c6977d41e5113e74e681`, empty `dirty_tree`, dependency and pytest exit codes 0, successful pip check, and unchanged lock hash `1fe34b077636964cde188c0f19317f7615f27200d4ac49aedeeb13df401fd769` on all three jobs. Both Python 3.13 artifacts confirm scenario exit 0, empty scenario stderr, and byte-identical outputs for all seven scenarios listed in the local reproduction commands. GitHub run/job metadata, logs and artifact IDs were corroborated during this cleanup; artifact-content findings are attributed to that supplied inspection record.
+
+**This verifies the stated implementation PR head only. It does not verify the future merge commit on master or the subsequent documentation commit.** The latter must receive its own three successful exact checks; expected results remain 747 tests per job and seven standalone scenarios on both Python 3.13 jobs. B8 remains **IMPLEMENTED, NOT YET VERIFIED**. PR #12 must not merge without owner direction; exact post-merge master verification is still required. Deployment/live-device validation is **NOT PERFORMED** and B9–B10 remain **NOT STARTED**.

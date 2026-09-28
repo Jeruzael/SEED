@@ -4,7 +4,7 @@
 
 SEED is an experimental developmental agent that treats a MacBook as its body and first environment. It observes local conditions, remembers experience, predicts immediate outcomes, measures prediction error, and retains descriptive patterns within owner-controlled boundaries.
 
-**Current source: SEED 0.2 — B8 implemented, schema v7.** The owner-approved decision system is implemented on `seed-0.2-b8`; local verification and independent review are recorded in the [B8 implementation record](docs/seed-0.2-development-plan.md#b8-implementation--2026-09-28). Hosted B8 CI and deployment have not been performed. B0–B7 retain their historical verified status; the last B7 [hosted run](https://github.com/Jeruzael/SEED/actions/runs/36104979944) passed 646 tests on Linux Python 3.11/3.13 and macOS Python 3.13. Source changes do not install, restart or migrate the installed organism.
+**Current source: SEED 0.2 — B8 IMPLEMENTED on [PR #12](https://github.com/Jeruzael/SEED/pull/12), schema v7.** Hosted acceptance passed for implementation SHA `acaccce889b18d165252c6977d41e5113e74e681` in [run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250): 747 tests on Linux Python 3.11/3.13 and macOS Python 3.13, plus all seven standalone scenarios on both Python 3.13 jobs. This evidence covers that exact implementation SHA; the subsequent documentation head requires its own successful checks before merge. B8 is **not yet VERIFIED**: PR #12 remains unmerged and exact post-merge master verification has not run. Master remains B7/schema v6. Deployment/live-device validation is **NOT PERFORMED**; source changes do not install, restart or migrate the installed organism. See the [acceptance record](docs/seed-0.2-development-plan.md#b8-pr-head-hosted-acceptance--2026-09-28).
 
 Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. The macOS test-isolation correction passes **542 tests** locally and on all three hosted Linux/macOS jobs for correction commit `cb70d00`; all verification artifacts were inspected. [Corrective PR #9](https://github.com/Jeruzael/SEED/pull/9) records checks for its current head. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
 
@@ -18,7 +18,7 @@ Post-B6 hardening corrects current battery-state parsing, separates source and r
 | B5 | Bounded computational curiosity | VERIFIED |
 | B6 | Semantic memory consolidation | VERIFIED |
 | B7 | Descriptive self model | VERIFIED |
-| B8 | Bounded decision system and stored decision inspection | IMPLEMENTED; local verification |
+| B8 | Bounded decision system and stored decision inspection | IMPLEMENTED; hosted acceptance passed for `acaccce` |
 | B9–B10 | Development UI and evaluation | NOT STARTED |
 
 See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B9–B10 require separate explicit authorization.

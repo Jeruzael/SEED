@@ -2,9 +2,9 @@
 
 This is a navigation index. The [development tracker](seed-0.2-development-plan.md) holds the canonical batch requirements, decisions, acceptance evidence, limitations and readiness gates. The [README](../README.md) explains current use; the [architecture guide](architecture.md) describes current implementation contracts.
 
-## Current verified state
+## Current implementation and acceptance state
 
-**SEED 0.2 — B8 IMPLEMENTED, schema v7.** Owner approval on 2026-09-27 authorized the reviewed amendment; local verification and independent review corrections are recorded in the [B8 implementation record](seed-0.2-development-plan.md#b8-implementation--2026-09-28). Hosted B8 checks and installed-device deployment have not been performed. B0–B7 retain their historical verified status; B9–B10 remain unstarted.
+**SEED 0.2 — B8 IMPLEMENTED; hosted acceptance passed for implementation SHA `acaccce889b18d165252c6977d41e5113e74e681`, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) remains open against master. [Run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250) passed 747 tests on all three Linux/macOS jobs and all seven standalone scenarios on both Python 3.13 jobs. The supplied artifact-inspection record confirms the exact clean checkout and successful dependency/test/scenario results; GitHub run/job metadata and logs corroborate acceptance. A new documentation head requires its own checks; merge and exact post-merge master verification remain outstanding, so B8 is **not yet VERIFIED**. Master remains B7/schema v6. Owner approval on 2026-09-27 authorized implementation; deployment/live-device validation remains **NOT PERFORMED**, and B9–B10 remain unstarted. See the [acceptance record](seed-0.2-development-plan.md#b8-pr-head-hosted-acceptance--2026-09-28).
 
 The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR #9 merge), schema v5, 542 tests. Historical B6 acceptance remains 497 passed at dc225af.
 
@@ -18,7 +18,7 @@ The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR 
 | B5 | VERIFIED | Bounded computational curiosity | [Execution record](seed-0.2-development-plan.md#b5-execution-log--2026-09-22), [comparison](baselines/seed-0.2-b5-comparison.json) |
 | B6 | VERIFIED | Semantic memory consolidation | [Execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23), [comparison](baselines/seed-0.2-b6-comparison.json) |
 | B7 | VERIFIED | Bounded descriptive self model | [Closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25), [comparison](baselines/seed-0.2-b7-comparison.json) |
-| B8 | IMPLEMENTED | Bounded decision selection, compact persistence and read-only inspection; local verification | [Specification](superpowers/specs/2026-09-25-b8-decision-system-design.md), [design record](seed-0.2-development-plan.md#b8-design-execution-record--2026-09-25) |
+| B8 | IMPLEMENTED; hosted acceptance passed for `acaccce` | Bounded decision selection, compact persistence and read-only inspection | [PR-head acceptance](seed-0.2-development-plan.md#b8-pr-head-hosted-acceptance--2026-09-28); final docs-head checks, merge and master verification outstanding |
 | B9–B10 | NOT STARTED | Development UI and evaluation | Separate authorization required |
 
 ## Post-B6 hardening — separate from B7

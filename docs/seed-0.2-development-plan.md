@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: reviewed B8 implementation, approved 2026-09-27 and continued 2026-09-28. B8 is IMPLEMENTED on `seed-0.2-b8`, based on amended design `4c24d7e` and verified master `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`; current source schema is v7. Local verification and independent review are recorded below. Hosted B8 CI and deployment/live-device validation are NOT PERFORMED; installed SEED is UNTOUCHED. B0–B7 retain historical VERIFIED status. B9–B10 remain NOT STARTED and unauthorized.** The low-disk autonomous decision mismatch is resolved through eligibility while preserving legacy rewards and owner-command guards. Historical entries retain their checkpoint status; see [B8 implementation](#b8-implementation--2026-09-28).
+**Current authorization: B8 documentation-only PR acceptance cleanup; no merge, deployment, B9 or B10 authorization.** The owner approved implementation on 2026-09-27 and continued it on 2026-09-28. B8 is **IMPLEMENTED** on `seed-0.2-b8` ([PR #12](https://github.com/Jeruzael/SEED/pull/12)), schema v7. Implementation SHA `acaccce889b18d165252c6977d41e5113e74e681` passed [hosted acceptance run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250), following the local 747-test pass. This evidence does not cover a subsequent documentation SHA. PR #12 is open; master remains B7/schema v6 at `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb`. B8 is **NOT YET VERIFIED** because merge and exact post-merge master verification remain outstanding. Deployment/live-device validation is **NOT PERFORMED**; installed SEED is **UNTOUCHED**. B0–B7 retain historical VERIFIED status, and B9–B10 remain **NOT STARTED**. The low-disk autonomous mismatch is resolved in B8 source. Historical checkpoints below retain their earlier status; see [PR-head acceptance](#b8-pr-head-hosted-acceptance--2026-09-28).
 
 ## Objective and architectural transition
 
@@ -63,7 +63,7 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B5 | Prediction-Error Curiosity | VERIFIED | B3, B4 | Full suite: 426 passed; independent review found no issues | Schema v4; error-anchored salience; owner-controlled auxiliary reflection |
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
 | B7 | Self Model | VERIFIED | B3, B6 | 646 tests on Linux 3.11/3.13 and macOS 3.13; six scenarios on both 3.13 jobs; post-merge run 36104979944 | Schema v6; bounded descriptive singleton; no upstream influence |
-| B8 | Decision-System Upgrade | IMPLEMENTED | B5, B7 | Local full-suite and deterministic acceptance; independent review findings fixed | Schema7; bounded candidate forecasts/utility, injected ties, compact digest-linked decisions, stale retry; hosted checks pending |
+| B8 | Decision-System Upgrade | IMPLEMENTED | B5, B7 | Local 747 tests; implementation SHA `acaccce` hosted 747 tests on Linux 3.11/3.13 and macOS 3.13; seven scenarios on both 3.13 jobs; run 36407866250 | Schema7; final docs-head checks, merge and exact post-merge master verification outstanding |
 | B9 | Astra Development UI | NOT STARTED | B0 and each exposed data-producing batch; B1–B8 for full scope | Not added or executed for B9 | Existing observer UI is groundwork, not developmental UI completion |
 | B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
 
@@ -2022,3 +2022,27 @@ Historical scenario compatibility uses explicit leaf changes: new control action
 Independent fresh-context review found 0 Critical and 2 Important issues: inconsistent frozen policy provenance accepted by the reader, and invalid UTF-8 scalar text failing an entire page. Six failing regressions proved them; both were fixed with structural support/reason validation and canonical SQL scalar projection. No review findings remain deferred. Additional regressions verify VM interruption, cleanup/lock release and KeyboardInterrupt, read-only corrupt-slot pagination, whole-experience rollback, owner stop, pre-telemetry state validation, and a full delayed nonfatal retry. Final command results are recorded in [verification](verification.md#b8-local-verification--2026-09-28).
 
 Status remains IMPLEMENTED pending hosted acceptance/owner review; local correctness evidence is not a claim of deployment or measured developmental improvement.
+
+
+### B8 PR-head hosted acceptance — 2026-09-28
+
+[PR #12 — Seed 0.2 b8](https://github.com/Jeruzael/SEED/pull/12) is **open**, from `seed-0.2-b8` to `master`, and is not merged. Base master at PR creation and at this checkpoint: `92e6aa47ec01d80e123e1c9a90c10f9e59e367fb` (B7/schema v6). The exact verified implementation head is `acaccce889b18d165252c6977d41e5113e74e681`. [SEED verification run 36407866250](https://github.com/Jeruzael/SEED/actions/runs/36407866250) completed **SUCCESS** for that head.
+
+| Exact check | Python | Tests | Standalone scenarios | Artifact ID |
+| --- | --- | --- | --- | --- |
+| `test (linux-py311)` | 3.11.16 | 747 passed; 2 existing warnings | Intentionally disabled by matrix | `10963505882` |
+| `test (linux-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed | `10963101024` |
+| `test (macos-py313)` | 3.13.15 | 747 passed; 2 existing warnings | All seven passed | `10962179746` |
+
+The seven scenarios are `baseline_scenario`, `prediction_error_scenario`, `world_model_scenario`, `curiosity_scenario`, `semantic_scenario`, `self_model_scenario`, and `decision_scenario`. The owner-supplied artifact-inspection record confirms:
+
+- All three `checked_out_sha` values equal `acaccce889b18d165252c6977d41e5113e74e681`; each `dirty_tree` is empty.
+- `dependencies.exit = 0`, `pytest.exit = 0`, and successful `pip check` on every job.
+- The unchanged requirements-lock SHA-256 is `1fe34b077636964cde188c0f19317f7615f27200d4ac49aedeeb13df401fd769`.
+- Both Python 3.13 artifacts have `scenarios.exit = 0`, seven byte-for-byte identical Linux/macOS scenario JSON outputs, and empty scenario stderr.
+
+GitHub metadata and job logs were checked during this cleanup: PR state/base/head, run and job success, Python versions, 747-test results, scenario-step outcomes and all three artifact IDs match that record. The artifact-content findings above retain their supplied inspection provenance.
+
+Status at this acceptance checkpoint: implementation **IMPLEMENTED**; local verification **PASS**; hosted acceptance of the stated implementation SHA **PASS**; merged to master **NO**; exact post-merge master verification **NOT RUN**; B8 overall **NOT YET VERIFIED**. No deployment, live-memory migration or restart occurred; B9–B10 remain **NOT STARTED**.
+
+This documentation update creates a new PR head. Run 36407866250 does **not** cover it. All three exact checks must pass on the final documentation SHA before merge readiness; merge then requires owner direction, followed by verification of the exact merge commit on master before marking B8 VERIFIED. No history rewrite or automatic merge is authorized.
