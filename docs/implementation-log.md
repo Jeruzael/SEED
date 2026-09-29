@@ -4,7 +4,7 @@ This is a navigation index. The [development tracker](seed-0.2-development-plan.
 
 ## Current source and design state
 
-**SEED 0.2 — B0–B8 VERIFIED at source/CI level, schema v7. B9 design/specification COMPLETE FOR OWNER REVIEW; B9 overall IN PROGRESS, implementation NOT STARTED.** Current verified source baseline is master `af05f6566c026cd5438453dada85c92e1a4f2bc4` (PR #13 documentation closure); exact [run 36454551620](https://github.com/Jeruzael/SEED/actions/runs/36454551620) passed 747 tests on all three Linux/macOS jobs and all seven standalone scenarios on both Python 3.13 jobs. B8 technical acceptance remains [PR #12](https://github.com/Jeruzael/SEED/pull/12), merge `e0075e21f545921324aa5d5c9e2f4217b0a06cca`, and [post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417); its [closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29) remains historical evidence. The [B9 specification](superpowers/specs/2026-09-29-b9-astra-development-ui-design.md) authorizes no implementation; the review amendment authorizes a documentation commit and push to the existing branch only, with no PR. B10 remains **NOT STARTED**. Deployment/live-device validation remains **NOT PERFORMED** and installed SEED is **UNTOUCHED**.
+**SEED 0.2 — B0–B8 VERIFIED at source/CI level, schema v7. B9 design/specification OWNER APPROVED / COMPLETE; B9 overall IN PROGRESS, implementation NOT STARTED.** Current verified source baseline is master `af05f6566c026cd5438453dada85c92e1a4f2bc4` (PR #13 documentation closure); exact [run 36454551620](https://github.com/Jeruzael/SEED/actions/runs/36454551620) passed 747 tests on all three Linux/macOS jobs and all seven standalone scenarios on both Python 3.13 jobs. B8 technical acceptance remains [PR #12](https://github.com/Jeruzael/SEED/pull/12), merge `e0075e21f545921324aa5d5c9e2f4217b0a06cca`, and [post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417); its [closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29) remains historical evidence. The [B9 specification](superpowers/specs/2026-09-29-b9-astra-development-ui-design.md) authorizes no implementation; the owner approved the design at `3dc9b8fdab2f4c12227e2371e679a57a02a5cf6f` and authorized this publication-status documentation cleanup and push only, with no PR. B10 remains **NOT STARTED**. Deployment/live-device validation remains **NOT PERFORMED** and installed SEED is **UNTOUCHED**.
 
 The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR #9 merge), schema v5, 542 tests. Historical B6 acceptance remains 497 passed at dc225af.
 
@@ -19,7 +19,7 @@ The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR 
 | B6 | VERIFIED | Semantic memory consolidation | [Execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09-23), [comparison](baselines/seed-0.2-b6-comparison.json) |
 | B7 | VERIFIED | Bounded descriptive self model | [Closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25), [comparison](baselines/seed-0.2-b7-comparison.json) |
 | B8 | VERIFIED | Bounded decision selection, compact persistence and read-only inspection | [Closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29); exact master run 36443249417 |
-| B9 | IN PROGRESS | Astra Development UI design complete for owner review; implementation NOT STARTED | [Design record](seed-0.2-development-plan.md#b9-design-execution-record--2026-09-29); fresh existing dashboard baseline 160 passed, 2 warnings |
+| B9 | IN PROGRESS | Astra Development UI design owner approved / complete; implementation NOT STARTED | [Design record](seed-0.2-development-plan.md#b9-design-execution-record--2026-09-29); historical local design baseline 160 passed, 2 warnings |
 | B10 | NOT STARTED | Development evaluation | Separate authorization required |
 
 ## Post-B6 hardening — separate from B7
@@ -111,4 +111,11 @@ Documentation-only amendment from `a6aa042c343c5e90dcf74c3fc90436e006d04e98`; bo
 
 Mechanical validation passed: three-file scope, balanced fences, 53 internal links/anchors, literal arithmetic, unchanged backend bounds and historical B8 records, and clean diff whitespace. No unresolved task markers remain.
 
-Publication pending: automatic approval review rejected the GitHub document upload for lack of direct trusted payload/destination authorization. No remote branch update occurred; the local amendment awaits explicit owner confirmation to publish.
+Historical publication checkpoint: automatic approval review rejected the earlier GitHub document upload for lack of direct trusted payload/destination authorization; no remote update occurred at that attempt. **Superseded:** the owner subsequently published the amended design successfully, and authenticated GitHub verification confirms remote `seed-0.2-b9` at `3dc9b8fdab2f4c12227e2371e679a57a02a5cf6f`. No PR exists and no hosted CI is claimed for this branch head. B9 implementation remains **NOT STARTED**.
+
+
+### B9 owner approval and publication cleanup — 2026-09-29
+
+Owner approved the B9 design/specification at `3dc9b8fdab2f4c12227e2371e679a57a02a5cf6f`, including the Overview compatibility resolution. This approval does not authorize implementation. The owner-supplied review closure reports **0 Critical / 0 Important remaining**; the earlier **0 Critical / 1 Important / 0 Minor** finding and failed publication attempt remain historical records, superseded by the resolution and verified publication above.
+
+Only the development tracker and this log change; the approved specification remains byte-identical and the three existing B9 commits remain intact. No fresh test run is claimed. B9 design/specification is **OWNER APPROVED / COMPLETE**, overall **IN PROGRESS**, implementation **NOT STARTED**; B10 **NOT STARTED**, schema **v7**, deployment/live-device validation **NOT PERFORMED**, installed organism **UNTOUCHED**. Publish the cleanup to the existing branch and stop; no PR or implementation plan.
