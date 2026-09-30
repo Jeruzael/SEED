@@ -52,6 +52,33 @@ def observer_router(service, slots):
             raise ServiceError('invalid_query', 'Invalid decision ID.')
         return Response(compact(service.decision(int(transition_id))),media_type='application/json')
 
+    def prediction_query(request, allowed):
+        seen = set()
+        for key, value in request.query_params.multi_items():
+            if key not in allowed or key in seen:
+                raise ServiceError('invalid_query', 'Invalid prediction query.')
+            prediction_id(value)
+            seen.add(key)
+
+    def prediction_id(value):
+        if (not 1 <= len(value) <= 19 or not value.isascii() or not value.isdigit()
+                or value[0] == '0' or int(value) > 2**63-1):
+            raise ServiceError('invalid_query', 'Invalid prediction query.')
+        return int(value)
+
+    @router.get('/predictions')
+    def predictions(request: Request):
+        prediction_query(request, {'before', 'limit'})
+        before = request.query_params.get('before')
+        limit = request.query_params.get('limit', '20')
+        result = service.predictions(None if before is None else prediction_id(before), prediction_id(limit))
+        return Response(compact(result), media_type='application/json')
+
+    @router.get('/predictions/{transition_id}')
+    def prediction(transition_id: str, request: Request):
+        prediction_query(request, set())
+        return Response(compact(service.prediction(prediction_id(transition_id))), media_type='application/json')
+
     @router.get('/world-beliefs')
     def world_beliefs(signal: str | None = Query(None, max_length=32),
                       scope: str | None = Query(None, max_length=16),
