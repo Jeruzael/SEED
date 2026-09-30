@@ -38,7 +38,7 @@ function validEpoch(v){return typeof v==='number'&&Number.isFinite(v)&&v>=0&&Num
 export function stamp(v){
  const node=el('span',null,'evidence-time'),valid=validEpoch(v),clock=valid?new Date(v*1000):null;
  node.append(document.createTextNode(valid?clock.toLocaleString(undefined,{timeZoneName:'short'})+' ('+Intl.DateTimeFormat().resolvedOptions().timeZone+')'+(v>Date.now()/1000?' · Ahead of dashboard clock':''):'Timestamp unavailable'));
- const detail=el('details');detail.append(el('summary','Timestamp details'),el('small',(valid?'UTC: '+clock.toISOString()+' · ':'')+'Raw epoch: '+String(v).slice(0,120)));node.append(detail);return node;
+ const detail=el('details');detail.append(el('summary','Timestamp details'),document.createTextNode((valid?'UTC: '+clock.toISOString()+' · ':'')+'Raw epoch: '+String(v).slice(0,120)));node.append(detail);return node;
 }
 export function badge(label){return el('span',label||'Unavailable','badge '+(/corrupt|error|failed/i.test(label)?'error':/unavailable|legacy|missing|stale/i.test(label)?'warning':''));}
 export function raw(data){return details('Formatted stored fields; large integers are displayed as decimal strings',data);}

@@ -14,6 +14,7 @@ export class Element {
   contains(node){return node===this||this.children.some(c=>c instanceof Element&&c.contains(node));}
   querySelectorAll(selector){const found=[];for(const child of this.children){if(!(child instanceof Element))continue;if(child.tagName===selector||selector==='*'||selector==='[aria-current=page]'&&child.attributes['aria-current']==='page')found.push(child);found.push(...child.querySelectorAll(selector));}return found;}
   querySelector(selector){return this.querySelectorAll(selector)[0]??null;}
+  get childNodes(){return this.children;}
   get hash(){return this.href?.startsWith('#')?this.href:'';}
 }
 export function installDOM(){

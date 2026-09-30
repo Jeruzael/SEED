@@ -180,8 +180,10 @@ def test_prediction_list_exposes_exact_episode_and_legacy_reward():
     javascript('''
 import assert from 'node:assert/strict';import {Element,installDOM} from '../../tests/dashboard/astra_dom.mjs';import {api} from './api.js';import {renderPredictions} from './views/predictions.js';installDOM();globalThis.location={hash:'#predictions?limit=50'};
 api.getEvidence=async()=>({available:true,items:Array.from({length:50},(_,i)=>({available:true,transition_id:i+1,episode_id:'9007199254740993',action:'observe',legacy_reward:0,completed_at:1700000000,prediction_present:false,evaluation_present:false})),next_cursor:null});
+const listResponse=await api.getEvidence();api.getEvidence=async path=>path.startsWith('predictions?')?listResponse:{available:true,transition_id:1,transition:{episode_id:1,action:'observe',legacy_reward:0,started_at:1700000000,completed_at:1700000001},prediction:{status:'stored',data:{signals:Object.fromEntries(['battery_pct','load_ratio','disk_free_pct','network_reachable'].map(s=>[s,{status:'predicted',value:0,evidence_count:1,confidence:0}]))}},evaluation:{status:'stored',data:{aggregate:{status:'evaluated'},signals:Object.fromEntries(['battery_pct','load_ratio','disk_free_pct','network_reachable'].map(s=>[s,{status:'evaluated',predicted:0,actual:0,normalized_error:0}]))}}};
 const root=new Element();await renderPredictions(root,new AbortController().signal);
 assert.ok(root.querySelectorAll('th').some(n=>n.textContent==='Episode'));assert.ok(root.querySelectorAll('th').some(n=>n.textContent==='Legacy reward'));
 assert.equal(root.querySelectorAll('a').filter(n=>n.href==='#memory?episode=9007199254740993').length,50);
 assert.ok(root.querySelectorAll('td').some(n=>n.textContent==='0'));assert.ok(root.querySelectorAll('*').length<=1000,'50-row prediction page exceeds approved render ceiling');
+await root.querySelectorAll('button').find(n=>n.textContent==='Inspect #1').listeners.click();assert.ok(root.textContent.includes('Stored evaluation'));assert.ok(root.querySelectorAll('*').length<=1000,'50-row predictions plus full selected detail exceeds approved render ceiling: '+root.querySelectorAll('*').length);
 ''')
