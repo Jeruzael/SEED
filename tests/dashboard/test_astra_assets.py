@@ -187,3 +187,30 @@ assert.equal(root.querySelectorAll('a').filter(n=>n.href==='#memory?episode=9007
 assert.ok(root.querySelectorAll('td').some(n=>n.textContent==='0'));assert.ok(root.querySelectorAll('*').length<=1000,'50-row prediction page exceeds approved render ceiling');
 await root.querySelectorAll('button').find(n=>n.textContent==='Inspect #1').listeners.click();assert.ok(root.textContent.includes('Stored evaluation'));assert.ok(root.querySelectorAll('*').length<=1000,'50-row predictions plus full selected detail exceeds approved render ceiling: '+root.querySelectorAll('*').length);
 ''')
+
+
+def test_prediction_refresh_returns_to_newest_and_retains_focus():
+    javascript('''
+import assert from 'node:assert/strict';import {installDOM} from '../../tests/dashboard/astra_dom.mjs';import {api} from './api.js';
+const {ids}=installDOM();globalThis.window={addEventListener:()=>{}};globalThis.location={hash:'#predictions?before=10&limit=50'};globalThis.history={replaceState:(_s,_t,url)=>{location.hash=url;}};globalThis.localStorage={getItem:()=>null,setItem:()=>{}};document.documentElement={dataset:{}};globalThis.matchMedia=()=>({matches:false,addEventListener:()=>{}});globalThis.setInterval=()=>0;
+const calls=[];api.bootstrap=async()=>({});api.getEvidence=async path=>{calls.push(path);return {available:true,items:[],next_cursor:null};};
+await import('./app.js');ids.get('refresh').focus();await ids.get('refresh').onclick();
+assert.equal(location.hash,'#predictions?limit=50');assert.equal(calls.at(-1),'predictions?limit=50');assert.equal(document.activeElement,ids.get('refresh'));
+''')
+
+
+def test_curiosity_sql_flags_display_yes_no_without_changing_values():
+    javascript('''
+import assert from 'node:assert/strict';import {Element,installDOM} from '../../tests/dashboard/astra_dom.mjs';import {curiosityDetail,renderCuriosity} from './views/curiosity.js';import {api} from './api.js';import {pairs} from './evidence.js';installDOM();
+const item={transition_id:1,reflection_eligible:0,reflection_claimed:1,reflection_completed:null};const root=new Element();curiosityDetail(root,item);const labels=root.querySelectorAll('dt'),values=root.querySelectorAll('dd');for(const [label,expected] of [['reflection eligible','No'],['reflection claimed','Yes'],['reflection completed','Unavailable']])assert.equal(values[labels.findIndex(n=>n.textContent===label)].textContent,expected);
+assert.equal(item.reflection_eligible,0);assert.equal(item.reflection_claimed,1);assert.equal(pairs(item,['reflection_eligible']).querySelector('dd').textContent,'No');
+globalThis.location={hash:'#curiosity'};api.getEvidence=async path=>path==='curiosity/summary'?{available:true}:{available:true,items:[item],next_cursor:null};await renderCuriosity(root,new AbortController().signal);assert.ok(root.querySelectorAll('td').some(n=>n.textContent==='Yes / Unavailable'));
+''')
+
+
+def test_semantic_selection_aborts_previous_history_request():
+    javascript('''
+import assert from 'node:assert/strict';import {Element,installDOM} from '../../tests/dashboard/astra_dom.mjs';import {api} from './api.js';import {renderSemanticMemory} from './views/semantic_memory.js';installDOM();globalThis.location={hash:'#semantic-memory'};
+let pendingSignal;api.getEvidence=async(path,signal)=>{if(path.includes('/history')){pendingSignal=signal;return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError')),{once:true}));}return {available:true,items:[{id:1,revision:1},{id:2,revision:1}],next_cursor:null};};
+const root=new Element();await renderSemanticMemory(root,new AbortController().signal);const click=label=>root.querySelectorAll('button').find(n=>n.textContent===label).listeners.click();await click('Inspect #1');const pending=click('Load revision history');assert.equal(pendingSignal.aborted,false);await click('Inspect #2');assert.equal(pendingSignal.aborted,true);await pending;assert.ok(root.textContent.includes('Memory #2'));assert.ok(!root.textContent.includes('aborted'));
+''')

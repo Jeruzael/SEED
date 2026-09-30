@@ -35,6 +35,7 @@ export function href(page,params={}){const query=new URLSearchParams(Object.entr
 export function link(label,page,params={}){const a=el('a',label,'evidence-link');a.href=href(page,params);return a;}
 export function value(v){return v===null||v===undefined?'Unavailable':typeof v==='boolean'?(v?'Yes':'No'):String(v);}
 function validEpoch(v){return typeof v==='number'&&Number.isFinite(v)&&v>=0&&Number.isFinite(new Date(v*1000).getTime());}
+export function flag(v){return v===true||v===1?'Yes':v===false||v===0?'No':'Unavailable';}
 export function stamp(v){
  const node=el('span',null,'evidence-time'),valid=validEpoch(v),clock=valid?new Date(v*1000):null;
  node.append(document.createTextNode(valid?clock.toLocaleString(undefined,{timeZoneName:'short'})+' ('+Intl.DateTimeFormat().resolvedOptions().timeZone+')'+(v>Date.now()/1000?' · Ahead of dashboard clock':''):'Timestamp unavailable'));
@@ -42,7 +43,7 @@ export function stamp(v){
 }
 export function badge(label){return el('span',label||'Unavailable','badge '+(/corrupt|error|failed/i.test(label)?'error':/unavailable|legacy|missing|stale/i.test(label)?'warning':''));}
 export function raw(data){return details('Formatted stored fields; large integers are displayed as decimal strings',data);}
-export function pairs(data,keys){return list(keys.map(key=>[key.replaceAll('_',' '),value(data?.[key])]));}
+export function pairs(data,keys){return list(keys.map(key=>[key.replaceAll('_',' '),['reflection_eligible','reflection_claimed','reflection_completed'].includes(key)?flag(data?.[key]):value(data?.[key])]));}
 export function times(data,keys){const node=el('dl',null,'data-list');for(const key of keys){const dd=el('dd',null,'mono');dd.append(stamp(data?.[key]));node.append(el('dt',key.replaceAll('_',' ')),dd);}if(keys.includes('started_at')&&keys.includes('completed_at')&&validEpoch(data?.started_at)&&validEpoch(data?.completed_at)&&data.completed_at<data.started_at)node.append(el('dt','Clock order'),el('dd','Clock order inconsistent'));return node;}
 export function state(root,data){
   if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Invalid evidence response');
