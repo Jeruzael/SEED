@@ -222,6 +222,8 @@ def validate(item, kind):
     elif kind=='curiosity':
         require(item['model']=='curiosity_v1' and item['model_version']==1)
         require(item['status'] in ('evaluated','unavailable') and item['level'] in ('LOW','NOTABLE','HIGH','VERY_HIGH','UNAVAILABLE'))
+        require((item['status']=='unavailable' and item['score'] is None and item['level']=='UNAVAILABLE') or
+                (item['status']=='evaluated' and number(item['score'],0,1) and item['level'] in ('LOW','NOTABLE','HIGH','VERY_HIGH')))
         for key in ('score','prediction_surprise','uncertainty','novelty','coverage'):
             require(item[key] is None or number(item[key],0,1))
         for key in ('reflection_eligible','reflection_claimed','reflection_completed'):

@@ -243,3 +243,21 @@ def test_missing_database_read_error_codes(tmp_path):
         (s.development,'development_read_unavailable'),(lambda:s.memory(1),'memory_read_unavailable')]:
         with pytest.raises(ServiceError) as error:operation()
         assert error.value.code==code and error.value.status==503
+
+
+@pytest.mark.parametrize('status,score,level',[
+    ('unavailable',.4,'UNAVAILABLE'),('unavailable',None,'HIGH'),
+    ('evaluated',None,'HIGH'),('evaluated',.4,'UNAVAILABLE')])
+def test_curiosity_contradictory_status_score_level_is_corrupt(home,status,score,level):
+    evidence_fixture(home)
+    with sqlite3.connect(home/'memory.sqlite3') as db:
+        db.execute('PRAGMA ignore_check_constraints=ON')
+        db.execute('UPDATE curiosity_assessments SET status=?,score=?,level=?',(status,score,level))
+        before=list(db.iterdump())
+    s=SeedService(home);page=s.curiosity_assessments(limit=1)
+    assert page['items'][0]['read_status']=='corrupt' and page['items'][0]['components'] is None
+    assert page['next_cursor'] is not None
+    summary=s.curiosity_summary()
+    assert summary['assessment_count']==2 and summary['valid_assessment_count']==0
+    assert summary['mean_score'] is None
+    with sqlite3.connect(home/'memory.sqlite3') as db:assert list(db.iterdump())==before

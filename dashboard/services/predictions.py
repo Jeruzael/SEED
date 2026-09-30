@@ -58,9 +58,10 @@ def validate_prediction(p, action):
 
 def validate_evaluation(e):
     keys(e, ('signals','aggregate','prediction_model','prediction_model_version','horizon','evaluator','evaluator_version'))
-    require(e['prediction_model'] is None or type(e['prediction_model']) is str)
-    require(e['prediction_model_version'] is None or integer(e['prediction_model_version'], 1))
-    require(e['horizon'] is None or type(e['horizon']) is str)
+    source_header = (e['prediction_model'],e['prediction_model_version'],e['horizon'])
+    require(source_header == (None,None,None) or
+            (source_header == ('transition_delta_v1',1,'next_post_action_observation')
+             and type(e['prediction_model_version']) is int))
     keys(e['signals'], TARGETS)
     for target, signal in e['signals'].items():
         require(type(signal) is dict)

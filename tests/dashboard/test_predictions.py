@@ -191,3 +191,32 @@ def test_direct_service_validation(home,value):
 
 def test_legacy_prediction_schema(legacy_home):
     assert client(legacy_home).get("/api/predictions").json()["reason"]=="legacy_schema"
+
+
+@pytest.mark.parametrize('header,expected',[
+    (('transition_delta_v1',1,'next_post_action_observation'),'stored'),
+    ((None,None,None),'stored'),
+    ((None,1,None),'corrupt'),
+    (('other_model',1,'next_post_action_observation'),'corrupt'),
+    (('transition_delta_v1',2,'next_post_action_observation'),'corrupt'),
+    (('transition_delta_v1',1,'wrong_horizon'),'corrupt'),
+])
+@pytest.mark.parametrize('sibling',[False,True])
+def test_evaluation_source_header_is_one_supported_triple(home,header,expected,sibling):
+    from seed.prediction_error import evaluate_prediction
+    p=prediction();evaluation=evaluate_prediction(p,dict(battery_pct=79,load_ratio=.75,disk_free_pct=49,network=False)).to_dict()
+    evaluation.update(zip(('prediction_model','prediction_model_version','horizon'),header))
+    # A literal intentionally unrelated to the remaining fields proves reads do not rescore.
+    evaluation['aggregate']['accuracy_score']=.123
+    tid=transition(home,json.dumps(p) if sibling else None,json.dumps(evaluation))
+    item=client(home).get(f'/api/predictions/{tid}').json()['evaluation']
+    assert item['status']==expected
+    if expected=='corrupt':assert item['reason']=='invalid_evaluation' and item['data'] is None
+    else:assert item['data']['aggregate']['accuracy_score']==.123
+
+
+def test_unsupported_evaluator_stays_unsupported(home):
+    from seed.prediction_error import evaluate_prediction
+    e=evaluate_prediction(prediction(),{}).to_dict();e['evaluator']='future_evaluator'
+    tid=transition(home,evaluation=json.dumps(e))
+    assert client(home).get(f'/api/predictions/{tid}').json()['evaluation']==dict(status='unsupported',reason='unsupported_model',data=None)
