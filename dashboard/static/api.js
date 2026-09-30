@@ -3,7 +3,7 @@ export const api = {
   async get(path, signal) {
     const response = await fetch('/api/' + path, {signal, credentials:'same-origin'});
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Local service unavailable');
+    if (!response.ok) {const error=new Error(data.error?.message || 'Local service unavailable');error.status=response.status;error.code=data.error?.code;throw error;}
     return data;
   },
   async mutate(path, method, body) {
@@ -28,3 +28,79 @@ export function table(headers,rows){const wrap=el('div',null,'table-wrap'), t=el
 export function field(label,type='text',value=''){const l=el('label',label),input=el('input');input.type=type;input.value=value;l.append(input);return [l,input];}
 export function select(label,options){const l=el('label',label),input=el('select');for(const [value,text] of options){const o=el('option',text);o.value=value;input.append(o);}l.append(input);return [l,input];}
 export function empty(root,message){root.append(el('p',message,'empty'));}
+
+// Tokenize outside strings before JSON.parse so signed64 identifiers never round.
+export function parseEvidence(text, maxBytes) {
+  const encoder=new TextEncoder();
+  if(encoder.encode(text).length>maxBytes)throw new Error('Evidence byte limit exceeded');
+  let output='',i=0;
+  while(i<text.length){
+    const start=i,c=text[i];
+    if(c==='"'){
+      i++;
+      while(i<text.length){if(text[i]==='\\'){i+=2;continue;}if(text[i++]==='"')break;}
+      output+=text.slice(start,i);
+    } else if(c==='-'||(c>='0'&&c<='9')){
+      while(i<text.length&&/[0-9eE+.-]/.test(text[i]))i++;
+      const token=text.slice(start,i);
+      if(!/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(token))throw new Error('Invalid evidence number');
+      if(!token.includes('.')&&!/[eE]/.test(token)){
+        const exact=BigInt(token);
+        output+=exact>BigInt(Number.MAX_SAFE_INTEGER)||exact<BigInt(Number.MIN_SAFE_INTEGER)?JSON.stringify(exact.toString()):token;
+      }else output+=token;
+    }else{output+=c;i++;}
+  }
+  if(encoder.encode(output).length>2*maxBytes)throw new Error('Evidence byte limit exceeded');
+  const data=JSON.parse(output);
+  function check(value,depth=0){
+    if(depth>32)throw new Error('Invalid evidence nesting');
+    if(typeof value==='number'&&!Number.isFinite(value))throw new Error('Invalid evidence number');
+    if(typeof value==='string'){
+      for(let j=0;j<value.length;j++){
+        const code=value.charCodeAt(j);
+        if(code>=0xd800&&code<=0xdbff){const next=value.charCodeAt(++j);if(!(next>=0xdc00&&next<=0xdfff))throw new Error('Invalid Unicode evidence');}
+        else if(code>=0xdc00&&code<=0xdfff)throw new Error('Invalid Unicode evidence');
+      }
+    }else if(value&&typeof value==='object')for(const [key,child] of Object.entries(value)){check(key,depth+1);check(child,depth+1);}
+  }
+  check(data);return data;
+}
+
+export function evidenceLimit(path){
+  const route=path.split('?')[0];
+  if(route==='development')return 98304;
+  if(route==='self-model')return 40960;
+  if(/^memories\/[1-9][0-9]{0,18}$/.test(route))return 32768;
+  if(route==='predictions')return 27648;
+  if(/^predictions\/[1-9][0-9]{0,18}$/.test(route))return 35840;
+  if(route==='decisions')return 53248;
+  if(/^decisions\/[1-9][0-9]{0,18}$/.test(route))return 17408;
+  if(route==='curiosity/summary')return 16384;
+  if(/^semantic-memories\/[1-9][0-9]{0,18}\/history$/.test(route))return 3485696;
+  if(/^(world-beliefs|curiosity|semantic-memories|consolidation-runs)$/.test(route))return 1847296;
+  if(/^(world-beliefs|curiosity|semantic-memories)\/[1-9][0-9]{0,18}$/.test(route))return 20480;
+  throw new Error('Invalid evidence path');
+}
+
+api.getEvidence=async function(path,signal,maxBytes=evidenceLimit(path)){
+  maxBytes=Math.min(maxBytes,evidenceLimit(path));
+  const controller=new AbortController();
+  const cancel=()=>controller.abort();
+  if(signal?.aborted)controller.abort();else signal?.addEventListener('abort',cancel,{once:true});
+  let timedOut=false;
+  const timer=setTimeout(()=>{timedOut=true;controller.abort();},10000);
+  let reader;
+  try{
+    const response=await fetch('/api/'+path,{signal:controller.signal,credentials:'same-origin'});
+    const limit=response.ok?maxBytes:1024;
+    if(Number(response.headers.get('Content-Length'))>limit){await response.body?.cancel();throw new Error('Evidence byte limit exceeded');}
+    reader=response.body?.getReader();if(!reader)throw new Error('Missing evidence response');
+    const decoder=new TextDecoder('utf-8',{fatal:true});let total=0,text='';
+    for(;;){const {value,done}=await reader.read();if(done)break;total+=value.byteLength;if(total>limit){await reader.cancel();throw new Error('Evidence byte limit exceeded');}text+=decoder.decode(value,{stream:true});}
+    text+=decoder.decode();
+    const data=parseEvidence(text,limit);
+    if(!response.ok){const error=new Error(data.error?.message||'Stored evidence unavailable');error.status=response.status;error.code=data.error?.code;throw error;}
+    return data;
+  }catch(error){if(timedOut){const timeout=new Error('Read timed out after 10 seconds. Retry when ready.');timeout.code='read_timeout';throw timeout;}throw error;}
+  finally{reader?.releaseLock();clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
+};
