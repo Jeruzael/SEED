@@ -61,3 +61,17 @@ def test_overview_development_failure_is_independent():
     assert "'0.0000'" not in (STATIC/'views/learning.js').read_text()
     assert 'Legacy concepts from reflection windows' in (STATIC/'views/concepts.js').read_text()
     assert 'episode' in (STATIC/'views/memory.js').read_text()
+
+
+@pytest.mark.parametrize('module,renderer', [('development','renderDevelopment'),('predictions','renderPredictions'),
+    ('world_model','renderWorldModel'),('curiosity','renderCuriosity'),('semantic_memory','renderSemanticMemory'),
+    ('self_model','renderSelfModel'),('decisions','renderDecisions')])
+def test_astra_view_modules_are_registered_and_read_only(module,renderer):
+    path=STATIC/'views'/f'{module}.js'
+    assert path.is_file()
+    source=path.read_text()
+    assert f'function {renderer}' in source
+    assert renderer in (STATIC/'app.js').read_text()
+    for forbidden in ('innerHTML','eval(','EventSource','setInterval','api.mutate','localStorage','sessionStorage'):
+        assert forbidden not in source
+    javascript(f"import {{ {renderer} }} from './views/{module}.js';if(typeof {renderer} !=='function')throw Error('Renderer missing');")
