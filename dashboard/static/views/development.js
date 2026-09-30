@@ -1,5 +1,5 @@
 import {el,card,button,table} from '../api.js';
-import {read,state,listItems,raw,pairs,times,readTime,link,value,report,badge} from '../evidence.js';
+import {read,state,listItems,raw,pairs,times,readTime,link,stamp,value,report,badge} from '../evidence.js';
 let countsLoaded=false;
 export async function renderDevelopment(root,signal){
  root.replaceChildren(el('p','A mosaic of separately recorded evidence. Cards do not describe one atomic current state.','notice'));
@@ -30,6 +30,6 @@ export async function renderDevelopment(root,signal){
   }
   readTime(c);
  }
- const retained=card('Legacy retained development counts');grid.append(retained);const load=async()=>{countsLoaded=true;retained.replaceChildren(el('h2','Legacy retained development counts'),el('p','Reading exact retained counts…'));try{const data=await read('development',signal);retained.replaceChildren(el('h2','Legacy retained development counts'),pairs(data,['observations','owner_interactions','wake_records','sleep_stop_records','known_contexts','learning_updates','concepts']),el('p',data.scope),table(['Lifecycle event','Recorded','Note'],data.timeline.map(row=>[row.event,value(row.ts),row.read_status==='corrupt'?'Corrupt stored note':value(row.note)])));readTime(retained);}catch(error){if(!signal.aborted){report(retained,error,load);retained.prepend(el('h2','Legacy retained development counts'));}}};
+ const retained=card('Legacy retained development counts');grid.append(retained);const load=async()=>{countsLoaded=true;retained.replaceChildren(el('h2','Legacy retained development counts'),el('p','Reading exact retained counts…'));try{const data=await read('development',signal);retained.replaceChildren(el('h2','Legacy retained development counts'),pairs(data,['observations','owner_interactions','wake_records','sleep_stop_records','known_contexts','learning_updates','concepts']),el('p',data.scope),table(['Lifecycle event','Recorded','Note'],data.timeline.map(row=>[row.event,stamp(row.ts),row.read_status==='corrupt'?'Corrupt stored note':value(row.note)])));readTime(retained);}catch(error){if(!signal.aborted){report(retained,error,load);retained.prepend(el('h2','Legacy retained development counts'));}}};
  if(countsLoaded)await load();else retained.append(badge('Not loaded'),button('Load retained counts',load));
 }

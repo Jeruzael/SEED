@@ -119,3 +119,10 @@ Historical publication checkpoint: automatic approval review rejected the earlie
 Owner approved the B9 design/specification at `3dc9b8fdab2f4c12227e2371e679a57a02a5cf6f`, including the Overview compatibility resolution. This approval does not authorize implementation. The owner-supplied review closure reports **0 Critical / 0 Important remaining**; the earlier **0 Critical / 1 Important / 0 Minor** finding and failed publication attempt remain historical records, superseded by the resolution and verified publication above.
 
 Only the development tracker and this log change; the approved specification remains byte-identical and the three existing B9 commits remain intact. No fresh test run is claimed. B9 design/specification is **OWNER APPROVED / COMPLETE**, overall **IN PROGRESS**, implementation **NOT STARTED**; B10 **NOT STARTED**, schema **v7**, deployment/live-device validation **NOT PERFORMED**, installed organism **UNTOUCHED**. Publish the cleanup to the existing branch and stop; no PR or implementation plan.
+
+
+## B9 Astra implementation — 2026-09-30
+
+The owner's later implementation instruction supersedes the historical design-only stop above. Native execution on `seed-0.2-b9` implements the approved seven-view Astra observer and bounded evidence readers. The [tracker](seed-0.2-development-plan.md#b9-implementation--2026-09-30) records scope/commit checkpoints; [verification](verification.md#b9-local-implementation-verification--2026-09-30) records the local851-test suite, seven standalone scenarios, temporary fixture preservation and browser acceptance.
+
+Browser verification found an omitted transition ID in prediction detail; a failing regression check preceded the fix. Table regions are keyboard focusable and retain horizontal overflow on narrow screens. The intervening fixture checkpoint `e3bd0fd` remains intact. Final independent review is in progress. B9 is IMPLEMENTED locally; hosted CI, publication, merge and deployment are not claimed. B0–B8 evidence, schema v7 and installed SEED are unchanged; B10 remains NOT STARTED.

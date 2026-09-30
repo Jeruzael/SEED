@@ -75,3 +75,22 @@ def test_astra_view_modules_are_registered_and_read_only(module,renderer):
     for forbidden in ('innerHTML','eval(','EventSource','setInterval','api.mutate','localStorage','sessionStorage'):
         assert forbidden not in source
     javascript(f"import {{ {renderer} }} from './views/{module}.js';if(typeof {renderer} !=='function')throw Error('Renderer missing');")
+
+
+def test_prediction_detail_uses_envelope_identity():
+    source=(STATIC/'views/predictions.js').read_text()
+    assert 'transition_id:data.transition_id' in source.split('correlation')[0] or 'const transition={...data.transition,transition_id:data.transition_id}' in source
+
+
+def test_request_deadline_and_navigation_abort_are_distinct():
+    javascript('''
+import assert from 'node:assert/strict';
+import {api} from './api.js';
+let deadline;
+const originalSet=globalThis.setTimeout,originalClear=globalThis.clearTimeout;
+globalThis.setTimeout=(fn,ms)=>{assert.equal(ms,10000);deadline=fn;return 1;};globalThis.clearTimeout=()=>{};
+globalThis.fetch=async(_,{signal})=>await new Promise((resolve,reject)=>{signal.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError')),{once:true});});
+const pending=api.getEvidence('predictions');deadline();await assert.rejects(pending,e=>e.code==='read_timeout');
+const controller=new AbortController(),next=api.getEvidence('predictions',controller.signal);controller.abort();await assert.rejects(next,e=>e.name==='AbortError'&&!e.code?.startsWith?.('read_'));
+globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;
+''')

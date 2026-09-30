@@ -140,7 +140,7 @@ class SeedService:
                         import json
                         data=er.scalars(annotation,er.layout('important',tags_json=4096))
                         tags=json.loads(data['tags_json'])
-                        er.require(data['important'] in (0,1) and isinstance(tags,list) and len(tags)<=10 and all(type(t) is str and len(t)<=32 for t in tags))
+                        er.require(data['important'] in (0,1) and isinstance(tags,list) and len(tags)<=10 and all(type(t) is str and len(t)<=32 and len(t.encode('utf-8'))<=128 for t in tags))
                         item.update(important=bool(data['important']),tags=tags)
                     except (ValueError,TypeError,UnicodeError,RecursionError):
                         item.update(read_status='corrupt',read_reason='invalid_stored_evidence',warning='Stored episode annotation is invalid or exceeds read limits.')

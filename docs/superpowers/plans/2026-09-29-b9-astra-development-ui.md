@@ -57,11 +57,11 @@
 
 **Interfaces:** `api.getEvidence(path,signal,maxBytes)` returns bounded lossless parsed JSON and typed HTTP errors. Shared evidence helpers own ID/hash validation, badges, timestamps, links, paging and per-record details. Renderers take `(root,signal)` and derive validated hash queries from shared helpers. API path allowlist/caps follow spec12; renderer generation/abort handling resides in app.
 
-- [ ] Write failing asset/security contracts for new evidence helper, strict query-aware hashes, four required/optional Overview fetch outcomes, explicit missing values, no forbidden dependencies and focus/mobile semantics.
-- [ ] Implement bounded streaming/lossless parsing and shared helpers. Keep old `api.get` compatible; preserve HTTP code/status for Overview.
-- [ ] Implement shell routing/cleanup/focus/inert mobile navigation, preserve #main, remove only Astra implicit status fetch, and preserve existing Overview refresh/SSE lifecycle.
-- [ ] Isolate Overview development failure, fix Learning/Concepts wording and missing Q defaults, add exact memory detail hash mode. No model math or guessed provenance.
-- [ ] Run dashboard asset/HTTP tests; actual browser behavior is verified in Task5. Commit `feat: add Astra navigation and evidence client`.
+- [x] Write failing asset/security contracts for new evidence helper, strict query-aware hashes, four required/optional Overview fetch outcomes, explicit missing values, no forbidden dependencies and focus/mobile semantics.
+- [x] Implement bounded streaming/lossless parsing and shared helpers. Keep old `api.get` compatible; preserve HTTP code/status for Overview.
+- [x] Implement shell routing/cleanup/focus/inert mobile navigation, preserve #main, remove only Astra implicit status fetch, and preserve existing Overview refresh/SSE lifecycle.
+- [x] Isolate Overview development failure, fix Learning/Concepts wording and missing Q defaults, add exact memory detail hash mode. No model math or guessed provenance.
+- [x] Run dashboard asset/HTTP tests; actual browser behavior is verified in Task5. Commit `feat: add Astra navigation and evidence client`.
 
 ### Task 4: Seven Astra views
 
@@ -69,10 +69,10 @@
 
 **Interfaces:** Export `renderDevelopment`, `renderPredictions`, `renderWorldModel`, `renderCuriosity`, `renderSemanticMemory`, `renderSelfModel`, `renderDecisions`; consume Task3 helpers and unchanged/new API envelopes from Tasks1/2. No new routes/model projections beyond the specification.
 
-- [ ] Add failing registration/source/bounds/copy tests for all seven modules and preserved six observers/four placeholders.
-- [ ] Implement landing six independent source reads plus explicit optional count load; independent card states and read/source times.
-- [ ] Implement predictions, world, curiosity, semantic tabs/history, self-model and frozen decisions with specified fields, filters, cursor semantics and explicit details. Do not hide required evidence on mobile.
-- [ ] Run asset/API/dashboard tests; expected passing. Commit `feat: render Astra development evidence views`.
+- [x] Add failing registration/source/bounds/copy tests for all seven modules and preserved six observers/four placeholders.
+- [x] Implement landing six independent source reads plus explicit optional count load; independent card states and read/source times.
+- [x] Implement predictions, world, curiosity, semantic tabs/history, self-model and frozen decisions with specified fields, filters, cursor semantics and explicit details. Do not hide required evidence on mobile.
+- [x] Run asset/API/dashboard tests; expected passing. Commit `feat: render Astra development evidence views`.
 
 ### Task 5: Deterministic fixtures, browser acceptance and closure
 
@@ -80,8 +80,8 @@
 
 **Interfaces:** Fixture builder takes an explicit temporary destination and case, returns ID manifest; never defaults to installed home. Cases follow spec16 including Overview count-budget exhaustion. Existing model producers only construct temporary fixtures.
 
-- [ ] Add fixture assertions for empty/legacy/B1–B8, corruption/boundaries and development-only budget failure; run red before implementing fixture support.
-- [ ] Build fixture and run full suite with a disposable SEED_HOME; verify unchanged baselines/core/B7/B8/schema/dependencies.
-- [ ] Launch dashboard only against temporary fixtures in observer mode. Use available browser tools for spec15 manual acceptance: seven routes/details/filters, MAX_ID, error states, Overview degraded counts, keyboard/focus/menu, widths320/760/761/1120/1121/1440, themes/reduced motion, request caps/abort and SSE coexistence. Record any unavailable verification honestly.
-- [ ] Update docs with delivered behavior, source SHA, test results and browser evidence; do not mark hosted/deployed verification without evidence. Commit implementation closure.
+- [x] Add fixture assertions for empty/legacy/B1–B8, corruption/boundaries and development-only budget failure; run red before implementing fixture support.
+- [x] Build fixture and run full suite with a disposable SEED_HOME; verify unchanged baselines/core/B7/B8/schema/dependencies.
+- [x] Launch dashboard only against temporary fixtures in observer mode. Use available browser tools for spec15 manual acceptance: seven routes/details/filters, MAX_ID, error states, Overview degraded counts, keyboard/focus/menu, widths320/760/761/1120/1121/1440, themes/reduced motion, request caps/abort and SSE coexistence. Record any unavailable verification honestly.
+- [x] Update docs with delivered behavior, source SHA, test results and browser evidence; do not mark hosted/deployed verification without evidence. Commit implementation closure.
 - [ ] Dispatch one fresh whole-branch reviewer under executing-plans; fix actionable correctness findings with red/green regression tests and rerun required checks. Stop before merge/deployment/B10. Publication/PR is a separate step from the earlier cleanup-only authorization.

@@ -29,3 +29,12 @@ def test_deterministic_fixture_is_inspectable_and_readonly(tmp_path,case):
         assert s.semantic_memory(manifest['semantic'])['revision']==3
         assert s.semantic_history(manifest['semantic'])['items'][0]['revision']==2
     with sqlite3.connect(home/'memory.sqlite3') as db:assert list(db.iterdump())==before
+
+
+def test_fixture_records_are_deterministic(tmp_path):
+    from tests.dashboard.astra_fixture import build
+    outputs=[]
+    for name in ('one','two'):
+        home=tmp_path/name;build(home,'decisions')
+        with sqlite3.connect(home/'memory.sqlite3') as db:outputs.append(db.execute('SELECT data_json FROM decision_records ORDER BY transition_id').fetchall())
+    assert outputs[0]==outputs[1]

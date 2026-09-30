@@ -28,6 +28,8 @@ async function render(){
     let renderer=renderers[current];
     if(modules[current]){const [file,name]=modules[current];renderer=(await import('./views/'+file+'.js'))[name];}
     const returned=renderer?await renderer(root,controller.signal):undefined;
+    const ceiling=current==='predictions'?1000:current==='semantic-memory'?2000:1500;
+    if(ASTRA.has(current)&&root.querySelectorAll('*').length>ceiling){returned?.();throw new Error('Invalid evidence response: render limit exceeded');}
     if(controller.signal.aborted||version!==generation){returned?.();return;}cleanup=returned;
     if(!renderer)root.replaceChildren(el('p','This observer release exposes recorded state. Operator controls will appear when the operator service is available.','notice'));
     if(ASTRA.has(current))document.querySelector('#connection').textContent=root.dataset.allFailed==='true'?'Service unavailable':'Stored evidence · local service reachable';
@@ -40,5 +42,6 @@ async function render(){
   }catch(error){if(!controller.signal.aborted&&version===generation){showError(error.message);root.replaceChildren(el('p','The current data could not be loaded. Use Refresh to retry.','empty'));document.querySelector('#connection').textContent='Service unavailable';}}
   finally{if(!controller.signal.aborted&&version===generation)container.setAttribute('aria-busy','false');}
 }
+document.querySelector('.skip').addEventListener('click',event=>{event.preventDefault();document.querySelector('#main').focus();});
 window.addEventListener('hashchange',render);document.querySelector('#refresh').onclick=render;render();
 setInterval(()=>{if(!document.hidden&&!document.querySelector('input:focus,textarea:focus,select:focus,details[open]')&&current==='overview')render();},10000);

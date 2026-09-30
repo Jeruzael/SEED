@@ -1,8 +1,8 @@
 # SEED Architecture
 
-**SEED 0.2 — B8 VERIFIED at source/CI level, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged at master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`; exact [post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed all three hosted jobs. B0–B8 are verified at source/CI level; B9–B10 remain **NOT STARTED**. Deployment/live-device validation is **NOT PERFORMED**, and the installed organism remains **UNTOUCHED**. See the [closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
+**SEED 0.2 — B8 VERIFIED at source/CI level, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged at master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`; exact [post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed all three hosted jobs. B0–B8 are verified at source/CI level; B9 Astra is implemented on `seed-0.2-b9` with local verification; B10 remains **NOT STARTED**. Deployment/live-device validation is **NOT PERFORMED**, and the installed organism remains **UNTOUCHED**. See the [closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
 
-The earlier [post-B6 hardening](reviews/2026-09-23-post-b6-hardening.md) and macOS portability correction closed at source/CI level on master `585affec56ddb0e4580f6df6926b9b6bde291dc0`, with 542 tests. B7 adds descriptive inspection of recorded evidence. B9–B10 remain unstarted.
+The earlier [post-B6 hardening](reviews/2026-09-23-post-b6-hardening.md) and macOS portability correction closed at source/CI level on master `585affec56ddb0e4580f6df6926b9b6bde291dc0`, with 542 tests. B7 adds descriptive inspection of recorded evidence. B9 now exposes that stored evidence; B10 remains unstarted.
 
 ## Runtime composition
 
@@ -274,7 +274,7 @@ B4–B8 inspection routes are bounded:
 
 Except for B8 decisions, list pages default to 50 and allow 1–100 items, with one lookahead row for next_cursor. Use the returned cursor with the appropriate after/before parameter. Semantic source_status reports current source availability separately from the persisted semantic status; the status filter selects the latter. A history record is the saved prior state, not a fresh source interpretation.
 
-Legacy storage without the corresponding feature tables returns unavailable empty lists or 404 details, without migration. B8 decision reads use at most four SELECTs and 300,000 VM steps, cap each of three linked blobs at 16,385 sentinel bytes, and never refill corrupt slots. List/detail response caps are 52/17 KiB. Legacy v0–6 is unavailable, missing record is 404, invalid evidence is an explicit corrupt item, and busy/budget failure is 503. These are inspection APIs; B9's broader development UI is still unimplemented.
+Legacy storage without the corresponding feature tables returns unavailable empty lists or 404 details, without migration. B8 decision reads use at most four SELECTs and 300,000 VM steps, cap each of three linked blobs at 16,385 sentinel bytes, and never refill corrupt slots. List/detail response caps are 52/17 KiB. Legacy v0–6 is unavailable, missing record is 404, invalid evidence is an explicit corrupt item, and busy/budget failure is 503. Astra now presents these frozen records without changing the B7/B8 read contracts.
 
 ## Owner commands and lifecycle
 
@@ -301,7 +301,7 @@ Inherited limitations include historical battery misclassification (corrected on
 
 World beliefs and action associations are descriptive rather than causal. Predictor support, B3 accuracy, B4 consistency, B5 curiosity and B6 promotion thresholds are separate engineering measures, not calibrated certainty. Curiosity is coarse and optional work can be lost after a claim. Semantic knowledge only summarizes B4's existing signals/scopes and changes when consolidation is invoked; it has no cross-signal concepts or multi-step temporal patterns.
 
-Semantic-driven policy, prediction-error reward shaping, forgetting, arbitrary external tools, generated shell/code execution, autonomous source modification and LLM cognition are not implemented. B9–B10 require explicit authorization and their own acceptance evidence.
+Semantic-driven policy, prediction-error reward shaping, forgetting, arbitrary external tools, generated shell/code execution, autonomous source modification and LLM cognition are not implemented. B9 implementation was owner-authorized and has its own local acceptance record; B10 remains outside scope.
 
 The [low-disk decision mismatch](review-follow-ups.md) is resolved through B8 autonomous eligibility; the legacy reward formula and owner consolidation guard remain intact.
 
@@ -314,3 +314,16 @@ The [B6 execution record](seed-0.2-development-plan.md#b6-execution-log--2026-09
 The [B6 comparison artifact](baselines/seed-0.2-b6-comparison.json) reproduces the semantic lifecycle and checks B5 curiosity, B4 statistics, B3 evaluation and baseline policy outputs. Earlier batch artifacts remain immutable. Reproduction commands are in the [README](../README.md#development-verification); they use synthetic observations and temporary homes rather than installed memory or live sensors.
 
 For current local commands, pinned-action provenance, CI failure handling and pending hosted/merge-rule gates, use the [verification guide](verification.md). The 497-test B6 result above remains a historical acceptance record; the hardening result is recorded separately.
+
+
+### Astra evidence boundary
+
+The seven DEVELOPMENT views use the existing vanilla ES-module shell. `api.getEvidence` streams bounded UTF-8, preserves signed64 integer tokens as exact decimal strings when JavaScript cannot represent them, retains HTTP status/error codes and applies a ten-second deadline. Navigation aborts old reads; detached render roots and generation checks prevent late responses from updating the active page. Hash parameters are page-specific allowlists. Lists replace pages and retain at most20 cursor descriptors. Model data is never persisted in browser storage.
+
+`PredictionReadService` exposes `GET /api/predictions` (default20, max50, inclusive `before`) and exact transition detail. Lists transfer metadata and presence flags only; detail validates independent B2/B3 wrappers. SQL NULL means absent, malformed content means corrupt, and unsupported model headers remain explicit. No sensing, scoring or model construction occurs in these readers.
+
+B4–B6 retain existing filters, cursor semantics and legacy envelopes. Their adapters use named-table/version probes, zero busy timeout, short read-only transactions, a300000-VM-operation budget, SQL byte sentinels, strict JSON/type validation and response caps. Corrupt rows consume their page slots. Semantic source validation uses a bounded LEFT JOIN; a corrupt source does not erase valid semantic knowledge. Curiosity summary reports raw/valid/corrupt window counts and each mean's evaluated-value denominator.
+
+Exact retained counts either finish within the same VM budget or return503 `development_read_unavailable`. Overview settles that request independently of status/storage/health. Direct `#memory?episode=<id>` uses the existing episode endpoint with bounded state/note/tag reads and explicit corruption warnings. The ordinary Memory list remains unchanged.
+
+Astra's cold Development landing makes one bootstrap and six evidence GETs. Retained counts are an optional seventh data request; subsequent manual refresh includes them only after loading. Astra never implicitly requests process status. Live Activity remains the sole continuous SSE view. B7/B8 producer math, schema, APIs, model versions and Observer Edition0.1 metadata remain unchanged.

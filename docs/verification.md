@@ -260,3 +260,24 @@ During this closure, GitHub PR/merge identity, run event/head/success, exact job
 B8 merge verification and exact post-merge hosted verification are **COMPLETE**. This acceptance covers source/CI behavior on the B8 merge, not installation, live-memory migration, real-device sensors or deployment certification. Deployment/live-device validation remains **NOT PERFORMED**, installed SEED is **UNTOUCHED**, and B9–B10 remain **NOT STARTED**.
 
 The documentation closure PR receives its own normal CI and requires owner-directed merge. Its later docs-only merge does not replace or invalidate B8 technical acceptance at `e0075e21f545921324aa5d5c9e2f4217b0a06cca` and does not require another acceptance-documentation commit. See the [canonical closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
+
+
+## B9 local implementation verification — 2026-09-30
+
+Scope: approved B9 design at `3dc9b8f`, implementation starting from published cleanup `16dcd8b`. Historical B0–B8 results above remain unchanged. Local environment: macOS, Python3.13.15. This record does not claim Linux/Python3.11 execution, new hosted CI, merge or installed-organism deployment.
+
+- Full suite under a disposable `SEED_HOME`: **851 passed, 2 existing warnings in8.41s**. Warnings concern Starlette TestClient/httpx and anyio's BlockingPortal alias.
+- All seven unchanged standalone scenarios passed and produced parseable JSON: baseline, prediction_error, world_model, curiosity, semantic, self_model and decision.
+- New reader tests exercise strict queries, IDs/cursors, corruption/no-refill, source isolation, byte/structure/type bounds, query/VM budgets, busy reads, missing/legacy/future schemas, and before/after SQLite dump preservation. Shared JS tests run with available Node, without a project dependency; they cover lossless numbers/escaped strings, malformed input, streamed byte caps, typed errors, deadline versus navigation abort, and hash allowlists. Node-specific tests skip explicitly when Node is unavailable.
+- Fixture builder refuses non-temporary or nonempty destinations. Named empty, predictions, models, self, decisions, boundary, legacy/version fallback, counts and combined homes have deterministic records/ID manifests. Decision121/122/123/124 fixtures preserve approved producer-generated records and digests;124 alone is intentionally damaged. Fixture inspection compares before/after SQL dumps.
+- `git diff 16dcd8b -- seed requirements-lock.txt requirements.txt docs/baselines dashboard/services/self_model.py dashboard/services/decisions.py dashboard/app.py` was empty. Python3.11 grammar parsing passed for dashboard sources; this is not Python3.11 runtime evidence.
+
+Temporary observer browser acceptance used localhost ports8765–8769, fixed reader clock1700000000 and a stubbed process status against `/private/tmp/seed-b9-browser-*`. Installed SEED/LaunchAgent was not accessed. Verified all seven routes; prediction literal mean0.208125/score0.791875 and Boolean false; exact episode link; semantic current3/history2→1; B7 stale61-second observation and missing network; B8 corrupt124, next122, low-disk rest utility0.375 with consolidate Q100 excluded; signed64 MAX_ID→9007199254740993 navigation; world signal filter; healthy curiosity raw3/evaluated denominator2; and explicit transient source503 without hiding sibling evidence.
+
+Overview remained usable when only the development budget was reduced to1 VM callback threshold: organism, activity, battery/load, storage and health remained visible; count-derived fields said Unavailable and the Development card showed the503 message. No partial counts or synthetic zeros were rendered.
+
+Request log verified cold Development one bootstrap+six data GETs; optional counts added one; Refresh after loading counts made seven data GETs without another bootstrap or `/status`. Invalid direct links made no data request. Skip-to-content preserved the active hash and focused main. Mobile menu removed inert while open, Escape restored inert and focused its toggle. Live Activity connected, then navigation rendered Astra normally.
+
+Settled viewport checks at320/760/761/1120/1121/1440 showed no document horizontal overflow. Development columns were1/1/2/2/2/2. Light/dark mobile layouts and desktop layout were inspected; keyboard-focusable table regions preserve access to wide evidence. Local screenshots are retained under `.review-artifacts/b9/` (not committed). Reduced-motion behavior is source-verified by the existing CSS media rule; OS-level reduced-motion emulation was not available in the browser tool. Browser network-stall injection is covered by the deterministic JS deadline test, not claimed as a manual network test.
+
+Final independent whole-branch review is pending at this checkpoint. B9 status is IMPLEMENTED with local verification; hosted CI and deployment remain separate gates.

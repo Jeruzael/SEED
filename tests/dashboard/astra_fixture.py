@@ -11,6 +11,11 @@ CASES=('empty','predictions','models','self','decisions','boundary','legacy','le
 
 
 def build(destination, case='combined'):
+    with patch('time.time',return_value=NOW):
+        return _build(destination,case)
+
+
+def _build(destination, case):
     home=Path(destination).resolve()
     temporary=(Path(tempfile.gettempdir()).resolve(),Path('/private/tmp'))
     if case not in CASES or not any(home.is_relative_to(root) and home!=root for root in temporary):
@@ -109,7 +114,7 @@ def _decisions(m,manifest):
         state={**STATE,**({'disk_free_pct':5} if i>=2 else {})}
         if i:
             for action in ACTIONS:m.set_q(state_key(state),action,(100 if action=='consolidate' else 1 if action=='rest' else 0) if i>=2 else (.7 if action=='reflect' else 0),0)
-        chosen=system.select(system.prepare(state,selected_at=at))
+        chosen=system.select(system.prepare(state,selected_at=at,decision_id=f'{i+1:032x}'))
         with patch('seed.memory.time.time',return_value=at+1):
             _,tid=m.record_transition_experience(state_before=state,action=chosen.decision.action,state_after={},outcome={},legacy_reward=0,started_at=at,completed_at=at+1,prediction=chosen.prediction,decision=chosen.record)
         manifest[f'decision_{i}']=tid
