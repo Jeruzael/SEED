@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: owner approved B9 implementation after publication of the design cleanup.** B9 Astra is **IMPLEMENTED on `seed-0.2-b9`**, with local tests/browser checks recorded below; final independent review is in progress. B0–B8 remain **VERIFIED at source/CI level**, schema v7. B9 hosted CI, merge and deployment are not claimed. B10 is **NOT STARTED**. Installed SEED remains **UNTOUCHED**. Historical design-only restrictions below describe earlier checkpoints and are superseded for implementation by the owner's subsequent instruction. See [B9 implementation](#b9-implementation--2026-09-30) and [B8 hosted closure](#b8-hosted-verification-closure--2026-09-29).
+**Current authorization: owner approved B9 implementation after publication of the design cleanup.** B9 Astra is **IMPLEMENTED on `seed-0.2-b9`**, with local tests/browser checks recorded below; local correction/review is in progress. B9 is **NOT YET VERIFIED**; hosted B9 CI has **NOT RUN**. B0–B8 remain **VERIFIED at source/CI level**, schema v7. B9 hosted CI, merge and deployment are not claimed. B10 is **NOT STARTED**. Installed SEED remains **UNTOUCHED**. Historical design-only restrictions below describe earlier checkpoints and are superseded for implementation by the owner's subsequent instruction. See [B9 implementation](#b9-implementation--2026-09-30) and [B8 hosted closure](#b8-hosted-verification-closure--2026-09-29).
 
 ## Objective and architectural transition
 
@@ -153,7 +153,7 @@ First planned sprint: **B0 → B1 → B2 → B3**. Each requires a separate expl
 
 **Purpose:** Display actual developmental state through the local dashboard.
 
-**Designed views:** Development, Predictions, World Model, Curiosity, Semantic Memory (including consolidation runs), Self Model, and Decisions. Astra extends the existing observer shell as a DEVELOPMENT section; Observer Edition 0.1 and the six existing observer views remain. The [specification](superpowers/specs/2026-09-29-b9-astra-development-ui-design.md) is OWNER APPROVED / COMPLETE at `3dc9b8fdab2f4c12227e2371e679a57a02a5cf6f`; implementation is NOT STARTED.
+**Designed views:** Development, Predictions, World Model, Curiosity, Semantic Memory (including consolidation runs), Self Model, and Decisions. Astra extends the existing observer shell as a DEVELOPMENT section; Observer Edition 0.1 and the six existing observer views remain. The [specification](superpowers/specs/2026-09-29-b9-astra-development-ui-design.md) is OWNER APPROVED / COMPLETE at `3dc9b8fdab2f4c12227e2371e679a57a02a5cf6f`; implementation is **IMPLEMENTED on seed-0.2-b9**. Local correction/review is in progress; B9 is not yet VERIFIED.
 
 **Verification:** Read APIs and views reflect real persisted/telemetry records, with provenance, timestamps, empty/error states, and honest uncertainty; display values match fixtures; keyboard access, responsive layouts, bounded queries, and local-only security remain intact. UI code observes through defined interfaces and does not become the cognition engine.
 
@@ -2132,7 +2132,7 @@ The supplied independent review after the pushed design checkpoint reported **0 
 
 **Cleanup scope:** Only this tracker and `docs/implementation-log.md` change. The specification remains byte-identical to the owner-approved commit; its review-stage heading is retained as part of that approved artifact, while these current-state records carry owner acceptance. All three existing B9 commits and historical B0–B8 records are preserved. No fresh tests were run: Python3.13.15, **160 passed / 2 existing warnings** remains historical local dashboard characterization, not hosted branch evidence.
 
-**Current status:** B0–B8 **VERIFIED at source/CI level**; B9 overall **IN PROGRESS**; B9 design/specification **OWNER APPROVED / COMPLETE**; B9 implementation **NOT STARTED**; B10 **NOT STARTED**. Schema **v7**. Deployment/live-device validation **NOT PERFORMED**. Installed organism **UNTOUCHED**. Commit and publish only this cleanup, then stop for the next owner instruction. No implementation plan, production/test/API/schema/dependency change, PR, deployment, installed-home access or B10 work is authorized.
+**Status at this historical publication checkpoint:** B0–B8 **VERIFIED at source/CI level**; B9 overall **IN PROGRESS**; B9 design/specification **OWNER APPROVED / COMPLETE**; B9 implementation **NOT STARTED**; B10 **NOT STARTED**. Schema **v7**. Deployment/live-device validation **NOT PERFORMED**. Installed organism **UNTOUCHED**. Commit and publish only this cleanup, then stop for the next owner instruction. No implementation plan, production/test/API/schema/dependency change, PR, deployment, installed-home access or B10 work is authorized.
 
 **Cleanup validation:** PASS — only the two intended documentation files differ; the approved specification is byte-identical; prior B9 commits and historical B8 sections are preserved; stale pending-publication wording is superseded; Markdown fences and all 50 internal links/anchors in these two documents are valid; `git diff --check` is clean.
 
@@ -2144,3 +2144,10 @@ The owner authorized implementation after published cleanup `16dcd8b4c60741092c0
 Implemented: bounded prediction history/detail; narrow B4–B6, retained-count and exact-episode safeguards; seven manual-refresh Astra views; exact signed64 links; per-source state and clock labels; abort/generation isolation; mobile/focus behavior; Overview partial-count-outage compatibility. Learning no longer claims highest-Q selection explains B8 choices; legacy Concepts and B6 Semantic Memory remain distinct.
 
 Local acceptance: **851 tests passed, 2 existing dependency warnings**; all seven standalone scenarios emitted valid JSON; temporary-fixture browser checks cover all seven views, stored literals, MAX_ID paging, B8 low-disk/corrupt records, B6 history, B7 stale/missing sources, filters, skip/menu focus, six widths, light/dark and Overview count503. Details and limits are in the [verification record](verification.md#b9-local-implementation-verification--2026-09-30). Independent whole-branch review is the remaining local gate. No production core, schema, migration, dependencies, B7/B8 services, baseline artifacts, installed-home data, deployment or B10 changes. This implementation has not been published by this task; the earlier push authorization covered documentation cleanup only.
+
+
+### B9 corrective pass — 2026-09-30
+
+Owner-supplied corrective instructions start from `20e19add6ee35c9dc120510333b0207d25294cb8`. Local branch and authenticated GitHub ref matched that SHA with a clean tree. SSH fetch/pull was attempted and failed public-key authentication; no history was rewritten. The earlier fresh-review attempt ended at the provider usage limit and is **INCOMPLETE**, not a passing independent review.
+
+The bounded correction pass covers bootstrap retry, disclosure/focus/table accessibility, strict B3 source provenance, complete Overview degraded-count presentation, truthful placeholders, Astra shell identity,3/2/1 Development layout and B5 structural consistency. Current status: design OWNER APPROVED; implementation IMPLEMENTED; local correction/review IN PROGRESS; B9 VERIFIED NO; hosted CI NOT RUN; deployment NOT PERFORMED; B10 NOT STARTED. Corrections require fresh whole-branch review and re-verification before the authorized branch publication; no PR is authorized.

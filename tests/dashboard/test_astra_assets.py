@@ -153,3 +153,14 @@ def test_development_responsive_grid_contract():
     assert '.development-grid{grid-template-columns:repeat(3,minmax(0,1fr))}' in css
     assert '@media(max-width:1120px){.development-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}' in css
     assert '@media(max-width:760px){.development-grid{grid-template-columns:1fr}}' in css
+
+
+def test_bootstrap_deadline_clears_pending_attempt_and_allows_explicit_retry():
+    javascript('''
+import assert from 'node:assert/strict';import {api} from './api.js';
+let deadline,attempts=0,cleared=0;globalThis.setTimeout=(fn,ms)=>{assert.equal(ms,10000);deadline=fn;return 1;};globalThis.clearTimeout=()=>cleared++;
+api.token='stale';api.get=async(_path,signal)=>{attempts++;if(attempts>1)return {token:'recovered'};return new Promise((resolve,reject)=>signal?.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError')),{once:true}));};
+const pending=api.bootstrap();assert.equal(api.bootstrap(),pending);await Promise.resolve();assert.equal(typeof deadline,'function','bootstrap must have a bounded deadline');deadline();
+await assert.rejects(pending,e=>e.code==='read_timeout');assert.equal(api.token,null);assert.equal(cleared,1);
+await api.bootstrap();await api.bootstrap();assert.equal(api.token,'recovered');assert.equal(attempts,2);assert.equal(cleared,2);
+''')

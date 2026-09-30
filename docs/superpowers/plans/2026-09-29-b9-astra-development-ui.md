@@ -85,3 +85,15 @@
 - [x] Launch dashboard only against temporary fixtures in observer mode. Use available browser tools for spec15 manual acceptance: seven routes/details/filters, MAX_ID, error states, Overview degraded counts, keyboard/focus/menu, widths320/760/761/1120/1121/1440, themes/reduced motion, request caps/abort and SSE coexistence. Record any unavailable verification honestly.
 - [x] Update docs with delivered behavior, source SHA, test results and browser evidence; do not mark hosted/deployed verification without evidence. Commit implementation closure.
 - [ ] Dispatch one fresh whole-branch reviewer under executing-plans; fix actionable correctness findings with red/green regression tests and rerun required checks. Stop before merge/deployment/B10. Publication/PR is a separate step from the earlier cleanup-only authorization.
+
+
+## Owner-authorized corrective pass (C0–C18)
+
+Start `20e19add6ee35c9dc120510333b0207d25294cb8`; preserve all existing commits. The owner's later corrective instructions supersede the earlier cleanup-only publication boundary: publish the corrected branch only after correction, verification and fresh review gates, then stop without a PR. Core/schema/dependencies/workflows/baselines/B7/B8 readers/installed home/B10 remain outside scope. The prior fresh-review attempt was interrupted by a provider usage limit; Task5's review checkbox stays open.
+
+- [x] C0: clean local expected HEAD; SSH fetch/pull attempted, authenticated GitHub ref confirms exact remote SHA.
+- [x] C1–C7/C9: reproduce and fix bootstrap retry, B3/B5 structural evidence, disclosure/focus/captions, complete Overview degradation, placeholders, Astra identity and3/2/1 grid.
+- [x] C8: correct current tracker status; retain historical design-only checkpoints.
+- [x] C10–C14: focused/full tests, seven scenarios, compileall, pip check, scope audit and corrected temporary-browser matrix.
+- [ ] C15–C16: fresh whole-branch review; fix/recheck actionable findings; record actual final evidence.
+- [ ] C17–C18: commit corrections and final documentation, push existing branch, stop before PR/merge/deployment/B10.
