@@ -94,3 +94,62 @@ const pending=api.getEvidence('predictions');deadline();await assert.rejects(pen
 const controller=new AbortController(),next=api.getEvidence('predictions',controller.signal);controller.abort();await assert.rejects(next,e=>e.name==='AbortError'&&!e.code?.startsWith?.('read_'));
 globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;
 ''')
+
+
+def test_bootstrap_failure_can_retry_then_success_is_cached():
+    javascript('''
+import assert from 'node:assert/strict';import {api} from './api.js';
+let attempts=0;api.token='stale';api.get=async()=>{if(++attempts===1)throw Error('Transient');return {token:'fresh'};};
+await assert.rejects(api.bootstrap(),/Transient/);assert.equal(api.token,null);
+const [a,b]=await Promise.all([api.bootstrap(),api.bootstrap()]);assert.equal(a.token,'fresh');assert.equal(b.token,'fresh');assert.equal(api.token,'fresh');
+await api.bootstrap();assert.equal(attempts,2);
+''')
+
+
+def test_overview_renders_exact_degraded_fields_without_hiding_other_sources():
+    javascript('''
+import assert from 'node:assert/strict';import {Element,installDOM} from '../../tests/dashboard/astra_dom.mjs';import {api} from './api.js';import {renderOverview} from './views/overview.js';
+installDOM();const root=new Element();let calls=[];
+const sources={status:{identity:{name:'Fixture identity'},concepts:7,last_state:{battery_pct:80,load_ratio:.2},runtime:{activity:'Reading'},fresh:true,lifecycle:'AWAKE'},storage:{database_bytes:1024,budget_bytes:2048,percent_used:50},health:{database:'readable',process:{state:'fixture'},error_count:0}};
+api.get=async path=>{calls.push(path);if(path==='development'){const e=Error('Busy');e.status=503;e.code='development_read_unavailable';throw e;}return sources[path];};
+await renderOverview(root,new AbortController().signal);
+for(const text of ['Fixture identity','Current activity','Battery','Compute load','Memory & storage','System health','Learned concepts','Retained development counts unavailable: bounded count read could not complete.','Lifecycle record unavailable.','Known contexts','Learning updates','Wake records','Owner interactions'])assert.ok(root.textContent.includes(text),text);
+const dev=root.children.at(-1);assert.equal(dev.querySelectorAll('dd').length,4);assert.ok(dev.querySelectorAll('dd').every(x=>x.textContent==='Unavailable'));assert.equal(calls.filter(x=>x==='development').length,1);
+api.get=async path=>{if(path==='development')throw Error('Other service failure');return sources[path];};await renderOverview(root,new AbortController().signal);assert.ok(!root.textContent.includes('bounded count read could not complete'));assert.ok(root.textContent.includes('Other service failure'));
+''')
+
+
+def test_evidence_tables_have_caption_scoped_headers_and_scroll_region():
+    javascript('''
+import assert from 'node:assert/strict';import {installDOM} from '../../tests/dashboard/astra_dom.mjs';import {table} from './api.js';
+installDOM();const region=table(['Signal','Value'],[['battery_pct',0]],'World beliefs');
+assert.equal(region.tabIndex,0);assert.ok(region.getAttribute('aria-label').includes('World beliefs'));assert.equal(region.querySelector('caption').textContent,'World beliefs');assert.ok(region.querySelectorAll('th').every(th=>th.getAttribute('scope')==='col'));
+assert.ok(table(['Old view'],[['still works']]).querySelector('table'));
+''')
+
+
+def test_shell_focus_identity_disclosure_and_placeholder_contracts():
+    javascript('''
+import assert from 'node:assert/strict';import {installDOM} from '../../tests/dashboard/astra_dom.mjs';import {api} from './api.js';
+const {ids,eyebrow,body}=installDOM(),events={};globalThis.window={addEventListener:(name,fn)=>events[name]=fn};globalThis.location={hash:'#development'};globalThis.localStorage={getItem:()=>null,setItem:()=>{}};document.documentElement={dataset:{}};
+const mobile={matches:true,addEventListener:(name,fn)=>{mobile.change=fn;}};globalThis.matchMedia=()=>mobile;globalThis.setInterval=()=>0;
+// Keep reads pending: navigation/focus/identity must not depend on a late response.
+api.get=async()=>new Promise(()=>{});api.bootstrap=async()=>new Promise(()=>{});
+await import('./app.js');assert.equal(document.activeElement,body,'initial load stole focus');
+assert.equal(document.title,'SEED — Astra / Development');assert.equal(eyebrow.textContent,'ASTRA · DEVELOPMENT EVIDENCE');assert.equal(ids.get('breadcrumb').textContent,'Astra / Development');
+location.hash='#predictions';events.hashchange();assert.equal(document.activeElement,ids.get('page-title'));document.activeElement=body;
+location.hash='#predictions?transition=1';events.hashchange();assert.equal(document.activeElement,ids.get('page-title'),'same-page detail must focus heading');
+ids.get('refresh').focus();ids.get('refresh').onclick();assert.equal(document.activeElement,ids.get('refresh'),'Refresh stole focus');
+location.hash='#overview';events.hashchange();assert.equal(document.title,'SEED — Local observatory');assert.equal(eyebrow.textContent,'SITUATED EXPERIENTIAL EMERGENT DEVELOPMENT');
+ids.get('menu').onclick();assert.equal(ids.get('sidebar').inert,false);let prevented=false;document.keydown({key:'Tab',preventDefault:()=>prevented=true});assert.equal(prevented,false,'disclosure must not trap Tab');document.keydown({key:'Escape',preventDefault:()=>{}});assert.equal(ids.get('sidebar').inert,true);assert.equal(document.activeElement,ids.get('menu'));mobile.matches=false;mobile.change();assert.equal(ids.get('sidebar').inert,false);
+''')
+    app=(STATIC/'app.js').read_text()
+    assert 'Operator controls will appear' not in app
+    assert 'Not implemented in this dashboard. B9 adds observation only.' in app
+
+
+def test_development_responsive_grid_contract():
+    css=(STATIC/'styles.css').read_text()
+    assert '.development-grid{grid-template-columns:repeat(3,minmax(0,1fr))}' in css
+    assert '@media(max-width:1120px){.development-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}' in css
+    assert '@media(max-width:760px){.development-grid{grid-template-columns:1fr}}' in css

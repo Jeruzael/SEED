@@ -3,7 +3,7 @@ import {read,state,listItems,raw,pairs,times,readTime,link,stamp,value,report,ba
 let countsLoaded=false;
 export async function renderDevelopment(root,signal){
  root.replaceChildren(el('p','A mosaic of separately recorded evidence. Cards do not describe one atomic current state.','notice'));
- const grid=el('div',null,'source-grid');root.append(grid);
+ const grid=el('div',null,'source-grid development-grid');root.append(grid);
  const sources=[['Latest transition / prediction / evaluation','predictions?limit=1','predictions'],['World Model','world-beliefs?limit=20','world-model'],['Recent Curiosity','curiosity?limit=1','curiosity'],['Latest consolidation','consolidation-runs?limit=1','semantic-memory'],['Stored Self Model','self-model','self-model'],['Latest stored decision','decisions?limit=1','decisions']];
  const cards=sources.map(([title])=>{const c=card(title);c.append(el('p','Reading stored evidence…'));grid.append(c);return c;});
  const results=await Promise.allSettled(sources.map(([,path])=>read(path,signal)));if(signal.aborted)return;
@@ -30,6 +30,6 @@ export async function renderDevelopment(root,signal){
   }
   readTime(c);
  }
- const retained=card('Legacy retained development counts');grid.append(retained);const load=async()=>{countsLoaded=true;retained.replaceChildren(el('h2','Legacy retained development counts'),el('p','Reading exact retained counts…'));try{const data=await read('development',signal);retained.replaceChildren(el('h2','Legacy retained development counts'),pairs(data,['observations','owner_interactions','wake_records','sleep_stop_records','known_contexts','learning_updates','concepts']),el('p',data.scope),table(['Lifecycle event','Recorded','Note'],data.timeline.map(row=>[row.event,stamp(row.ts),row.read_status==='corrupt'?'Corrupt stored note':value(row.note)])));readTime(retained);}catch(error){if(!signal.aborted){report(retained,error,load);retained.prepend(el('h2','Legacy retained development counts'));}}};
+ const retained=card('Legacy retained development counts');grid.append(retained);const load=async()=>{countsLoaded=true;retained.replaceChildren(el('h2','Legacy retained development counts'),el('p','Reading exact retained counts…'));try{const data=await read('development',signal);retained.replaceChildren(el('h2','Legacy retained development counts'),pairs(data,['observations','owner_interactions','wake_records','sleep_stop_records','known_contexts','learning_updates','concepts']),el('p',data.scope),table(['Lifecycle event','Recorded','Note'],data.timeline.map(row=>[row.event,stamp(row.ts),row.read_status==='corrupt'?'Corrupt stored note':value(row.note)]), 'Retained lifecycle records'));readTime(retained);}catch(error){if(!signal.aborted){report(retained,error,load);retained.prepend(el('h2','Legacy retained development counts'));}}};
  if(countsLoaded)await load();else retained.append(badge('Not loaded'),button('Load retained counts',load));
 }

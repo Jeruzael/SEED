@@ -13,6 +13,17 @@ export const api = {
     return data;
   }
 };
+// Cache success, but allow a later explicit navigation/Refresh after failure.
+let bootstrapPromise;
+api.bootstrap=function(){
+  if(!bootstrapPromise){
+    api.token=null;
+    bootstrapPromise=Promise.resolve().then(()=>api.get('bootstrap')).then(data=>{
+      api.token=data.token;return data;
+    }).catch(error=>{bootstrapPromise=undefined;api.token=null;throw error;});
+  }
+  return bootstrapPromise;
+};
 export function el(tag, value, className='') {const n=document.createElement(tag);if(value!==undefined&&value!==null)n.textContent=String(value);n.className=className;return n;}
 export const date = value => typeof value==='number' ? new Date(value*1000).toLocaleString() : 'Unavailable';
 export const num = value => typeof value==='number' ? value.toLocaleString() : '—';
@@ -24,7 +35,7 @@ export function list(pairs){const n=el('dl',null,'data-list');for(const [a,b] of
 export function metric(label,value,hint){const n=card();n.classList.add('metric');n.append(el('div',label,'section-label'),el('div',value,'value'),el('small',hint));return n;}
 export function button(label,fn,primary=false){const n=el('button',label,primary?'primary':'');n.type='button';n.addEventListener('click',async()=>{try{n.disabled=true;await fn();}catch(e){showError(e.message);}finally{n.disabled=false;}});return n;}
 export function showError(message){const n=document.querySelector('#notice');n.hidden=false;n.textContent=message;}
-export function table(headers,rows){const wrap=el('div',null,'table-wrap'), t=el('table'),head=el('thead'),tr=el('tr'),body=el('tbody');for(const h of headers)tr.append(el('th',h));head.append(tr);for(const row of rows){const r=el('tr');for(const value of row){const cell=el('td');cell.append(value instanceof Node?value:document.createTextNode(value??'—'));r.append(cell);}body.append(r);}t.append(head,body);wrap.append(t);wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label',headers.join(', ')+' table; scroll horizontally for all fields');return wrap;}
+export function table(headers,rows,caption='Recorded data'){const wrap=el('div',null,'table-wrap'), t=el('table'),head=el('thead'),tr=el('tr'),body=el('tbody');for(const h of headers){const th=el('th',h);th.setAttribute('scope','col');tr.append(th);}head.append(tr);for(const row of rows){const r=el('tr');for(const value of row){const cell=el('td');cell.append(value instanceof Node?value:document.createTextNode(value??'—'));r.append(cell);}body.append(r);}t.append(el('caption',caption),head,body);wrap.append(t);wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label',caption+'; scroll horizontally for all fields');return wrap;}
 export function field(label,type='text',value=''){const l=el('label',label),input=el('input');input.type=type;input.value=value;l.append(input);return [l,input];}
 export function select(label,options){const l=el('label',label),input=el('select');for(const [value,text] of options){const o=el('option',text);o.value=value;input.append(o);}l.append(input);return [l,input];}
 export function empty(root,message){root.append(el('p',message,'empty'));}
