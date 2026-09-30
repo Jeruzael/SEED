@@ -1,25 +1,20 @@
 """Bounded, read-only inspection of current semantic knowledge and prior revisions."""
 from seed.semantic_memory import normalized_source
 from seed.world_model import SIGNALS
-from .read_store import ServiceError, decode
+from .read_store import ServiceError
+from . import evidence_reads as er
 
-MAX_ID = 2**63-1
+MAX_ID = er.MAX_ID
 
 
 def bounds(cursor, limit):
-    if type(cursor) is not int or not 0 <= cursor <= MAX_ID or type(limit) is not int or not 1 <= limit <= 100:
-        raise ServiceError('invalid_query', 'Invalid semantic pagination.')
+    if not er.integer(cursor) or not er.integer(limit,1,100):
+        raise ServiceError('invalid_query','Invalid semantic pagination.')
 
 
 def identity(semantic_id):
-    if type(semantic_id) is not int or not 1 <= semantic_id <= MAX_ID:
-        raise ServiceError('invalid_id', 'Invalid semantic memory ID.')
-
-
-def record(row):
-    item = dict(row)
-    item['payload'] = decode(item.pop('payload_json'), {})
-    return item
+    if not er.integer(semantic_id,1):
+        raise ServiceError('invalid_id','Invalid semantic memory ID.')
 
 
 class SemanticReadService:
@@ -27,72 +22,78 @@ class SemanticReadService:
         self.store = store
 
     @staticmethod
-    def current(db, row):
-        item = record(row)
-        source = db.execute('SELECT * FROM world_beliefs WHERE id=?', (item['source_belief_id'],)).fetchone()
+    def source_query(tables):
+        selection = er.projection(er.SEMANTIC,'m')
+        source = 'semantic_memories m'
+        if 'world_beliefs' in tables:
+            selection += ','+er.projection(er.WORLD,'w','source_')
+            source += ' LEFT JOIN world_beliefs w ON w.id=m.source_belief_id'
+        return selection,source
+
+    @staticmethod
+    def source_status(item, row, tables):
+        if item.get('read_status')=='corrupt':return
+        item['source_status']='source_unavailable'
+        if 'world_beliefs' not in tables:return
+        source=er.stored_record(row,'world','source_')
+        if source.get('read_status')=='corrupt':return
         try:
-            if source is None:
-                raise ValueError('Missing source')
-            normalized_source(source)
-            item['source_status'] = 'available'
-        except (ValueError, TypeError, KeyError, OverflowError, RecursionError):
-            item['source_status'] = 'source_unavailable'
-        return item
+            source['value_json']=er.compact(source.pop('value')).decode('ascii')
+            normalized_source(source)  # Existing pure validation; no derived values exposed.
+            item['source_status']='available'
+        except (ValueError,TypeError,KeyError,OverflowError,RecursionError):
+            pass
 
     def memories(self, signal=None, scope=None, status=None, after=0, limit=50):
-        bounds(after, limit)
-        if (signal not in (None, *SIGNALS) or scope not in (None, 'global', 'action') or
-            status not in (None, 'active', 'weakened', 'source_unavailable')):
-            raise ServiceError('invalid_query', 'Invalid semantic filter.')
-        with self.store.connection() as db:
-            if 'semantic_memories' not in self.store.tables(db):
-                return dict(available=False, items=[], next_cursor=None)
-            rows = db.execute('''SELECT * FROM semantic_memories WHERE id>?
-                AND (? IS NULL OR signal=?) AND (? IS NULL OR scope=?) AND (? IS NULL OR status=?)
-                ORDER BY id LIMIT ?''', (after,signal,signal,scope,scope,status,status,limit+1)).fetchall()
-            return dict(available=True, items=[self.current(db,r) for r in rows[:limit]],
-                        next_cursor=rows[limit-1]['id'] if len(rows)>limit else None)
-
-    def _row(self, db, semantic_id):
-        row = db.execute('SELECT * FROM semantic_memories WHERE id=?', (semantic_id,)).fetchone() \
-            if 'semantic_memories' in self.store.tables(db) else None
-        if row is None:
-            raise ServiceError('not_found', 'Semantic memory does not exist.', 404)
-        return row
+        bounds(after,limit)
+        if (signal not in (None,*SIGNALS) or scope not in (None,'global','action') or
+            status not in (None,'active','weakened','source_unavailable')):
+            raise ServiceError('invalid_query','Invalid semantic filter.')
+        with er.bounded_read(self.store) as db:
+            unavailable,tables=er.feature(db,'semantic_memories',5,('world_beliefs',))
+            if unavailable is not None:return unavailable
+            selection,source=self.source_query(tables)
+            result,rows=er.page(db,'semantic_memories','semantic',
+                'id>? AND (? IS NULL OR signal=?) AND (? IS NULL OR scope=?) AND (? IS NULL OR status=?)',
+                (after,signal,signal,scope,scope,status,status),limit,select=selection,source=source)
+            for item,row in zip(result['items'],rows):self.source_status(item,row,tables)
+            return er.capped(result,1847296)
 
     def memory(self, semantic_id):
         identity(semantic_id)
-        with self.store.connection() as db:
-            return self.current(db, self._row(db, semantic_id))
+        with er.bounded_read(self.store) as db:
+            unavailable,tables=er.feature(db,'semantic_memories',5,('world_beliefs',))
+            if unavailable is not None:
+                if unavailable.get('status')=='error':return unavailable
+                raise ServiceError('not_found','Semantic memory does not exist.',404)
+            selection,source=self.source_query(tables)
+            row=db.execute(f'SELECT {selection} FROM {source} WHERE m.id=?',(semantic_id,)).fetchone()
+            if row is None:raise ServiceError('not_found','Semantic memory does not exist.',404)
+            item=er.stored_record(row,'semantic')
+            self.source_status(item,row,tables)
+            return er.capped(item,20480)
 
     def history(self, semantic_id, before=MAX_ID, limit=50):
-        identity(semantic_id)
-        bounds(before, limit)
-        with self.store.connection() as db:
-            self._row(db, semantic_id)
-            rows = db.execute('''SELECT * FROM semantic_memory_history
-                WHERE semantic_memory_id=? AND revision<=? ORDER BY revision DESC LIMIT ?''',
+        identity(semantic_id);bounds(before,limit)
+        with er.bounded_read(self.store) as db:
+            unavailable,tables=er.feature(db,'semantic_memories',5,('semantic_memory_history',))
+            if unavailable is not None:
+                if unavailable.get('status')=='error':return unavailable
+                raise ServiceError('not_found','Semantic memory does not exist.',404)
+            if 'semantic_memory_history' not in tables:
+                return dict(available=False,status='error',reason='missing_feature_table',items=[],next_cursor=None)
+            if db.execute('SELECT id FROM semantic_memories WHERE id=?',(semantic_id,)).fetchone() is None:
+                raise ServiceError('not_found','Semantic memory does not exist.',404)
+            rows=db.execute(f'SELECT {er.projection(er.HISTORY)} FROM semantic_memory_history WHERE semantic_memory_id=? AND revision<=? ORDER BY revision DESC LIMIT ?',
                 (semantic_id,before,limit+1)).fetchall()
-            items = []
-            for row in rows[:limit]:
-                item = dict(row)
-                snapshot = decode(item.pop('record_json'), {})
-                item['record'] = record(snapshot) if 'payload_json' in snapshot else snapshot
-                items.append(item)
-            return dict(available=True,items=items,
-                        next_cursor=rows[limit-1]['revision']-1 if len(rows)>limit else None)
+            result=dict(available=True,items=[er.stored_record(r,'history') for r in rows[:limit]],
+                next_cursor=rows[limit-1]['revision']-1 if len(rows)>limit else None)
+            return er.capped(result,3485696)
 
     def runs(self, before=MAX_ID, limit=50):
-        bounds(before, limit)
-        with self.store.connection() as db:
-            if 'consolidation_runs' not in self.store.tables(db):
-                return dict(available=False, items=[], next_cursor=None)
-            rows = db.execute('SELECT * FROM consolidation_runs WHERE id<=? ORDER BY id DESC LIMIT ?',
-                              (before,limit+1)).fetchall()
-            items = []
-            for row in rows[:limit]:
-                item = dict(row)
-                item['result'] = decode(item.pop('result_json'), {})
-                items.append(item)
-            return dict(available=True,items=items,
-                        next_cursor=rows[limit-1]['id']-1 if len(rows)>limit else None)
+        bounds(before,limit)
+        with er.bounded_read(self.store) as db:
+            unavailable,_=er.feature(db,'consolidation_runs',5)
+            if unavailable is not None:return unavailable
+            result,_=er.page(db,'consolidation_runs','run','id<=?',(before,),limit,True)
+            return er.capped(result,1847296)

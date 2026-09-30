@@ -35,10 +35,10 @@
 
 **Interfaces:** `PredictionReadService(store).list(before=None,limit=20)->dict`, `.detail(transition_id)->dict`; `SeedService.predictions`/`prediction` delegate. Shared `bounded_read(store, error_code='evidence_read_unavailable', budget=300000)`, `schema(db, tables)->(version,set)`, `strict_json(raw, limit=16384, array_limit=100, history=False)->dict`, `compact(value)->bytes`, `capped(value,limit,error_code)->dict`, scalar/projection helpers consumed by Task2. Exact field/status/wrapper shapes follow spec7.
 
-- [ ] Write tests for absent API, list presence/no full JSON, strict queries, legacy/missing/future schemas, corrupt metadata/payloads, supported shapes, sibling independence, pagination/gaps/MAX_ID, sentinel/canonical bounds, busy/VM/SELECT/response caps and no producer/writes.
-- [ ] Run `.venv/bin/python -m pytest -q tests/dashboard/test_predictions.py`; observe missing-route/behavior failures before implementing.
-- [ ] Implement guards and prediction service, delegates and two strict GET routes. Preserve other routes and B7/B8 serialization.
-- [ ] Run targeted tests then dashboard suite; expected all pass with existing warnings only. Commit `feat: expose bounded prediction evidence`.
+- [x] Write tests for absent API, list presence/no full JSON, strict queries, legacy/missing/future schemas, corrupt metadata/payloads, supported shapes, sibling independence, pagination/gaps/MAX_ID, sentinel/canonical bounds, busy/VM/SELECT/response caps and no producer/writes.
+- [x] Run `.venv/bin/python -m pytest -q tests/dashboard/test_predictions.py`; observe missing-route/behavior failures before implementing.
+- [x] Implement guards and prediction service, delegates and two strict GET routes. Preserve other routes and B7/B8 serialization.
+- [x] Run targeted tests then dashboard suite; expected all pass with existing warnings only. Commit `feat: expose bounded prediction evidence`.
 
 ### Task 2: Bound older read adapters and retained counts
 
@@ -46,10 +46,10 @@
 
 **Interfaces:** Keep existing public service methods/filter/cursor signatures. Shared guards from Task1; valid existing row shapes unchanged, corrupt rows retain reliable IDs and `read_status/read_reason` with null payload. Semantic source LEFT JOIN; history nested payload exception; summary adds valid/corrupt counts. Development remains exact counts or `development_read_unavailable`; direct memory detail uses existing route and explicit warnings.
 
-- [ ] Add failing cases for malformed/oversized/duplicate JSON, scalar/type corruption, canonical expansion, nested history payload, corrupt source isolation, no-refill cursors, bounded summary denominators, missing supporting tables/future schemas, zero timeout/VM cleanup and SELECT ceilings.
-- [ ] Add count-budget failure preserving no mutation and direct memory state/note/tag limits. Run targeted tests; expected failures against existing permissive readers.
-- [ ] Implement spec8 adapters, caps and compact route responses without changing legacy list, learner, process or operator code.
-- [ ] Run all dashboard tests and full suite; expected passing. Commit `feat: bound Astra legacy evidence reads`.
+- [x] Add failing cases for malformed/oversized/duplicate JSON, scalar/type corruption, canonical expansion, nested history payload, corrupt source isolation, no-refill cursors, bounded summary denominators, missing supporting tables/future schemas, zero timeout/VM cleanup and SELECT ceilings.
+- [x] Add count-budget failure preserving no mutation and direct memory state/note/tag limits. Run targeted tests; expected failures against existing permissive readers.
+- [x] Implement spec8 adapters, caps and compact route responses without changing legacy list, learner, process or operator code.
+- [x] Run all dashboard tests and full suite; expected passing. Commit `feat: bound Astra legacy evidence reads`.
 
 ### Task 3: Evidence client, navigation and Overview compatibility
 
