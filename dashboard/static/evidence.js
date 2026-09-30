@@ -1,4 +1,4 @@
-import {api,el,card,list,details,button,table,select,date} from './api.js';
+import {api,el,card,list,details,button,table,select} from './api.js';
 export const ASTRA=new Set(['development','predictions','world-model','curiosity','semantic-memory','self-model','decisions']);
 export const SIGNALS=['battery_pct','load_ratio','disk_free_pct','network_reachable'];
 export const ACTIONS=['observe','reflect','consolidate','rest'];
@@ -34,11 +34,16 @@ export function route(){const result=parseRoute(location.hash);if(result.invalid
 export function href(page,params={}){const query=new URLSearchParams(Object.entries(params).filter(([,v])=>v!==undefined&&v!==null));return '#'+page+(query.size?'?'+query:'');}
 export function link(label,page,params={}){const a=el('a',label,'evidence-link');a.href=href(page,params);return a;}
 export function value(v){return v===null||v===undefined?'Unavailable':typeof v==='boolean'?(v?'Yes':'No'):String(v);}
-export function stamp(v){if(typeof v!=='number'||!Number.isFinite(v))return value(v);const formatted=date(v);return v>Date.now()/1000?formatted+' · future timestamp / clock difference':formatted;}
+function validEpoch(v){return typeof v==='number'&&Number.isFinite(v)&&v>=0&&Number.isFinite(new Date(v*1000).getTime());}
+export function stamp(v){
+ const node=el('span',null,'evidence-time'),valid=validEpoch(v),clock=valid?new Date(v*1000):null;
+ node.append(document.createTextNode(valid?clock.toLocaleString(undefined,{timeZoneName:'short'})+' ('+Intl.DateTimeFormat().resolvedOptions().timeZone+')'+(v>Date.now()/1000?' · Ahead of dashboard clock':''):'Timestamp unavailable'));
+ const detail=el('details');detail.append(el('summary','Timestamp details'),el('small',(valid?'UTC: '+clock.toISOString()+' · ':'')+'Raw epoch: '+String(v).slice(0,120)));node.append(detail);return node;
+}
 export function badge(label){return el('span',label||'Unavailable','badge '+(/corrupt|error|failed/i.test(label)?'error':/unavailable|legacy|missing|stale/i.test(label)?'warning':''));}
 export function raw(data){return details('Formatted stored fields; large integers are displayed as decimal strings',data);}
 export function pairs(data,keys){return list(keys.map(key=>[key.replaceAll('_',' '),value(data?.[key])]));}
-export function times(data,keys){return list(keys.map(key=>[key.replaceAll('_',' '),stamp(data?.[key])]));}
+export function times(data,keys){const node=el('dl',null,'data-list');for(const key of keys){const dd=el('dd',null,'mono');dd.append(stamp(data?.[key]));node.append(el('dt',key.replaceAll('_',' ')),dd);}if(keys.includes('started_at')&&keys.includes('completed_at')&&validEpoch(data?.started_at)&&validEpoch(data?.completed_at)&&data.completed_at<data.started_at)node.append(el('dt','Clock order'),el('dd','Clock order inconsistent'));return node;}
 export function state(root,data){
   if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Invalid evidence response');
   const label=data.read_status==='corrupt'?'Corrupt stored evidence':data.status==='error'?'Stored evidence error':data.available===false?(data.reason||'Legacy / unavailable'):null;
@@ -46,7 +51,7 @@ export function state(root,data){
 }
 export function listItems(data,max=100){if(!Array.isArray(data.items)||data.items.length>max)throw Error('Invalid evidence list bounds');return data.items;}
 export async function read(path,signal){const data=await api.getEvidence(path,signal);if(signal?.aborted)throw new DOMException('Navigation cancelled','AbortError');return data;}
-export function readTime(root){root.append(el('small','Read at '+new Date().toLocaleString(),'read-time'));}
+export function readTime(root){const note=el('small','Read at ','read-time');note.append(stamp(Date.now()/1000));root.append(note);}
 export function report(root,error,retry){if(error.name==='AbortError')return;root.replaceChildren(badge('Service unavailable'),el('p',error.message));if(retry)root.append(button('Retry',retry));}
 export function filterBar(page,params,definitions){
   const form=el('form',null,'toolbar'),controls=[];

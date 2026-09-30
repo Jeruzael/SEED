@@ -18,9 +18,11 @@ let bootstrapPromise;
 api.bootstrap=function(){
   if(!bootstrapPromise){
     api.token=null;
-    bootstrapPromise=Promise.resolve().then(()=>api.get('bootstrap')).then(data=>{
+    const controller=new AbortController();let timedOut=false;
+    const timer=setTimeout(()=>{timedOut=true;controller.abort();},10000);
+    bootstrapPromise=Promise.resolve().then(()=>api.get('bootstrap',controller.signal)).then(data=>{
       api.token=data.token;return data;
-    }).catch(error=>{bootstrapPromise=undefined;api.token=null;throw error;});
+    }).catch(error=>{bootstrapPromise=undefined;api.token=null;if(timedOut){const timeout=new Error('Read timed out after 10 seconds. Retry when ready.');timeout.code='read_timeout';throw timeout;}throw error;}).finally(()=>clearTimeout(timer));
   }
   return bootstrapPromise;
 };

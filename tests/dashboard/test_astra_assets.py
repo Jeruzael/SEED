@@ -164,3 +164,24 @@ const pending=api.bootstrap();assert.equal(api.bootstrap(),pending);await Promis
 await assert.rejects(pending,e=>e.code==='read_timeout');assert.equal(api.token,null);assert.equal(cleared,1);
 await api.bootstrap();await api.bootstrap();assert.equal(api.token,'recovered');assert.equal(attempts,2);assert.equal(cleared,2);
 ''')
+
+
+def test_evidence_timestamps_validate_clocks_and_expose_timezone_utc_epoch():
+    javascript('''
+import assert from 'node:assert/strict';import {installDOM} from '../../tests/dashboard/astra_dom.mjs';import {stamp,times} from './evidence.js';installDOM();
+for(const v of [null,undefined,-1,1e20,Infinity,'1700000000']){const n=stamp(v);assert.ok(n.textContent.includes('Timestamp unavailable'));assert.ok(!n.textContent.includes('Invalid Date'));}
+const valid=stamp(1700000000);assert.ok(valid.textContent.includes('2023-11-14T22:13:20.000Z'));assert.ok(valid.textContent.includes('1700000000'));assert.ok(valid.querySelector('details'));assert.ok(valid.textContent.includes(Intl.DateTimeFormat().resolvedOptions().timeZone));
+assert.ok(stamp(Date.now()/1000+1000).textContent.includes('Ahead of dashboard clock'));assert.ok(!stamp(0).textContent.includes('Timestamp unavailable'));
+const reversed=times({started_at:2,completed_at:1},['started_at','completed_at']);assert.ok(reversed.textContent.includes('Clock order inconsistent'));assert.ok(reversed.textContent.includes('1970-01-01T00:00:02.000Z'));
+''')
+
+
+def test_prediction_list_exposes_exact_episode_and_legacy_reward():
+    javascript('''
+import assert from 'node:assert/strict';import {Element,installDOM} from '../../tests/dashboard/astra_dom.mjs';import {api} from './api.js';import {renderPredictions} from './views/predictions.js';installDOM();globalThis.location={hash:'#predictions?limit=50'};
+api.getEvidence=async()=>({available:true,items:Array.from({length:50},(_,i)=>({available:true,transition_id:i+1,episode_id:'9007199254740993',action:'observe',legacy_reward:0,completed_at:1700000000,prediction_present:false,evaluation_present:false})),next_cursor:null});
+const root=new Element();await renderPredictions(root,new AbortController().signal);
+assert.ok(root.querySelectorAll('th').some(n=>n.textContent==='Episode'));assert.ok(root.querySelectorAll('th').some(n=>n.textContent==='Legacy reward'));
+assert.equal(root.querySelectorAll('a').filter(n=>n.href==='#memory?episode=9007199254740993').length,50);
+assert.ok(root.querySelectorAll('td').some(n=>n.textContent==='0'));assert.ok(root.querySelectorAll('*').length<=1000,'50-row prediction page exceeds approved render ceiling');
+''')
