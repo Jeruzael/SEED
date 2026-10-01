@@ -97,6 +97,6 @@ Start `20e19add6ee35c9dc120510333b0207d25294cb8`; preserve all existing commits.
 - [x] C10–C14: focused/full tests, seven scenarios, compileall, pip check, scope audit and corrected temporary-browser matrix.
 - [x] C15–C16: fresh whole-branch review; fix/recheck actionable findings; record actual final evidence.
 - [x] C17: preserve existing commits; commit corrections and final evidence documentation.
-- [ ] C18: push existing branch, then stop before PR/merge/deployment/B10.
+- [ ] C18: push existing branch, then stop before PR/merge/deployment/B10. Attempted SSH and HTTPS publication on 2026-10-01; both blocked by missing Git credentials. Authenticated remote remains `ef214b9`; local closure commit `46476ad` and all history are preserved. Resume publication once Git authentication works.
 
 Final reviewed source head `1a284377e7a896f8e9ce2d07e38c0ff96f6ce981`, base `16dcd8b`: independent PASS,0 Critical/0 Important/0 Minor, none deferred. Local and independent148-focused/883-full results passed with2 existing warnings. All7 scenarios, compileall, pip check, whitespace and unchanged-category audits passed. Corrected browser matrix and limitations are recorded in docs/verification.md; deployment/live-device/hosted acceptance is not claimed. B9 overall remains NOT YET VERIFIED.
