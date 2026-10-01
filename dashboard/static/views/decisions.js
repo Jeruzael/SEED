@@ -1,0 +1,18 @@
+import {el,card,table,button} from '../api.js';
+import {route,read,state,listItems,raw,pairs,times,correlation,filterBar,pager,readTime,link,value,detailPane,ACTIONS} from '../evidence.js';
+export function decisionDetail(root,data){
+ if(!state(root,data))return;const record=data.record;if(!record?.candidates||ACTIONS.some(a=>!record.candidates[a]))throw Error('Invalid decision record');
+ let explanation='Stored selection evidence.';
+ if(record.selection_mode==='explore')explanation=record.selected_action+' was selected during exploration among the stored eligible actions.';
+ else if(record.policy_basis==='composite'&&record.selection_mode==='exploit')explanation=record.selected_action+' was selected during composite exploitation from the stored selection_candidates set.';
+ else if(record.policy_basis==='legacy_q'&&record.selection_mode==='fallback')explanation=record.selected_action+' was selected by raw-Q fallback from the stored candidate set.';
+ root.append(el('p',explanation,'notice'),pairs(record,['transition_id','decision_id','model','model_version','weights_version','selected_action','selection_mode','policy_basis','fallback_reason','state_key','epsilon','alpha','random_draw','choice_index','selected_prediction_sha256']),times(record,['selected_at','created_at']),raw({selection_candidates:record.selection_candidates,eligible_actions:record.eligible_actions,history:record.history,current:record.current,prediction_contract:record.prediction_contract}));correlation(root,{transition_id:record.transition_id});
+ root.append(table(['Candidate','Eligible / reasons','Raw Q / visits / missing','Q component','Resource risk / uncertainty','Utility'],ACTIONS.map(action=>{const c=record.candidates[action];return [action,value(c.eligible)+' / '+c.constraint_reasons.join(', '),value(c.q_value)+' / '+value(c.visits)+' / '+value(c.q_missing),value(c.components.q_component),value(c.components.forecast_resource_risk)+' / '+value(c.components.model_uncertainty),value(c.decision_utility)];}), 'Decision candidates'));
+ for(const action of ACTIONS){const section=card(action+' · frozen resource forecasts');section.append(raw(record.candidates[action].resource_forecasts));root.append(section);}
+}
+export async function renderDecisions(root,signal){
+ const {params}=route(),panel=card('Frozen decision records');root.replaceChildren(panel);
+ if(params.transition){decisionDetail(panel,await read('decisions/'+params.transition,signal));panel.append(link('First page','decisions'));readTime(panel);return;}
+ panel.append(filterBar('decisions',params,[]));const data=await read('decisions?'+new URLSearchParams({limit:'20',...params}),signal);if(!state(panel,data))return;const rows=listItems(data,50),detail=card('Selected decision');detail.hidden=true;root.append(detail);const open=detailPane(detail,signal);
+ panel.append(table(['Transition','Selected action / mode / basis','Raw Q / utility','Selection record','Times','Inspect'],rows.map(item=>[link('#'+item.transition_id,'predictions',{transition:item.transition_id}),item.available===false?item.reason:item.selected_action+' / '+item.selection_mode+' / '+item.policy_basis,value(item.q_value)+' / '+value(item.decision_utility),raw({decision_id:item.decision_id,eligible_actions:item.eligible_actions,constraint_reasons:item.constraint_reasons,fallback_reason:item.fallback_reason}),times(item,['selected_at','created_at']),button('Inspect #'+item.transition_id,async()=>{detail.hidden=false;await open('decisions/'+item.transition_id,decisionDetail);})]), 'Stored decisions'),pager('decisions',params,data.next_cursor));if(!rows.length)panel.append(el('p','No stored B8 decisions in this page.'));readTime(panel);
+}

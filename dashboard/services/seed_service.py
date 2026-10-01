@@ -13,6 +13,9 @@ from .process import ProcessController
 from .storage import StorageService
 from .semantic_memory import SemanticReadService
 from .self_model import SelfModelReadService
+from . import evidence_reads as er
+
+DEVELOPMENT_READ_BUDGET = 300000
 
 
 class SeedService:
@@ -117,11 +120,31 @@ class SeedService:
         return item
 
     def memory(self, episode_id):
-        with self.store.connection() as db:
-            row = db.execute('SELECT * FROM episodes WHERE id=?', (episode_id,)).fetchone()
-            if not row:
-                raise ServiceError('not_found', 'Episode does not exist.', 404)
-            return self._episode(db, row, self.store.tables(db))
+        if not er.integer(episode_id,1):raise ServiceError('invalid_id','Invalid episode ID.')
+        fields = er.layout('id','ts','event',action=(128,True),reward='n?',state_json=16384,note=(4096,True))
+        with er.bounded_read(self.store,'memory_read_unavailable') as db:
+            row = db.execute(f'SELECT {er.projection(fields)} FROM episodes WHERE id=?',(episode_id,)).fetchone()
+            if row is None:raise ServiceError('not_found','Episode does not exist.',404)
+            item = dict(id=episode_id,state={},note=None,warning=None,important=False,tags=[])
+            try:
+                item.update(er.scalars(row,fields))
+                item['state']=er.strict_json(item.pop('state_json'))
+            except (ValueError,TypeError,UnicodeError,RecursionError):
+                item.pop('state_json',None)
+                item.update(read_status='corrupt',read_reason='invalid_stored_evidence',warning='Stored episode evidence is invalid or exceeds read limits.')
+            exists = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='annotations' LIMIT 1").fetchone()
+            if exists:
+                annotation = db.execute(f'SELECT {er.projection(er.layout("important",tags_json=4096))} FROM annotations WHERE episode_id=?',(episode_id,)).fetchone()
+                if annotation is not None:
+                    try:
+                        import json
+                        data=er.scalars(annotation,er.layout('important',tags_json=4096))
+                        tags=json.loads(data['tags_json'])
+                        er.require(data['important'] in (0,1) and isinstance(tags,list) and len(tags)<=10 and all(type(t) is str and len(t)<=32 and len(t.encode('utf-8'))<=128 for t in tags))
+                        item.update(important=bool(data['important']),tags=tags)
+                    except (ValueError,TypeError,UnicodeError,RecursionError):
+                        item.update(read_status='corrupt',read_reason='invalid_stored_evidence',warning='Stored episode annotation is invalid or exceeds read limits.')
+            return er.capped(item,32768)
 
     def concepts(self):
         with self.store.connection() as db:
@@ -138,80 +161,64 @@ class SeedService:
                 items.append(item)
         return {'items': items}
 
-    @staticmethod
-    def _world_belief(row):
-        item = dict(row)
-        item['value'] = decode(item.pop('value_json'), {})
-        item['confidence_kind'] = 'evidence_consistency'
-        return item
-
     def world_beliefs(self, signal=None, scope=None, scope_value=None, after=0, limit=50):
-        """Bounded keyset inspection, with no construction/migration of core memory."""
-        if (type(limit) is not int or not 1 <= limit <= 100 or
-            type(after) is not int or not 0 <= after <= 2**63-1 or
-            signal not in (None, *SIGNALS) or scope not in (None, 'global', 'action') or
-            scope_value not in (None, '', *ACTIONS)):
-            raise ServiceError('invalid_query', 'Invalid world-belief filter or pagination.')
-        with self.store.connection() as db:
-            if 'world_beliefs' not in self.store.tables(db):
-                return {'available': False, 'items': [], 'next_cursor': None}
-            rows = db.execute('''SELECT * FROM world_beliefs WHERE id>?
-                AND (? IS NULL OR signal=?) AND (? IS NULL OR scope=?)
-                AND (? IS NULL OR scope_value=?) ORDER BY id LIMIT ?''',
-                (after,signal,signal,scope,scope,scope_value,scope_value,limit+1)).fetchall()
-            return {'available': True, 'items': [self._world_belief(r) for r in rows[:limit]],
-                    'next_cursor': rows[limit-1]['id'] if len(rows)>limit else None}
+        if (not er.integer(limit,1,100) or not er.integer(after) or
+            signal not in (None,*SIGNALS) or scope not in (None,'global','action') or
+            scope_value not in (None,'',*ACTIONS)):
+            raise ServiceError('invalid_query','Invalid world-belief filter or pagination.')
+        with er.bounded_read(self.store) as db:
+            unavailable,_ = er.feature(db,'world_beliefs',3)
+            if unavailable is not None:return unavailable
+            result,_ = er.page(db,'world_beliefs','world',
+                'id>? AND (? IS NULL OR signal=?) AND (? IS NULL OR scope=?) AND (? IS NULL OR scope_value=?)',
+                (after,signal,signal,scope,scope,scope_value,scope_value),limit)
+            return er.capped(result,1847296)
+
+    def _model_detail(self, table, kind, minimum, identity):
+        if not er.integer(identity,1):
+            raise ServiceError('invalid_id','Invalid evidence ID.')
+        with er.bounded_read(self.store) as db:
+            unavailable,_ = er.feature(db,table,minimum)
+            if unavailable is not None:
+                if unavailable.get('status')=='error':return unavailable
+                raise ServiceError('not_found','Evidence does not exist.',404)
+            key = 'transition_id' if kind=='curiosity' else 'id'
+            row = db.execute(f'SELECT {er.projection(er.LAYOUTS[kind])} FROM {table} WHERE {key}=?',(identity,)).fetchone()
+            if row is None:raise ServiceError('not_found','Evidence does not exist.',404)
+            return er.capped(er.stored_record(row,kind),20480)
 
     def world_belief(self, belief_id):
-        if type(belief_id) is not int or not 1 <= belief_id <= 2**63-1:
-            raise ServiceError('invalid_id', 'Invalid world-belief ID.')
-        with self.store.connection() as db:
-            row = db.execute('SELECT * FROM world_beliefs WHERE id=?', (belief_id,)).fetchone() \
-                if 'world_beliefs' in self.store.tables(db) else None
-            if row is None:
-                raise ServiceError('not_found', 'World belief does not exist.', 404)
-            return self._world_belief(row)
-
-    @staticmethod
-    def _curiosity(row):
-        item = dict(row)
-        item['components'] = decode(item.pop('components_json'), {})
-        return item
+        return self._model_detail('world_beliefs','world',3,belief_id)
 
     def curiosity_assessments(self, before=2**63-1, limit=50):
-        if (type(before) is not int or not 0 <= before <= 2**63-1 or
-            type(limit) is not int or not 1 <= limit <= 100):
-            raise ServiceError('invalid_query', 'Invalid curiosity pagination.')
-        with self.store.connection() as db:
-            if 'curiosity_assessments' not in self.store.tables(db):
-                return {'available': False, 'items': [], 'next_cursor': None}
-            rows = db.execute('SELECT * FROM curiosity_assessments WHERE transition_id<=? '
-                              'ORDER BY transition_id DESC LIMIT ?', (before,limit+1)).fetchall()
-            return {'available': True, 'items': [self._curiosity(r) for r in rows[:limit]],
-                    'next_cursor': rows[limit-1]['transition_id']-1 if len(rows)>limit else None}
+        if not er.integer(before) or not er.integer(limit,1,100):
+            raise ServiceError('invalid_query','Invalid curiosity pagination.')
+        with er.bounded_read(self.store) as db:
+            unavailable,_ = er.feature(db,'curiosity_assessments',4)
+            if unavailable is not None:return unavailable
+            result,_ = er.page(db,'curiosity_assessments','curiosity','transition_id<=?',(before,),limit,True)
+            return er.capped(result,1847296)
 
     def curiosity_assessment(self, transition_id):
-        if type(transition_id) is not int or not 1 <= transition_id <= 2**63-1:
-            raise ServiceError('invalid_id', 'Invalid curiosity transition ID.')
-        with self.store.connection() as db:
-            row = db.execute('SELECT * FROM curiosity_assessments WHERE transition_id=?', (transition_id,)).fetchone() \
-                if 'curiosity_assessments' in self.store.tables(db) else None
-            if row is None:
-                raise ServiceError('not_found', 'Curiosity assessment does not exist.', 404)
-            return self._curiosity(row)
+        return self._model_detail('curiosity_assessments','curiosity',4,transition_id)
 
     def curiosity_summary(self):
-        with self.store.connection() as db:
-            available = 'curiosity_assessments' in self.store.tables(db)
-            rows = db.execute('SELECT * FROM curiosity_assessments ORDER BY transition_id DESC LIMIT 100').fetchall() \
-                if available else []
+        with er.bounded_read(self.store) as db:
+            unavailable,_ = er.feature(db,'curiosity_assessments',4)
+            if unavailable is not None and unavailable.get('status')=='error':return unavailable
+            raw = db.execute(f'SELECT {er.projection(er.CURIOSITY)} FROM curiosity_assessments ORDER BY transition_id DESC LIMIT 100').fetchall() if unavailable is None else []
+            records = [er.stored_record(r,'curiosity') for r in raw]
+            rows = [r for r in records if r.get('read_status')!='corrupt']
+        denominators = {}
         def mean(key):
-            values = [r[key] for r in rows if r['status']=='evaluated' and
-                      type(r[key]) in (int,float) and math.isfinite(r[key])]
+            values = [r[key] for r in rows if r['status']=='evaluated' and er.number(r[key])]
+            denominators[key]=len(values)
             return math.fsum(values)/len(values) if values else None
-        return dict(available=available, window_limit=100, assessment_count=len(rows),
+        result = dict(available=unavailable is None, window_limit=100, assessment_count=len(raw),
+                    valid_assessment_count=len(rows), corrupt_assessment_count=len(raw)-len(rows),
                     mean_score=mean('score'), mean_prediction_surprise=mean('prediction_surprise'),
                     mean_uncertainty=mean('uncertainty'), mean_novelty=mean('novelty'),
+                    mean_denominators=denominators,
                     counts_by_level=dict(Counter(r['level'] for r in rows)),
                     eligible_reflection_count=sum(r['reflection_eligible'] for r in rows),
                     claimed_reflection_count=sum(r['reflection_claimed'] for r in rows),
@@ -219,6 +226,15 @@ class SeedService:
                     suppressed_reflection_count=sum(r['suppression_reason'] is not None for r in rows),
                     suppression_reasons=dict(Counter(r['suppression_reason'] for r in rows if r['suppression_reason'])),
                     failure_count=sum(r['failure_reason'] is not None for r in rows))
+        return er.capped(result,16384)
+
+    def predictions(self, before=None, limit=20):
+        from .predictions import PredictionReadService
+        return PredictionReadService(self.store).list(before, limit)
+
+    def prediction(self, transition_id):
+        from .predictions import PredictionReadService
+        return PredictionReadService(self.store).detail(transition_id)
 
     def decisions(self, before=None, limit=20):
         from .decisions import DecisionReadService
@@ -281,15 +297,30 @@ class SeedService:
         return self.cached(('history', limit), 30, read)
 
     def development(self):
-        with self.store.connection() as db:
-            counts = {r[0]:r[1] for r in db.execute('SELECT event,COUNT(*) FROM episodes GROUP BY event')}
-            timeline = [dict(r) for r in db.execute("SELECT ts,event,note FROM episodes WHERE event IN ('wake','sleep') ORDER BY id DESC LIMIT 20")]
-            return {'observations': counts.get('experience',0), 'owner_interactions': counts.get('owner',0),
+        with er.bounded_read(self.store,'development_read_unavailable',DEVELOPMENT_READ_BUDGET) as db:
+            tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('episodes','q_values','concepts') LIMIT 3")}
+            if tables != {'episodes','q_values','concepts'}:raise ServiceError('development_read_unavailable','Retained count tables are unavailable.',503)
+            counts = {r[0]:r[1] for r in db.execute("SELECT CASE WHEN event IN ('experience','owner','wake','sleep') THEN event ELSE NULL END AS category,COUNT(*) FROM episodes GROUP BY category")}
+            timeline = []
+            fields = er.layout(numbers='ts',texts='event',note=4096)
+            for row in db.execute(f"SELECT {er.projection(fields)} FROM episodes WHERE event IN ('wake','sleep') ORDER BY id DESC LIMIT 20"):
+                try:
+                    item = er.scalars(row,fields)
+                    er.require(er.number(item['ts'],0))
+                except (ValueError,TypeError,UnicodeError):
+                    item = dict(ts=row['ts'] if er.number(row['ts']) else None,
+                                event=row['event'].decode('utf-8') if row['event'] in (b'wake',b'sleep') else None,
+                                note=None,read_status='corrupt',read_reason='invalid_stored_evidence')
+                timeline.append(item)
+            result = {'observations': counts.get('experience',0), 'owner_interactions': counts.get('owner',0),
                     'wake_records': counts.get('wake',0), 'sleep_stop_records': counts.get('sleep',0),
                     'known_contexts': db.execute('SELECT COUNT(DISTINCT state_key) FROM q_values').fetchone()[0],
                     'learning_updates': db.execute('SELECT COALESCE(SUM(visits),0) FROM q_values').fetchone()[0],
                     'concepts': db.execute('SELECT COUNT(*) FROM concepts').fetchone()[0],
                     'timeline': timeline, 'scope': 'Counts from retained records; wake gaps are inferred, sleep includes process stop.'}
+            if any(not er.integer(result[k]) for k in ('observations','owner_interactions','wake_records','sleep_stop_records','known_contexts','learning_updates','concepts')):
+                raise ServiceError('development_read_unavailable','Stored counts are invalid.',503)
+            return er.capped(result,98304,'development_read_unavailable')
 
     def storage(self):
         def read():

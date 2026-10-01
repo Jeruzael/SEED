@@ -4,7 +4,7 @@
 
 SEED is an experimental developmental agent that treats a MacBook as its body and first environment. It observes local conditions, remembers experience, predicts immediate outcomes, measures prediction error, and retains descriptive patterns within owner-controlled boundaries.
 
-**Current source: SEED 0.2 — verified through B8 at source/CI level, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged at master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`. [Post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed 747 tests on each of Linux Python 3.11/3.13 and macOS Python 3.13, plus all seven standalone scenarios on both Python 3.13 jobs. Deployment/live-device validation is **NOT PERFORMED**; the installed organism is **UNTOUCHED**, and its schema is not inferred from source verification. B9–B10 remain **NOT STARTED**. See the [closure record](docs/seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
+**Current source: SEED 0.2 — verified through B8 at source/CI level, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged at master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`. [Post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed 747 tests on each of Linux Python 3.11/3.13 and macOS Python 3.13, plus all seven standalone scenarios on both Python 3.13 jobs. Deployment/live-device validation is **NOT PERFORMED**; the installed organism is **UNTOUCHED**, and its schema is not inferred from source verification. B9 Astra is **IMPLEMENTED on `seed-0.2-b9`**, with 883 passing local tests and seven passing scenarios; independent whole-branch review passed with no remaining findings. B9 is NOT YET VERIFIED. Hosted B9 CI and deployment are not claimed. B10 remains **NOT STARTED**. See the [closure record](docs/seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
 
 Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. The macOS test-isolation correction passes **542 tests** locally and on all three hosted Linux/macOS jobs for correction commit `cb70d00`; all verification artifacts were inspected. [Corrective PR #9](https://github.com/Jeruzael/SEED/pull/9) records checks for its current head. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
 
@@ -19,9 +19,10 @@ Post-B6 hardening corrects current battery-state parsing, separates source and r
 | B6 | Semantic memory consolidation | VERIFIED |
 | B7 | Descriptive self model | VERIFIED |
 | B8 | Bounded decision system and stored decision inspection | VERIFIED |
-| B9–B10 | Development UI and evaluation | NOT STARTED |
+| B9 | Astra Development UI | IMPLEMENTED; local verification PASS; independent review PASS; not yet VERIFIED |
+| B10 | Development evaluation | NOT STARTED |
 
-See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B9–B10 require separate explicit authorization.
+See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B9 implementation was separately owner-authorized after design approval. B10 still requires separate authorization.
 
 ## What SEED does
 
@@ -196,7 +197,7 @@ The local dashboard can be started from a development environment with its depen
 .venv/bin/python -m dashboard
 ```
 
-It binds to `127.0.0.1:8765` by default and uses `SEED_HOME`, or the standard SEED data directory when unset. Observer mode reads existing storage without constructing another organism. Explicit `--operator` mode enables local controls and requires the complete current schema. B4–B8 add bounded inspection APIs; the broader B9 development UI remains unimplemented. See [inspection endpoints](docs/architecture.md#dashboard-and-inspection).
+It binds to `127.0.0.1:8765` by default and uses `SEED_HOME`, or the standard SEED data directory when unset. Observer mode reads existing storage without constructing another organism. Explicit `--operator` mode enables local controls and requires the complete current schema. Astra adds seven stored-evidence views under DEVELOPMENT: Development, Predictions, World Model, Curiosity, Semantic Memory, Self Model and Decisions. Reads are bounded, refresh is manual, and retained development counts load only on request. Missing/corrupt evidence stays explicit; model values are never recomputed in the browser. Existing Overview remains usable when its optional count query fails. See [inspection endpoints](docs/architecture.md#dashboard-and-inspection).
 
 Stop the installed organism:
 
@@ -225,4 +226,18 @@ Actual macOS sleep suspends the process. Wake is inferred from a large wall-cloc
 
 The [low-disk decision mismatch](docs/review-follow-ups.md) is resolved for autonomous B8 selection. Legacy reward remains unchanged for compatibility; consolidation does not reclaim disk space.
 
-**B9–B10 remain unstarted.** B7 exposes descriptive evidence only. Prediction metrics use the latest 100 raw records, storage counts saturate at 1,001, and failure summaries cover retained events rather than a lifetime failure rate. Full evidence and remaining gates are in the [B7 execution record](docs/seed-0.2-development-plan.md#b7-implementation-record--2026-09-24).
+**B9 is implemented on its development branch; B10 remains unstarted.** B7 exposes descriptive evidence only. Prediction metrics use the latest 100 raw records, storage counts saturate at 1,001, and failure summaries cover retained events rather than a lifetime failure rate. Full evidence and remaining gates are in the [B7 execution record](docs/seed-0.2-development-plan.md#b7-implementation-record--2026-09-24).
+
+
+### Astra local verification
+
+The [approved specification](docs/superpowers/specs/2026-09-29-b9-astra-development-ui-design.md) and [implementation record](docs/verification.md#b9-local-implementation-verification--2026-09-30) distinguish local evidence from hosted CI and deployment. The dashboard remains Observer Edition 0.1; core behavior, schema v7 and B7/B8 readers are unchanged.
+
+Disposable fixture generation requires an explicit temporary destination:
+
+```bash
+python -m tests.dashboard.astra_fixture /private/tmp/seed-astra-demo --case combined
+SEED_HOME=/private/tmp/seed-astra-demo python -m dashboard
+```
+
+Use a new empty path for each fixture. This is synthetic evidence, not an installed organism or a claim of developmental improvement.

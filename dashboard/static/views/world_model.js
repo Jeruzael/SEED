@@ -1,0 +1,10 @@
+import {el,card,table,button} from '../api.js';
+import {route,read,state,listItems,raw,pairs,times,correlation,filterBar,pager,readTime,link,stamp,value,SIGNALS,ACTIONS} from '../evidence.js';
+export function worldDetail(root,item){if(!state(root,item))return;root.append(pairs(item,['id','signal','scope','scope_value','belief_type','evidence_count','contradiction_count','confidence','confidence_kind','model_version']),times(item,['created_at','updated_at']),raw(item.value));correlation(root,item);}
+export async function renderWorldModel(root,signal){
+ const {params}=route(),panel=card('World Model');panel.append(el('p','Descriptive statistics from observed transitions, not causal claims.','notice'));root.replaceChildren(panel);
+ if(params.belief){const item=await read('world-beliefs/'+params.belief,signal);panel.append(link('First page','world-model'));worldDetail(panel,item);readTime(panel);return;}
+ panel.append(filterBar('world-model',params,[['signal','Signal',[['','All signals'],...SIGNALS.map(s=>[s,s])]],['scope','Scope',[['','All scopes'],['global','Global'],['action','Observed under action']]],['scope_value','Observed under action',[['','Any / global'],...ACTIONS.map(a=>[a,a])]]]));
+ const data=await read('world-beliefs?'+new URLSearchParams({limit:'20',...params}),signal);if(!state(panel,data))return;const items=listItems(data),detail=card('Selected belief');detail.hidden=true;
+ panel.append(el('p',items.length+' records on this page','subtle'),table(['Belief','Signal / condition','Evidence','Confidence','Updated','Inspect'],items.map(item=>[String(item.id),item.read_status==='corrupt'?'Corrupt stored evidence':item.signal+' · '+(item.scope==='action'?'Observed under action: '+item.scope_value:'Global'),value(item.evidence_count),value(item.confidence),stamp(item.updated_at),button('Inspect #'+item.id,()=>{detail.hidden=false;detail.replaceChildren(el('h2','Belief #'+item.id));worldDetail(detail,item);detail.tabIndex=-1;detail.focus();})]), 'World beliefs'),pager('world-model',params,data.next_cursor,false));readTime(panel);root.append(detail);
+}

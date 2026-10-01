@@ -1,0 +1,19 @@
+import {el,card,table,button} from '../api.js';
+import {route,read,state,listItems,raw,pairs,times,correlation,filterBar,pager,readTime,link,stamp,value,badge,detailPane,SIGNALS} from '../evidence.js';
+export function predictionDetail(root,data){
+ if(!state(root,data))return;const transition={...data.transition,transition_id:data.transition_id};if(!data.transition)throw Error('Invalid transition response');root.append(pairs(transition,['transition_id','episode_id','action','legacy_reward']),times(transition,['started_at','completed_at']));correlation(root,{...transition,transition_id:data.transition_id});root.append(link('Decision for this transition','decisions',{transition:data.transition_id}),link('Curiosity for this transition','curiosity',{transition:data.transition_id}));
+ for(const key of ['prediction','evaluation']){
+  const wrapper=data[key],section=card(key==='prediction'?'Stored prediction':'Stored evaluation');root.append(section);
+  if(!wrapper||typeof wrapper.status!=='string')throw Error('Invalid prediction envelope');section.append(badge(wrapper.status),el('p',wrapper.reason));
+  if(wrapper.status!=='stored')continue;const record=wrapper.data;if(!record?.signals||SIGNALS.some(s=>!record.signals[s]))throw Error('Invalid prediction signals');
+  section.append(pairs(record,key==='prediction'?['model','model_version','action','horizon']:['evaluator','evaluator_version','prediction_model','prediction_model_version','horizon']));
+  if(key==='prediction')section.append(el('p','Confidence is evidence support, not calibrated correctness. Boolean probability is observed frequency.'),table(['Signal','Status','Forecast','Method','Support / confidence','Details'],SIGNALS.map(s=>{const r=record.signals[s];return [s,r.status,value(r.value),value(r.method),value(r.evidence_count)+' / '+value(r.confidence),raw(r)];}), 'Stored forecasts by signal'));
+  else section.append(el('p','Stored prediction accuracy describes these evaluated signals; it is not a development trend.'),pairs(record.aggregate,['status','evaluated_signals','target_signals','coverage','mean_normalized_error','accuracy_score']),table(['Signal','Status','Predicted','Actual','Normalized error','Details'],SIGNALS.map(s=>{const r=record.signals[s];return [s,r.status,value(r.predicted),value(r.actual),value(r.normalized_error),raw(r)];}), 'Stored evaluations by signal'));
+ }
+}
+export async function renderPredictions(root,signal){
+ const {params}=route(),panel=card('Transitions, predictions and outcomes');root.replaceChildren(panel);
+ if(params.transition){predictionDetail(panel,await read('predictions/'+params.transition,signal));panel.append(link('First page','predictions'));readTime(panel);return;}
+ panel.append(filterBar('predictions',params,[]));const data=await read('predictions?'+new URLSearchParams({limit:'20',...params}),signal);if(!state(panel,data))return;const items=listItems(data,50),detail=card('Selected transition');detail.hidden=true;root.append(detail);const open=detailPane(detail,signal);
+ panel.append(el('p','Presence only. Contents checked on opening.','subtle'),table(['Transition','Episode','Action','Legacy reward','Completed','Prediction','Evaluation','Inspect'],items.map(item=>[link('#'+item.transition_id,'predictions',{transition:item.transition_id}),item.episode_id==null?'Unavailable':link('#'+item.episode_id,'memory',{episode:item.episode_id}),item.available===false?item.reason:item.action,value(item.legacy_reward),stamp(item.completed_at),item.available===false?'Unavailable':item.prediction_present?'Present':'Absent',item.available===false?'Unavailable':item.evaluation_present?'Present':'Absent',button('Inspect #'+item.transition_id,async()=>{detail.hidden=false;await open('predictions/'+item.transition_id,predictionDetail);})]), 'Stored predictions'),pager('predictions',params,data.next_cursor));if(!items.length)panel.append(el('p','No retained transitions.','empty'));readTime(panel);
+}

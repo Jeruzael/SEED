@@ -16,7 +16,7 @@ def observer_router(service, slots):
     @router.get('/storage')
     def storage(): return service.storage()
     @router.get('/development')
-    def development(): return service.development()
+    def development(): return Response(compact(service.development()), media_type='application/json')
     @router.get('/learning')
     def learning(): return service.learning()
     @router.get('/concepts')
@@ -52,37 +52,64 @@ def observer_router(service, slots):
             raise ServiceError('invalid_query', 'Invalid decision ID.')
         return Response(compact(service.decision(int(transition_id))),media_type='application/json')
 
+    def prediction_query(request, allowed):
+        seen = set()
+        for key, value in request.query_params.multi_items():
+            if key not in allowed or key in seen:
+                raise ServiceError('invalid_query', 'Invalid prediction query.')
+            prediction_id(value)
+            seen.add(key)
+
+    def prediction_id(value):
+        if (not 1 <= len(value) <= 19 or not value.isascii() or not value.isdigit()
+                or value[0] == '0' or int(value) > 2**63-1):
+            raise ServiceError('invalid_query', 'Invalid prediction query.')
+        return int(value)
+
+    @router.get('/predictions')
+    def predictions(request: Request):
+        prediction_query(request, {'before', 'limit'})
+        before = request.query_params.get('before')
+        limit = request.query_params.get('limit', '20')
+        result = service.predictions(None if before is None else prediction_id(before), prediction_id(limit))
+        return Response(compact(result), media_type='application/json')
+
+    @router.get('/predictions/{transition_id}')
+    def prediction(transition_id: str, request: Request):
+        prediction_query(request, set())
+        return Response(compact(service.prediction(prediction_id(transition_id))), media_type='application/json')
+
     @router.get('/world-beliefs')
     def world_beliefs(signal: str | None = Query(None, max_length=32),
                       scope: str | None = Query(None, max_length=16),
                       scope_value: str | None = Query(None, max_length=16),
                       after: int = Query(0, ge=0, le=2**63-1), limit: int = Query(50, ge=1, le=100)):
-        return service.world_beliefs(signal, scope, scope_value, after, limit)
+        return Response(compact(service.world_beliefs(signal, scope, scope_value, after, limit)), media_type='application/json')
     @router.get('/world-beliefs/{belief_id}')
-    def world_belief(belief_id: int): return service.world_belief(belief_id)
+    def world_belief(belief_id: int): return Response(compact(service.world_belief(belief_id)), media_type='application/json')
     @router.get('/curiosity')
     def curiosity(before: int = Query(2**63-1, ge=0, le=2**63-1), limit: int = Query(50, ge=1, le=100)):
-        return service.curiosity_assessments(before, limit)
+        return Response(compact(service.curiosity_assessments(before, limit)), media_type='application/json')
     @router.get('/curiosity/summary')
-    def curiosity_summary(): return service.curiosity_summary()
+    def curiosity_summary(): return Response(compact(service.curiosity_summary()), media_type='application/json')
     @router.get('/curiosity/{transition_id}')
-    def curiosity_assessment(transition_id: int): return service.curiosity_assessment(transition_id)
+    def curiosity_assessment(transition_id: int): return Response(compact(service.curiosity_assessment(transition_id)), media_type='application/json')
     @router.get('/semantic-memories')
     def semantic_memories(signal: str | None = Query(None, max_length=32),
                           scope: str | None = Query(None, max_length=16),
                           status: str | None = Query(None, max_length=32),
                           after: int = Query(0, ge=0, le=2**63-1), limit: int = Query(50, ge=1, le=100)):
-        return service.semantic_memories(signal, scope, status, after, limit)
+        return Response(compact(service.semantic_memories(signal, scope, status, after, limit)), media_type='application/json')
     @router.get('/semantic-memories/{semantic_id}')
-    def semantic_memory(semantic_id: int): return service.semantic_memory(semantic_id)
+    def semantic_memory(semantic_id: int): return Response(compact(service.semantic_memory(semantic_id)), media_type='application/json')
     @router.get('/semantic-memories/{semantic_id}/history')
     def semantic_history(semantic_id: int, before: int = Query(2**63-1, ge=0, le=2**63-1),
                          limit: int = Query(50, ge=1, le=100)):
-        return service.semantic_history(semantic_id, before, limit)
+        return Response(compact(service.semantic_history(semantic_id, before, limit)), media_type='application/json')
     @router.get('/consolidation-runs')
     def consolidation_runs(before: int = Query(2**63-1, ge=0, le=2**63-1),
                            limit: int = Query(50, ge=1, le=100)):
-        return service.consolidation_runs(before, limit)
+        return Response(compact(service.consolidation_runs(before, limit)), media_type='application/json')
     @router.get('/history')
     def history(limit: int = Query(200, ge=2, le=500)): return service.history(limit)
     @router.get('/memories')
@@ -90,7 +117,7 @@ def observer_router(service, slots):
                  sort: str = 'newest', page: int = Query(1,ge=1,le=100000), page_size: int = Query(50,ge=1,le=100)):
         return service.memories(search,event,sort,page,page_size)
     @router.get('/memories/{episode_id}')
-    def memory(episode_id: int): return service.memory(episode_id)
+    def memory(episode_id: int): return Response(compact(service.memory(episode_id)), media_type='application/json')
     @router.get('/events')
     def events(after: int = Query(0,ge=0,le=2**63-1), limit: int = Query(100,ge=1,le=100)):
         return service.events(after,limit)
