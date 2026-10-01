@@ -4,7 +4,7 @@
 
 SEED is an experimental developmental agent that treats a MacBook as its body and first environment. It observes local conditions, remembers experience, predicts immediate outcomes, measures prediction error, and retains descriptive patterns within owner-controlled boundaries.
 
-**Current source: SEED 0.2 — verified through B8 at source/CI level, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged at master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`. [Post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed 747 tests on each of Linux Python 3.11/3.13 and macOS Python 3.13, plus all seven standalone scenarios on both Python 3.13 jobs. Deployment/live-device validation is **NOT PERFORMED**; the installed organism is **UNTOUCHED**, and its schema is not inferred from source verification. B9 Astra is **IMPLEMENTED on `seed-0.2-b9`**, with local verification; hosted B9 CI and deployment are not claimed. B10 remains **NOT STARTED**. See the [closure record](docs/seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
+**Current source: SEED 0.2 — verified through B8 at source/CI level, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged at master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`. [Post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed 747 tests on each of Linux Python 3.11/3.13 and macOS Python 3.13, plus all seven standalone scenarios on both Python 3.13 jobs. Deployment/live-device validation is **NOT PERFORMED**; the installed organism is **UNTOUCHED**, and its schema is not inferred from source verification. B9 Astra is **IMPLEMENTED on `seed-0.2-b9`**, with 883 passing local tests and seven passing scenarios; independent whole-branch review passed with no remaining findings. B9 is NOT YET VERIFIED. Hosted B9 CI and deployment are not claimed. B10 remains **NOT STARTED**. See the [closure record](docs/seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
 
 Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. The macOS test-isolation correction passes **542 tests** locally and on all three hosted Linux/macOS jobs for correction commit `cb70d00`; all verification artifacts were inspected. [Corrective PR #9](https://github.com/Jeruzael/SEED/pull/9) records checks for its current head. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
 
@@ -19,7 +19,7 @@ Post-B6 hardening corrects current battery-state parsing, separates source and r
 | B6 | Semantic memory consolidation | VERIFIED |
 | B7 | Descriptive self model | VERIFIED |
 | B8 | Bounded decision system and stored decision inspection | VERIFIED |
-| B9 | Astra Development UI | IMPLEMENTED; local verification, hosted CI pending |
+| B9 | Astra Development UI | IMPLEMENTED; local verification PASS; independent review PASS; not yet VERIFIED |
 | B10 | Development evaluation | NOT STARTED |
 
 See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B9 implementation was separately owner-authorized after design approval. B10 still requires separate authorization.

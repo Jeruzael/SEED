@@ -84,7 +84,7 @@
 - [x] Build fixture and run full suite with a disposable SEED_HOME; verify unchanged baselines/core/B7/B8/schema/dependencies.
 - [x] Launch dashboard only against temporary fixtures in observer mode. Use available browser tools for spec15 manual acceptance: seven routes/details/filters, MAX_ID, error states, Overview degraded counts, keyboard/focus/menu, widths320/760/761/1120/1121/1440, themes/reduced motion, request caps/abort and SSE coexistence. Record any unavailable verification honestly.
 - [x] Update docs with delivered behavior, source SHA, test results and browser evidence; do not mark hosted/deployed verification without evidence. Commit implementation closure.
-- [ ] Dispatch one fresh whole-branch reviewer under executing-plans; fix actionable correctness findings with red/green regression tests and rerun required checks. Stop before merge/deployment/B10. Publication/PR is a separate step from the earlier cleanup-only authorization.
+- [x] Dispatch one fresh whole-branch reviewer under executing-plans; fix actionable correctness findings with red/green regression tests and rerun required checks. Stop before merge/deployment/B10. The later C0–C18 owner instruction authorizes branch publication after review, then a stop before PR/merge/deployment/B10.
 
 
 ## Owner-authorized corrective pass (C0–C18)
@@ -95,5 +95,8 @@ Start `20e19add6ee35c9dc120510333b0207d25294cb8`; preserve all existing commits.
 - [x] C1–C7/C9: reproduce and fix bootstrap retry, B3/B5 structural evidence, disclosure/focus/captions, complete Overview degradation, placeholders, Astra identity and3/2/1 grid.
 - [x] C8: correct current tracker status; retain historical design-only checkpoints.
 - [x] C10–C14: focused/full tests, seven scenarios, compileall, pip check, scope audit and corrected temporary-browser matrix.
-- [ ] C15–C16: fresh whole-branch review; fix/recheck actionable findings; record actual final evidence.
-- [ ] C17–C18: commit corrections and final documentation, push existing branch, stop before PR/merge/deployment/B10.
+- [x] C15–C16: fresh whole-branch review; fix/recheck actionable findings; record actual final evidence.
+- [x] C17: preserve existing commits; commit corrections and final evidence documentation.
+- [ ] C18: push existing branch, then stop before PR/merge/deployment/B10.
+
+Final reviewed source head `1a284377e7a896f8e9ce2d07e38c0ff96f6ce981`, base `16dcd8b`: independent PASS,0 Critical/0 Important/0 Minor, none deferred. Local and independent148-focused/883-full results passed with2 existing warnings. All7 scenarios, compileall, pip check, whitespace and unchanged-category audits passed. Corrected browser matrix and limitations are recorded in docs/verification.md; deployment/live-device/hosted acceptance is not claimed. B9 overall remains NOT YET VERIFIED.
