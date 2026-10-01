@@ -1,5 +1,7 @@
 # Reproducible SEED verification
 
+**Current source/CI status:** B0–B9 COMPLETE / VERIFIED on master `b7d8b832924c7ff1512708965fa021fed4306866`, schema v7. B9 [PR #14](https://github.com/Jeruzael/SEED/pull/14) is merged; exact [run 36833492768](https://github.com/Jeruzael/SEED/actions/runs/36833492768) reports success for all three required jobs. See [B9 source/CI closure](#b9-sourceci-closure--2026-10-02). Earlier dated pending/NOT YET VERIFIED statements describe historical checkpoints. B10 - Development Evaluation & Experimental Foundation is NOT STARTED; design NOT YET AUTHORIZED UNDER THIS TASK. B11–B16 are PLANNED / NOT STARTED. Deployment/live-device validation is NOT PERFORMED; installed organism UNTOUCHED.
+
 This guide covers current local verification and the GitHub Actions workflow introduced after B6. B8 adds the seventh deterministic decision scenario.
 The [hardening record](reviews/2026-09-23-post-b6-hardening.md) distinguishes fresh
 local evidence from historical B6 results and pending hosted checks.
@@ -309,3 +311,19 @@ Final provenance browser checks on the disposable combined fixture confirmed Sel
 ### B9 corrected branch publication — 2026-10-01
 
 Authenticated GitHub confirms the published branch head before final PR cleanup is `1f7d7692fc397826d4dc79dcfe924073b0ee5bb0`. The owner subsequently published the preserved branch after the historical SSH/HTTPS authentication failures; branch publication is COMPLETE, with no history rewritten. Reviewed source head remains `1a284377e7a896f8e9ce2d07e38c0ff96f6ce981`; both commits after it are documentation-only. Local148-focused/883-full verification and independent review remain local evidence, not hosted evidence. At this checkpoint PR hosted CI is NOT RUN and no PR is open; B9 overall remains NOT YET VERIFIED. Merge NO, deployment NOT PERFORMED, installed organism UNTOUCHED, B10 NOT STARTED. The final publication-status cleanup changes only four documentation files; no fresh Python suite is required.
+
+### B9 source/CI closure — 2026-10-02
+
+Authenticated repository/PR/run metadata confirms current master and PR #14 merge commit `b7d8b832924c7ff1512708965fa021fed4306866`; the PR head was `724d31058639c4a40248d44ebc04559c1966779b`. Exact push-event [run 36833492768](https://github.com/Jeruzael/SEED/actions/runs/36833492768) is completed/success at the merge SHA.
+
+| Required job | Job ID | Hosted status |
+| --- | --- | --- |
+| linux-py311 | 110275260787 | completed / success |
+| linux-py313 | 110275261183 | completed / success |
+| macos-py313 | 110275261125 | completed / success |
+
+B9 is merged and source/CI verification is COMPLETE. The owner's canonical alignment instruction identifies this as the verified baseline; this task independently confirms exact run/job metadata, without claiming a fresh artifact/log audit or substituting prior local counts for hosted counts. Historical local148-focused/883-full results and seven scenarios retain their original provenance. Deployment/live-device validation was NOT PERFORMED; installed organism remained UNTOUCHED.
+
+This documentation-only alignment runs whitespace, file/anchor/fence, complete-diff and scope/status checks rather than unrelated Python suites. No dedicated repository documentation validator was found. B10 - Development Evaluation & Experimental Foundation is NOT STARTED; its design remains NOT YET AUTHORIZED UNDER THIS TASK. B11–B16 remain PLANNED / NOT STARTED, with no implementation authorization.
+
+**Alignment validation — 2026-10-02:** PASS — eight authorized documentation files only; all 97 local file/anchor links resolve; Markdown fences balanced; fourteen historical B8 sections unchanged; approved roadmap PDF byte-identical to the supplied original; all eleven B10 design decisions remain OPEN; B11–B16 remain PLANNED / NOT STARTED; `git diff --check` clean. No source/runtime/schema/test/dependency/workflow changes and no fresh Python suite, implementation plan, installation or deployment.

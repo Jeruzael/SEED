@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: final B9 publication-status documentation cleanup, push, one PR to master and exact-head hosted CI inspection.** B9 design is **OWNER APPROVED**; Astra implementation is **IMPLEMENTED on `seed-0.2-b9`**; local verification and independent whole-branch review are **PASS**. B9 hosted CI is **NOT RUN** and its PR is **NOT YET OPEN** at this cleanup checkpoint. B9 is **NOT YET VERIFIED**. B0–B8 remain **VERIFIED at source/CI level**, schema v7; B10 is **NOT STARTED**. Merge and deployment are unauthorized; installed SEED remains **UNTOUCHED**. Historical design-only restrictions and authentication failures below describe earlier checkpoints and are superseded by later owner authorization and publication. See [B9 implementation](#b9-implementation--2026-09-30) and [B8 hosted closure](#b8-hosted-verification-closure--2026-09-29).
+**Current authorization: PRE-B10 CANONICAL DOCUMENTATION ALIGNMENT ONLY.** B0–B9 are **COMPLETE / VERIFIED at source/CI level**; B9 is merged via [PR #14](https://github.com/Jeruzael/SEED/pull/14). The **CURRENT VERIFIED BASELINE** is master `b7d8b832924c7ff1512708965fa021fed4306866`, schema v7, with all three required hosted jobs successful in exact [run 36833492768](https://github.com/Jeruzael/SEED/actions/runs/36833492768). The **NEXT DEVELOPMENT BATCH** is **B10 - Development Evaluation & Experimental Foundation**, **NOT STARTED**; its design is **NOT YET AUTHORIZED UNDER THIS TASK** and has not been performed. B11–B16 are **PLANNED / NOT STARTED**, with no implementation authorization. Deployment/live-device validation remains **NOT PERFORMED**; installed SEED remains **UNTOUCHED**. Earlier design-only, authentication and pending B9 statements below are historical and superseded by [B9 source/CI closure](#b9-sourceci-closure--2026-10-02). This task authorizes no B10 design, implementation plan, runtime change, migration, deployment or B11–B16 work.
 
 ## Objective and architectural transition
 
@@ -64,8 +64,8 @@ Dependencies below are proposed engineering prerequisites, not instructions to s
 | B6 | Memory Consolidation | VERIFIED | B1, B4 | Full suite: 497 passed; review finding fixed and tested | Schema v5; bounded semantic revisions; original memories preserved |
 | B7 | Self Model | VERIFIED | B3, B6 | 646 tests on Linux 3.11/3.13 and macOS 3.13; six scenarios on both 3.13 jobs; post-merge run 36104979944 | Schema v6; bounded descriptive singleton; no upstream influence |
 | B8 | Decision-System Upgrade | VERIFIED | B5, B7 | 747 tests on Linux 3.11/3.13 and macOS 3.13; seven scenarios on both 3.13 jobs; post-merge run 36443249417 | Schema v7; exact B8 merge verified at source/CI level; deployment not performed |
-| B9 | Astra Development UI | IMPLEMENTED | B0 and B1–B8 | Local Python3.13.15: 883 passed, 2 existing warnings; seven scenarios; corrected temporary browser checks | Seven views and bounded readers; independent review PASS; hosted CI/deployment pending |
-| B10 | Development Evaluation | NOT STARTED | B3–B8; B9 for UI inspection of evaluation results | Not added or executed for B10 | Repeatable experiments and measurable improvement criteria |
+| B9 | Astra Development UI | VERIFIED | B0 and B1–B8 | Historical local: 883 passed, 2 existing warnings; seven scenarios; independent review PASS. Exact post-merge run 36833492768: all three required jobs succeeded | Merged PR #14; source/CI complete on b7d8b83; deployment/live-device validation not performed |
+| B10 | Development Evaluation & Experimental Foundation | NOT STARTED | B1–B8; B9 for later UI inspection | Not added or executed for B10 | Controlled evaluation and reusable experimental foundation; design not yet authorized under this task |
 
 First planned sprint: **B0 → B1 → B2 → B3**. Each requires a separate explicit instruction. B6 need not depend on B5 if curiosity is not part of its approved scope. B9 may be scoped incrementally only when explicitly authorized, after the data it displays exists. Evaluation design should inform earlier acceptance criteria; that does not authorize implementing B10 early.
 
@@ -153,17 +153,40 @@ First planned sprint: **B0 → B1 → B2 → B3**. Each requires a separate expl
 
 **Purpose:** Display actual developmental state through the local dashboard.
 
-**Designed views:** Development, Predictions, World Model, Curiosity, Semantic Memory (including consolidation runs), Self Model, and Decisions. Astra extends the existing observer shell as a DEVELOPMENT section; Observer Edition 0.1 and the six existing observer views remain. The [specification](superpowers/specs/2026-09-29-b9-astra-development-ui-design.md) is OWNER APPROVED / COMPLETE at `3dc9b8fdab2f4c12227e2371e679a57a02a5cf6f`; implementation is **IMPLEMENTED on seed-0.2-b9**. Local verification and independent whole-branch review passed; B9 is not yet VERIFIED.
+**Designed views:** Development, Predictions, World Model, Curiosity, Semantic Memory (including consolidation runs), Self Model, and Decisions. Astra extends the existing observer shell as a DEVELOPMENT section; Observer Edition 0.1 and the six existing observer views remain. The [specification](superpowers/specs/2026-09-29-b9-astra-development-ui-design.md) is OWNER APPROVED / COMPLETE at `3dc9b8fdab2f4c12227e2371e679a57a02a5cf6f`; implementation is **MERGED / VERIFIED at source/CI level** on master `b7d8b832924c7ff1512708965fa021fed4306866` via PR #14. Local verification and independent whole-branch review passed; all three required jobs in exact hosted run 36833492768 succeeded. Deployment/live-device validation remains NOT PERFORMED.
 
 **Verification:** Read APIs and views reflect real persisted/telemetry records, with provenance, timestamps, empty/error states, and honest uncertainty; display values match fixtures; keyboard access, responsive layouts, bounded queries, and local-only security remain intact. UI code observes through defined interfaces and does not become the cognition engine.
 
-### B10 — Development Evaluation
+### B10 - Development Evaluation & Experimental Foundation
 
-**Purpose:** Establish whether SEED improves through experience using repeatable experiments.
+**Status:** NOT STARTED. **Design:** NOT YET AUTHORIZED UNDER THIS TASK; no B10 design or implementation plan has been produced. This is the final scientific evaluation batch of SEED 0.2, not a capability-expansion batch.
 
-**Candidate metrics:** Prediction accuracy/error over time, uncertainty reduction, belief stability/revision, contradictions, learning speed, and observations needed to form reliable models.
+**Purpose:** Evaluate whether the existing B1–B8 developmental mechanisms measurably improve, adapt, remain reproducible, and remain honest about uncertainty under controlled experiments. Establish the reusable experimental/evaluation foundation intended for later SEED 0.3 work.
 
-**Verification:** Versioned deterministic experiments identify input sequences, seeds, baselines, evaluation windows, units, and success/failure thresholds. Training/evaluation leakage and incomparable windows are excluded. Report negative results as well as improvements. No “emergent,” “smarter,” or “developmental improvement” claim without supporting measurements. A repeatable evaluation can be verified even if its measured result shows no improvement; that result must remain explicit.
+**Exclusions:** Nursery, virtual body, learned skills, language acquisition, social learning, scientific hypothesis generation, reading-to-learn, real desktop control and external autonomous tools belong to future SEED 0.3 batches. None is authorized here.
+
+**Future acceptance direction:** Repeatable controlled experiments with exact source/version provenance, interpretable baselines, explicit measurement windows, coverage and honest positive/negative/mixed results. This direction specifies no protocol, metric threshold, artifact schema, implementation location or API/UI contract.
+
+**OPEN for the later B10 design task:** evaluation protocol architecture; frozen held-out evaluation protocol; prequential online-adaptation protocol; evaluator-only ground-truth interface; artifact storage architecture; experiment isolation mechanism; canonical reproducible-content digest rules; whole-artifact integrity digest rules; replay execution model; resource and artifact bounds; exact B10 API/UI architecture.
+
+**Planning clarification, not a protocol implementation:** B10 design must distinguish frozen held-out evaluation from prequential online adaptation, define permitted learning feedback for each protocol, and ensure evaluator-only hidden truth never enters learner-visible inputs or learner state. Frozen held-out evaluation uses trained/fixed state without held-out transitions updating the measured model during that window unless a separately defined protocol explicitly permits it. Prequential online adaptation predicts first, scores against the subsequently observed permitted outcome, then permits the normal developmental pipeline to learn; the two protocols' results must be reported separately.
+
+Privileged evaluator-only truth is distinct from ordinary permitted observations and from existing B3 prediction error calculated using the prior prediction and subsequently observed outcome. B3 developmental feedback is not prohibited evaluator leakage; this documentation alignment does not disable or change it.
+
+### SEED 0.3 roadmap direction — 2026-10-02
+
+Owner-approved direction: **SEED B10 → SEED 0.3 Development Roadmap v1.0**, dated **2026-10-02**. **OWNER APPROVED FOR ROADMAP AND DESIGN DIRECTION**. **IMPLEMENTATION AUTHORIZATION: NONE**. The [canonical roadmap index](roadmaps/seed-b10-to-0.3-development-roadmap-v1.0.md) links the complete original 38-page PDF, preserved byte-for-byte. The entries below reproduce its approved batch titles and planning statuses; they do not substitute for or rewrite the roadmap.
+
+| Batch | Approved direction | Status |
+| --- | --- | --- |
+| B11 | Nursery Environment & Virtual Body | PLANNED / NOT STARTED |
+| B12 | Body Schema, Affordances & Skill Learning | PLANNED / NOT STARTED |
+| B13 | Grounded Communication & Reading-to-Act | PLANNED / NOT STARTED |
+| B14 | Scientific Inquiry & Experimental Reasoning | PLANNED / NOT STARTED |
+| B15 | Reading-to-Learn & Independent Study | PLANNED / NOT STARTED |
+| B16 | Scientific Communication & Advanced Grounded Language | PLANNED / NOT STARTED |
+
+Roadmap direction does not finalize architecture or authorize implementation. The proposed later revision ideas are not inserted into v1.0; a formal roadmap v1.1 decision remains pending.
 
 ## Repository facts at roadmap initialization (historical)
 
@@ -2162,3 +2185,9 @@ Final independent whole-branch review **PASS** through `1a284377e7a896f8e9ce2d07
 **Historical publication attempt — 2026-10-01, superseded below:** C18 was incomplete at that checkpoint. SSH publication failed public-key authentication; HTTPS publication using the existing credential helper failed because no username credential was available with terminal prompts disabled. Authenticated GitHub verification confirms the remote still at `ef214b9e650b4356e94b3c64be292e9b711e67c2`; local closure commit `46476ad3a31da6ff8be071cdfe9ebd650a977c25` and all corrective history are preserved. The subsequent blocker record changes documentation only; source review and local verification remain PASS. Publication requires working Git authentication. No PR, merge, deployment or B10 work occurred.
 
 **Superseding publication checkpoint — 2026-10-01:** The owner subsequently published the preserved branch; authenticated GitHub confirms remote `seed-0.2-b9` reached `1f7d7692fc397826d4dc79dcfe924073b0ee5bb0`. Earlier Git-authentication failures are historical. No history was rewritten and no source changed after reviewed source `1a284377e7a896f8e9ce2d07e38c0ff96f6ce981`; all intervening commits are documentation-only. C18 publication is COMPLETE. At the start of this final cleanup: B9 design OWNER APPROVED; implementation IMPLEMENTED; local verification PASS; independent review PASS; hosted CI NOT RUN; PR NOT YET OPEN; overall NOT YET VERIFIED; B10 NOT STARTED. Final cleanup publication, PR creation and hosted inspection are now authorized; merge, deployment and installed-home access remain unauthorized.
+
+### B9 source/CI closure — 2026-10-02
+
+Authenticated GitHub confirms [PR #14](https://github.com/Jeruzael/SEED/pull/14) is merged; its head was `724d31058639c4a40248d44ebc04559c1966779b`, and its merge commit/current verified master baseline is `b7d8b832924c7ff1512708965fa021fed4306866`. Exact push-event [SEED verification run 36833492768](https://github.com/Jeruzael/SEED/actions/runs/36833492768) reports completed/success at that SHA for linux-py311 (job 110275260787), linux-py313 (job 110275261183) and macos-py313 (job 110275261125). This supersedes earlier B9 pending/unverified, unopened-PR and unmerged checkpoints; those records remain historical. This alignment confirms run/job metadata and makes no new artifact audit or hosted test-count claim.
+
+B0–B9 are COMPLETE at source/CI level; B9 source/CI verification is COMPLETE. Schema remains v7 in source. Deployment/live-device validation was NOT PERFORMED; installed organism remained UNTOUCHED. B10 - Development Evaluation & Experimental Foundation is NOT STARTED; design NOT YET AUTHORIZED UNDER THIS TASK. B11–B16 are PLANNED / NOT STARTED. This task changes documentation only and stops before B10 design or any implementation plan.

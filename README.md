@@ -4,7 +4,7 @@
 
 SEED is an experimental developmental agent that treats a MacBook as its body and first environment. It observes local conditions, remembers experience, predicts immediate outcomes, measures prediction error, and retains descriptive patterns within owner-controlled boundaries.
 
-**Current source: SEED 0.2 — verified through B8 at source/CI level, schema v7.** [PR #12](https://github.com/Jeruzael/SEED/pull/12) merged at master `e0075e21f545921324aa5d5c9e2f4217b0a06cca`. [Post-merge run 36443249417](https://github.com/Jeruzael/SEED/actions/runs/36443249417) passed 747 tests on each of Linux Python 3.11/3.13 and macOS Python 3.13, plus all seven standalone scenarios on both Python 3.13 jobs. Deployment/live-device validation is **NOT PERFORMED**; the installed organism is **UNTOUCHED**, and its schema is not inferred from source verification. B9 Astra is **IMPLEMENTED on `seed-0.2-b9`**, with 883 passing local tests and seven passing scenarios; independent whole-branch review passed with no remaining findings. B9 is NOT YET VERIFIED. Hosted B9 CI and deployment are not claimed. B10 remains **NOT STARTED**. See the [closure record](docs/seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29).
+**Current source: SEED 0.2 — B0–B9 VERIFIED at source/CI level, schema v7.** [B9 PR #14](https://github.com/Jeruzael/SEED/pull/14) merged at master `b7d8b832924c7ff1512708965fa021fed4306866`. Exact [post-merge run 36833492768](https://github.com/Jeruzael/SEED/actions/runs/36833492768) completed successfully for Linux Python 3.11/3.13 and macOS Python 3.13. B9 source/CI closure is complete; its historical local verification records 883 tests, seven scenarios and independent whole-branch review with no remaining findings. Deployment/live-device validation is **NOT PERFORMED**; the installed organism is **UNTOUCHED**, and its schema is not inferred from source verification. Next is **B10 - Development Evaluation & Experimental Foundation**, **NOT STARTED**; B10 design is **NOT YET AUTHORIZED UNDER THIS TASK**. See the [B9 closure record](docs/seed-0.2-development-plan.md#b9-sourceci-closure--2026-10-02).
 
 Post-B6 hardening corrects current battery-state parsing, separates source and runtime version metadata, and adds a least-privilege CI workflow. The macOS test-isolation correction passes **542 tests** locally and on all three hosted Linux/macOS jobs for correction commit `cb70d00`; all verification artifacts were inspected. [Corrective PR #9](https://github.com/Jeruzael/SEED/pull/9) records checks for its current head. This is separate from B7. See the [hardening record](docs/reviews/2026-09-23-post-b6-hardening.md) and [verification guide](docs/verification.md).
 
@@ -19,10 +19,10 @@ Post-B6 hardening corrects current battery-state parsing, separates source and r
 | B6 | Semantic memory consolidation | VERIFIED |
 | B7 | Descriptive self model | VERIFIED |
 | B8 | Bounded decision system and stored decision inspection | VERIFIED |
-| B9 | Astra Development UI | IMPLEMENTED; local verification PASS; independent review PASS; not yet VERIFIED |
-| B10 | Development evaluation | NOT STARTED |
+| B9 | Astra Development UI | VERIFIED at source/CI level; merged; exact post-merge hosted checks PASS |
+| B10 | Development Evaluation & Experimental Foundation | NOT STARTED; design not yet authorized under this task |
 
-See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B9 implementation was separately owner-authorized after design approval. B10 still requires separate authorization.
+See the [architecture guide](docs/architecture.md) for contracts and data flow, the [development tracker](docs/seed-0.2-development-plan.md) for acceptance evidence, and the [implementation index](docs/implementation-log.md) for batch records. B9 source/CI closure is complete. B10 remains an evaluation batch, with a reusable experimental foundation for later SEED 0.3 work; it adds no capability expansion under this task. The [owner-approved roadmap](docs/roadmaps/seed-b10-to-0.3-development-roadmap-v1.0.md) lists B11–B16 as [PLANNED / NOT STARTED](docs/seed-0.2-development-plan.md#seed-03-roadmap-direction--2026-10-02), with no implementation authorization. B10 design requires a separate owner instruction.
 
 ## What SEED does
 
@@ -226,7 +226,7 @@ Actual macOS sleep suspends the process. Wake is inferred from a large wall-cloc
 
 The [low-disk decision mismatch](docs/review-follow-ups.md) is resolved for autonomous B8 selection. Legacy reward remains unchanged for compatibility; consolidation does not reclaim disk space.
 
-**B9 is implemented on its development branch; B10 remains unstarted.** B7 exposes descriptive evidence only. Prediction metrics use the latest 100 raw records, storage counts saturate at 1,001, and failure summaries cover retained events rather than a lifetime failure rate. Full evidence and remaining gates are in the [B7 execution record](docs/seed-0.2-development-plan.md#b7-implementation-record--2026-09-24).
+**B9 is merged and VERIFIED at source/CI level; B10 - Development Evaluation & Experimental Foundation remains NOT STARTED, with design not yet authorized under this task.** B7 exposes descriptive evidence only. Prediction metrics use the latest 100 raw records, storage counts saturate at 1,001, and failure summaries cover retained events rather than a lifetime failure rate. Full evidence and remaining gates are in the [B7 execution record](docs/seed-0.2-development-plan.md#b7-implementation-record--2026-09-24).
 
 
 ### Astra local verification

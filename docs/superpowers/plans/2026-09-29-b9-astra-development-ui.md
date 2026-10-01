@@ -1,5 +1,7 @@
 # B9 Astra Development UI Implementation Plan
 
+**Closure update — 2026-10-02:** B9 is MERGED / VERIFIED at source/CI level via PR #14 on master `b7d8b832924c7ff1512708965fa021fed4306866`; all three required jobs succeeded in exact run 36833492768. The implementation/review/publication checkpoints below remain historical; their pending hosted/merge status is superseded by the [canonical closure record](../../seed-0.2-development-plan.md#b9-sourceci-closure--2026-10-02). Deployment/live-device validation remains NOT PERFORMED; installed organism UNTOUCHED. B10 - Development Evaluation & Experimental Foundation is NOT STARTED, with design not yet authorized under this documentation-alignment task.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox tracking.
 
 **Goal:** Implement the owner-approved seven-view Astra observer and bounded stored-evidence readers, preserving existing Overview usability.
