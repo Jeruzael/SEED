@@ -89,7 +89,7 @@
 
 ## Owner-authorized corrective pass (C0–C18)
 
-Start `20e19add6ee35c9dc120510333b0207d25294cb8`; preserve all existing commits. The owner's later corrective instructions supersede the earlier cleanup-only publication boundary: publish the corrected branch only after correction, verification and fresh review gates, then stop without a PR. Core/schema/dependencies/workflows/baselines/B7/B8 readers/installed home/B10 remain outside scope. The prior fresh-review attempt was interrupted by a provider usage limit; Task5's review checkbox stays open.
+Start `20e19add6ee35c9dc120510333b0207d25294cb8`; preserve all existing commits. The owner's later corrective instructions supersede the earlier cleanup-only publication boundary: publish the corrected branch only after correction, verification and fresh review gates, then stop without a PR. Core/schema/dependencies/workflows/baselines/B7/B8 readers/installed home/B10 remain outside scope. Historically, the prior fresh-review attempt was interrupted by a provider usage limit and Task5's review checkbox stayed open; the later successful whole-branch review below closes that gate.
 
 - [x] C0: clean local expected HEAD; SSH fetch/pull attempted, authenticated GitHub ref confirms exact remote SHA.
 - [x] C1–C7/C9: reproduce and fix bootstrap retry, B3/B5 structural evidence, disclosure/focus/captions, complete Overview degradation, placeholders, Astra identity and3/2/1 grid.
@@ -97,6 +97,6 @@ Start `20e19add6ee35c9dc120510333b0207d25294cb8`; preserve all existing commits.
 - [x] C10–C14: focused/full tests, seven scenarios, compileall, pip check, scope audit and corrected temporary-browser matrix.
 - [x] C15–C16: fresh whole-branch review; fix/recheck actionable findings; record actual final evidence.
 - [x] C17: preserve existing commits; commit corrections and final evidence documentation.
-- [ ] C18: push existing branch, then stop before PR/merge/deployment/B10. Attempted SSH and HTTPS publication on 2026-10-01; both blocked by missing Git credentials. Authenticated remote remains `ef214b9`; local closure commit `46476ad` and all history are preserved. Resume publication once Git authentication works.
+- [x] C18: preserved branch published by the owner; authenticated GitHub confirms remote `seed-0.2-b9` at `1f7d7692fc397826d4dc79dcfe924073b0ee5bb0`. Earlier SSH/HTTPS attempts failed at their recorded checkpoint; that authentication blocker is historical and superseded by successful publication. No history was rewritten and no PR was open at the start of this cleanup. The subsequent owner instruction authorizes final documentation cleanup, push, PR creation and exact-head hosted CI inspection, then a stop before merge/deployment/B10.
 
 Final reviewed source head `1a284377e7a896f8e9ce2d07e38c0ff96f6ce981`, base `16dcd8b`: independent PASS,0 Critical/0 Important/0 Minor, none deferred. Local and independent148-focused/883-full results passed with2 existing warnings. All7 scenarios, compileall, pip check, whitespace and unchanged-category audits passed. Corrected browser matrix and limitations are recorded in docs/verification.md; deployment/live-device/hosted acceptance is not claimed. B9 overall remains NOT YET VERIFIED.
