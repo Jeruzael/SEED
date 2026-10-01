@@ -1,10 +1,13 @@
 import {el,card,table} from '../api.js';
-import {read,state,raw,pairs,times,correlation,readTime,value,badge} from '../evidence.js';
+import {read,state,raw,pairs,times,correlation,readTime,value,badge,link,id} from '../evidence.js';
 function envelope(root,label,item,sources){
  if(!item||typeof item!=='object'||!Object.hasOwn(item,'value')||!sources[item.source])throw Error('Invalid self-model envelope');
  const section=card(label),source=sources[item.source];section.append(badge(item.status),pairs(item,['reason','source']));
  if(item.value!==null&&typeof item.value==='object')section.append(raw(item.value));else section.append(el('p',value(item.value),'mono'));
- section.append(pairs(source,['table','timestamp_kind','ttl_seconds']),times(source,['source_observed_at']),raw({source_ids:source.ids}));root.append(section);
+ section.append(pairs(source,['table','timestamp_kind','ttl_seconds']),times(source,['source_observed_at']),raw({source_ids:source.ids}));
+ if(source.table==='transitions'&&source.ids?.length){const links=el('details');links.append(el('summary','Source transitions'));for(const sourceId of source.ids){try{const exact=id(sourceId);links.append(link('Transition #'+exact,'predictions',{transition:exact}));}catch{/* Invalid identifiers remain unlinked. */}}section.append(links);}
+ if(source.table==='consolidation_runs'&&source.ids?.length)section.append(link('Open Consolidation runs','semantic-memory',{tab:'runs'}));
+ root.append(section);
 }
 export function selfModelDetail(root,data){
  if(!state(root,data))return;const snapshot=data.snapshot;if(!snapshot?.sources||!snapshot.capabilities||!snapshot.memory)throw Error('Invalid self-model snapshot');

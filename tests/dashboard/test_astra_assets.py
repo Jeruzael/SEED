@@ -226,3 +226,32 @@ for(const [page,descending,cursor] of [['predictions',true,'before'],['world-mod
  assert.deepEqual(first.querySelectorAll('a').map(a=>a.textContent),['First page',descending?'Older':'Next']);
 }
 ''')
+
+
+def test_self_model_links_exact_per_source_transitions_and_runs():
+    javascript('''
+import assert from 'node:assert/strict';import {Element,installDOM} from '../../tests/dashboard/astra_dom.mjs';import {selfModelDetail} from './views/self_model.js';installDOM();
+const transition='9007199254740993',other='9007199254740995',run='9223372036854775807';
+const field=source=>({value:null,source,status:'unavailable',reason:'fixture'});
+const snapshot={source_transition_id:transition,sources:{observation:{table:'transitions',ids:[transition],source_observed_at:1700000000},prediction:{table:'transitions',ids:[other],source_observed_at:1700000000},consolidation:{table:'consolidation_runs',ids:[run],source_observed_at:1700000000}},observations:{battery_pct:field('observation')},capabilities:{sensors:{},actions:{},unsupported:{}},last_selected_action:field('observation'),prediction_performance:{score:field('prediction')},memory:{latest_consolidation:field('consolidation')},recent_failures:field('observation')};
+const root=new Element();selfModelDetail(root,{available:true,snapshot});const links=root.querySelectorAll('a');assert.ok(links.some(a=>a.href==='#predictions?transition='+other));assert.ok(links.some(a=>a.href==='#semantic-memory?tab=runs'));assert.ok(root.textContent.includes(run));assert.ok(root.querySelectorAll('*').length<1500);
+''')
+
+
+def test_semantic_history_has_independent_default_links_and_bounded_dom():
+    javascript('''
+import assert from 'node:assert/strict';import {Element,installDOM} from '../../tests/dashboard/astra_dom.mjs';import {api} from './api.js';import {renderSemanticMemory} from './views/semantic_memory.js';installDOM();globalThis.location={hash:'#semantic-memory?limit=100'};
+const item={id:1,revision:2,signal:'battery_pct',scope:'global',status:'active',source_belief_id:'9007199254740993',source_first_transition_id:'9007199254740995',source_last_transition_id:'9223372036854775807',created_at:1700000000,updated_at:1700000001,source_belief_updated_at:1700000000};let historyPath;
+api.getEvidence=async path=>{if(path.includes('/history?')){historyPath=path;const count=Number(new URLSearchParams(path.split('?')[1]).get('limit'));return {available:true,items:Array.from({length:count},(_,i)=>({revision:i+1,recorded_at:1700000000,record:item})),next_cursor:null};}if(path.startsWith('semantic-memories/'))return item;return {available:true,items:Array.from({length:100},(_,i)=>({...item,id:i+1})),next_cursor:null};};
+const root=new Element(),click=label=>root.querySelectorAll('button').find(n=>n.textContent===label).listeners.click();await renderSemanticMemory(root,new AbortController().signal);await click('Inspect #1');await click('Load revision history');assert.equal(historyPath,'semantic-memories/1/history?limit=20');assert.ok(root.querySelectorAll('*').length<=2000);
+const history=root.querySelectorAll('table').at(-1);assert.ok(history.querySelectorAll('a').some(a=>a.href==='#world-model?belief=9007199254740993'));assert.ok(history.querySelectorAll('a').some(a=>a.href==='#predictions?transition=9223372036854775807'));
+location.hash='#semantic-memory?semantic=1&limit=100';await renderSemanticMemory(root,new AbortController().signal);await click('Load revision history');assert.equal(historyPath,'semantic-memories/1/history?limit=100');assert.ok(root.querySelectorAll('*').length<=2000);
+''')
+
+
+def test_consolidation_null_completion_is_explicit_but_invalid_clock_is_not():
+    javascript('''
+import assert from 'node:assert/strict';import {Element,installDOM} from '../../tests/dashboard/astra_dom.mjs';import {api} from './api.js';import {renderSemanticMemory} from './views/semantic_memory.js';installDOM();globalThis.location={hash:'#semantic-memory?tab=runs'};
+let completed_at=null;api.getEvidence=async()=>({available:true,items:[{id:1,started_at:1700000000,completed_at}],next_cursor:null});const root=new Element();await renderSemanticMemory(root,new AbortController().signal);assert.ok(root.textContent.includes('No completion recorded'));await root.querySelectorAll('button').find(n=>n.textContent==='Inspect #1').listeners.click();assert.ok(root.children.at(-1).textContent.includes('No completion recorded'));
+completed_at=-1;await renderSemanticMemory(root,new AbortController().signal);assert.ok(root.textContent.includes('Timestamp unavailable'));assert.ok(!root.textContent.includes('No completion recorded'));
+''')

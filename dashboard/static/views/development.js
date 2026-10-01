@@ -24,7 +24,7 @@ export async function renderDevelopment(root,signal){
     state(c,item);
     if(page==='predictions')c.append(pairs(item,['transition_id','action']),times(item,['completed_at']),badge(item.available===false?'Unavailable':item.prediction_present?'Prediction present':'Prediction absent'),badge(item.available===false?'Unavailable':item.evaluation_present?'Evaluation present':'Evaluation absent'),el('p','Contents checked on opening.'),link('Inspect transition',page,{transition:item.transition_id}));
     if(page==='curiosity')c.append(pairs(item,['transition_id','status','level','score','reflection_eligible','reflection_claimed','reflection_completed','suppression_reason','failure_reason']),times(item,['created_at']),link('Inspect assessment',page,{transition:item.transition_id}));
-    if(page==='semantic-memory')c.append(pairs(item,['id','provenance','status']),times(item,['started_at','completed_at']),raw(item.result),link('Inspect runs',page,{tab:'runs'}));
+    if(page==='semantic-memory')c.append(pairs(item,['id','provenance','status']),times(item,['started_at','completed_at'],{nullCompletion:true}),raw(item.result),link('Inspect runs',page,{tab:'runs'}));
     if(page==='decisions')c.append(pairs(item,['transition_id','decision_id','selected_action','selection_mode','policy_basis']),times(item,['selected_at','created_at']),link('Inspect decision',page,{transition:item.transition_id}));
    }
   }
