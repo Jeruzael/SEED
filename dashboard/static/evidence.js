@@ -68,7 +68,7 @@ export function clearCursors(page){for(const key of cursorHistory.keys())if(!key
 export function pager(page,params,next,descending=true,cursor=descending?'before':'after'){
   const base={...params};delete base[cursor];const key=page+'|'+new URLSearchParams(base);let history=cursorHistory.get(key)||[];
   const current=params[cursor]??null,existing=history.indexOf(current);
-  if(existing>=0)history=history.slice(0,existing+1);else history=[...history,current].slice(-20);
+  if(current===null)history=[null];else if(existing>=0)history=history.slice(0,existing+1);else history=[...history,current].slice(-20);
   cursorHistory.clear();cursorHistory.set(key,history);
   const row=el('div',null,'pagination');row.append(link('First page',page,base));
   if(history.length>1)row.append(link(descending?'Newer':'Previous',page,{...base,[cursor]:history.at(-2)}));

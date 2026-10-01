@@ -214,3 +214,15 @@ import assert from 'node:assert/strict';import {Element,installDOM} from '../../
 let pendingSignal;api.getEvidence=async(path,signal)=>{if(path.includes('/history')){pendingSignal=signal;return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError')),{once:true}));}return {available:true,items:[{id:1,revision:1},{id:2,revision:1}],next_cursor:null};};
 const root=new Element();await renderSemanticMemory(root,new AbortController().signal);const click=label=>root.querySelectorAll('button').find(n=>n.textContent===label).listeners.click();await click('Inspect #1');const pending=click('Load revision history');assert.equal(pendingSignal.aborted,false);await click('Inspect #2');assert.equal(pendingSignal.aborted,true);await pending;assert.ok(root.textContent.includes('Memory #2'));assert.ok(!root.textContent.includes('aborted'));
 ''')
+
+
+def test_first_page_resets_evicted_cursor_history():
+    javascript('''
+import assert from 'node:assert/strict';import {installDOM} from '../../tests/dashboard/astra_dom.mjs';import {pager} from './evidence.js';installDOM();
+for(const [page,descending,cursor] of [['predictions',true,'before'],['world-model',false,'after']]){
+ pager(page,{limit:'20'},999,descending,cursor);
+ for(let i=0;i<21;i++)pager(page,{limit:'20',[cursor]:String(999-i)},998-i,descending,cursor);
+ const first=pager(page,{limit:'20'},999,descending,cursor);
+ assert.deepEqual(first.querySelectorAll('a').map(a=>a.textContent),['First page',descending?'Older':'Next']);
+}
+''')
