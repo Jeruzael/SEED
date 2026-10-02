@@ -34,3 +34,6 @@ backups/
 
 # Local synthetic verification evidence
 .review-artifacts/
+
+# Owned development evaluation state and private evaluator evidence
+.seed-evaluation/
