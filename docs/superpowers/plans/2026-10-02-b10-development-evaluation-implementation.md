@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved B10 specification](../specs/2026-10-02-b10-development-evaluation-design.md), complete technical design approved at `6cd7504b96dec158bbedbadec4f133150f0e80b9`. The merged specification is authoritative; its historical planning prohibition is superseded only by the owner's implementation-planning/revision instructions and current IMPLEMENTATION PLAN APPROVAL CLOSURE AND PUBLICATION ONLY instruction. Its bytes are preserved.
 
-**Status — 2026-10-02:** **B10 IMPLEMENTATION PLAN OWNER APPROVED / COMPLETE. B10 IMPLEMENTATION NOT STARTED / NOT AUTHORIZED. B10 EMPIRICAL EVALUATION NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED.** B10 overall IN PROGRESS; design OWNER APPROVED / COMPLETE / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL. The owner explicitly approved the complete revised technical plan at `ef82df33771661a27c6ced6db65e3aaeb4e5fba5`; publication review/CI/merge/closure remain to be verified. Approval does not authorize I01–I30 or I31.
+**Status — 2026-10-02:** **B10 IMPLEMENTATION PLAN OWNER APPROVED / COMPLETE / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL. B10 IMPLEMENTATION NOT STARTED / NOT AUTHORIZED. B10 EMPIRICAL EVALUATION NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED.** B10 overall IN PROGRESS; design OWNER APPROVED / COMPLETE / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL. The owner explicitly approved the complete revised technical plan at `ef82df33771661a27c6ced6db65e3aaeb4e5fba5`; Plan publication was independently reviewed with no findings and merged via [PR #17](https://github.com/Jeruzael/SEED/pull/17) at `6dcd36c041af75637743bcb35d7c73eaab068b57`; exact master push [run 37018411597](https://github.com/Jeruzael/SEED/actions/runs/37018411597) passed all three required jobs. Canonical tracker/log record the distinct approval, PR-CI and master-CI evidence; closure documentation has its own publication verification gates. Approval does not authorize I01–I30 or I31.
 
 ## Global Constraints
 
@@ -641,7 +641,7 @@ Self-review checked spec sections 3–20/23 against tasks: architecture/truth/st
 
 Planning document verification is recorded in tracker/log only after actual documentation checks. The approved spec/roadmap/baselines/source/tests/workflows/dependencies remain unchanged. No implementation or empirical branches, source code, tests, API/UI, experiment, installed organism access or deployment were created/performed.
 
-**B10 IMPLEMENTATION PLAN OWNER APPROVED / COMPLETE**
+**B10 IMPLEMENTATION PLAN OWNER APPROVED / COMPLETE / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL**
 
 **B10 IMPLEMENTATION NOT STARTED / NOT AUTHORIZED**
 
