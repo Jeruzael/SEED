@@ -8,13 +8,13 @@
 
 **Tech Stack:** Existing Python 3.11/3.13, standard library, SQLite, FastAPI, pytest and vanilla browser ES modules; existing locked dependencies only.
 
-**Spec:** [Owner-approved B10 specification](../specs/2026-10-02-b10-development-evaluation-design.md), complete technical design approved at `6cd7504b96dec158bbedbadec4f133150f0e80b9`. The merged specification is authoritative; its historical planning prohibition is superseded only by the owner's implementation-planning instruction and current IMPLEMENTATION PLAN REVISION ONLY instruction. Its bytes are preserved.
+**Spec:** [Owner-approved B10 specification](../specs/2026-10-02-b10-development-evaluation-design.md), complete technical design approved at `6cd7504b96dec158bbedbadec4f133150f0e80b9`. The merged specification is authoritative; its historical planning prohibition is superseded only by the owner's implementation-planning/revision instructions and current IMPLEMENTATION PLAN APPROVAL CLOSURE AND PUBLICATION ONLY instruction. Its bytes are preserved.
 
-**Status — 2026-10-02:** **B10 IMPLEMENTATION PLAN REVISED / COMPLETE FOR FINAL OWNER REVIEW. B10 IMPLEMENTATION NOT STARTED / NOT AUTHORIZED. B10 EMPIRICAL EVALUATION NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED.** B10 overall IN PROGRESS; design OWNER APPROVED / COMPLETE / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL. No implementation-plan owner approval is claimed.
+**Status — 2026-10-02:** **B10 IMPLEMENTATION PLAN OWNER APPROVED / COMPLETE. B10 IMPLEMENTATION NOT STARTED / NOT AUTHORIZED. B10 EMPIRICAL EVALUATION NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED.** B10 overall IN PROGRESS; design OWNER APPROVED / COMPLETE / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL. The owner explicitly approved the complete revised technical plan at `ef82df33771661a27c6ced6db65e3aaeb4e5fba5`; publication review/CI/merge/closure remain to be verified. Approval does not authorize I01–I30 or I31.
 
 ## Global Constraints
 
-- Current authority: implementation-plan revision documentation only on `seed-0.2-b10-implementation-plan`. No source, tests, schema, workflows, dependencies, APIs, UI, experiments, implementation or empirical branches, installed-home access or deployment during this task. Stop for final owner review; publication and coding require separate instructions.
+- Current authority: implementation-plan approval closure and publication only. Record approval on `seed-0.2-b10-implementation-plan`, publish one plan PR, independently review its exact head, require exact PR CI, normal merge and exact post-merge master CI, then publish/verify a separate documentation closure PR. No source, tests, schema, workflows, dependencies, APIs, UI, experiments, implementation or empirical branches, installed-home access or deployment during this task. Stop after publication/closure; coding requires separate explicit authorization.
 - Phases A–O / I01–I30 are engineering implementation. Phase P / I31 is scientific evaluation execution, not implementation development. After I30 merges and exact post-merge master CI and engineering closure succeed, STOP. Only a later explicit **B10 EMPIRICAL EVALUATION EXECUTION** instruction permits creation of the empirical branch, final empirical AnalysisPlan freeze, A–D suite dispatch or empirical conclusions. Implementation authorization never automatically advances to I31.
 - Preserve every LOCKED invariant and approved PROVISIONAL contract. No B11–B16 behavior. No tuning predictor/Q/curiosity/world/semantic/self/decision behavior to improve an unfavorable B10 result.
 - `development/evaluation → seed/**`; never the reverse. Ordinary SEED and other dashboard views operate with evaluation absent. No evaluator table, migration, plan/report/truth/finding ingestion or evaluator reward/Q input.
@@ -641,7 +641,7 @@ Self-review checked spec sections 3–20/23 against tasks: architecture/truth/st
 
 Planning document verification is recorded in tracker/log only after actual documentation checks. The approved spec/roadmap/baselines/source/tests/workflows/dependencies remain unchanged. No implementation or empirical branches, source code, tests, API/UI, experiment, installed organism access or deployment were created/performed.
 
-**B10 IMPLEMENTATION PLAN REVISED / COMPLETE FOR FINAL OWNER REVIEW**
+**B10 IMPLEMENTATION PLAN OWNER APPROVED / COMPLETE**
 
 **B10 IMPLEMENTATION NOT STARTED / NOT AUTHORIZED**
 
@@ -649,4 +649,4 @@ Planning document verification is recorded in tracker/log only after actual docu
 
 **NO B10 EXPERIMENTS EXECUTED**
 
-**STOP FOR FINAL OWNER REVIEW.** I01–I30 engineering coding begins only after plan owner approval and separate explicit implementation authorization. I31 still requires a later separate explicit empirical-execution authorization after merged, verified I30 engineering closure; no final empirical freeze or execution before that instruction. B11–B16 PLANNED / NOT STARTED. DEPLOYMENT / LIVE-DEVICE VALIDATION NOT PERFORMED. INSTALLED SEED UNTOUCHED.
+**STOP AFTER IMPLEMENTATION-PLAN PUBLICATION AND CLOSURE.** The complete plan is owner-approved at `ef82df33771661a27c6ced6db65e3aaeb4e5fba5`; I01–I30 engineering coding still requires separate explicit implementation authorization. I31 still requires a later separate explicit empirical-execution authorization after merged, verified I30 engineering closure; no final empirical freeze or execution before that instruction. B11–B16 PLANNED / NOT STARTED. DEPLOYMENT / LIVE-DEVICE VALIDATION NOT PERFORMED. INSTALLED SEED UNTOUCHED.
