@@ -10,6 +10,7 @@ from .bootstrap import validate_launch, install_worker_adapters
 from .contracts import ContractError, RunResult, fields, strict_json, MESSAGE_BYTES
 from .paths import worker_environment
 from .registry import ACTIONS
+from .channel import LearnerClient, validate_request
 
 REAL_CLOCK = time.monotonic
 _LEASE = threading.Lock()
@@ -45,6 +46,7 @@ def _worker_entry(pipe, launch):
         from seed.migrations import schema_version
         core=SeedOrganism(launch.learner.home)
         core.decisions.rng=session.learner_rng
+        client=LearnerClient(pipe,session.clock)
         if _memory_bytes()>512*1024**2:
             raise WorkerError()
         pipe.send_bytes(_encode({'status':'ready','schema':schema_version(core.memory.db),
@@ -54,12 +56,19 @@ def _worker_entry(pipe, launch):
             if message=={'operation':'stop'}:
                 break
             try:
-                fields(message,('operation',))
-                if message['operation']!='action_catalog':
-                    raise WorkerError()
+                message=validate_request(message)
                 if _memory_bytes()>512*1024**2:
                     raise WorkerError()
-                pipe.send_bytes(_encode({'kind':'result','value':{'actions':list(ACTIONS)}}))
+                if message['operation']=='action_catalog':
+                    value={'actions':list(client.action_catalog())}
+                elif message['operation']=='observation':
+                    key=message['key']
+                    value=client.observation(key[0],key[2],key[1])
+                else:
+                    if client._pending != message['key'][:3]:
+                        raise WorkerError()
+                    value=client.apply(message['action'],message['key'][2])
+                pipe.send_bytes(_encode({'kind':'result','value':value}))
             except (ValueError,RuntimeError):
                 pipe.send_bytes(_encode({'kind':'error','code':'INVALID_CONTRACT'}))
     except BaseException:
@@ -73,7 +82,7 @@ def _worker_entry(pipe, launch):
 
 
 class WorkerHandle:
-    def __init__(self, launch, process, pipe, started, run_seconds, cleanup_seconds):
+    def __init__(self, launch, process, pipe, started, run_seconds, cleanup_seconds, channel):
         self.launch,self.process,self.pipe=launch,process,pipe
         self.started,self.run_seconds,self.cleanup_seconds=started,run_seconds,cleanup_seconds
         self.ready=None
@@ -81,9 +90,10 @@ class WorkerHandle:
         self._request_lock=threading.Lock()
         self._stop_lock=threading.Lock()
         self._deadline_cancel=threading.Event()
+        self._channel=channel
 
     @classmethod
-    def start(cls, launch, *, run_seconds=120, cleanup_seconds=5):
+    def start(cls, launch, *, run_seconds=120, cleanup_seconds=5, channel=None):
         validate_launch(launch)
         for value,maximum in ((run_seconds,120),(cleanup_seconds,5)):
             if type(value) not in (int,float) or not 0<value<=maximum:
@@ -105,7 +115,7 @@ class WorkerHandle:
                 finally:
                     os.environ.clear(); os.environ.update(original)
             child.close()
-            handle=cls(launch,process,pipe,started,run_seconds,cleanup_seconds)
+            handle=cls(launch,process,pipe,started,run_seconds,cleanup_seconds,channel)
             ready=handle._receive()
             fields(ready,('status','schema','memory_accounting','rss_bytes'))
             if ready['status']!='ready' or ready['schema']!=7 or ready['rss_bytes']>512*1024**2:
@@ -141,11 +151,25 @@ class WorkerHandle:
         if not self._request_lock.acquire(blocking=False):
             raise WorkerError()
         try:
-            fields(message,('operation',))
-            if message['operation']!='action_catalog':
-                raise WorkerError()
+            message=validate_request(message)
             self.pipe.send_bytes(_encode(message))
             response=self._receive()
+            while response.get('kind')=='request':
+                fields(response,('kind','request'))
+                try:
+                    incoming=validate_request(response['request'])
+                    if incoming!=message:
+                        raise WorkerError()
+                    if self._channel is None:
+                        if incoming!={'operation':'action_catalog'}:
+                            raise WorkerError()
+                        value={'actions':list(ACTIONS)}
+                    else:
+                        value=self._channel.dispatch(incoming)
+                    self.pipe.send_bytes(_encode({'kind':'response','value':value}))
+                except BaseException:
+                    self.pipe.send_bytes(b'{"kind":"error","code":"INVALID_CONTRACT"}')
+                response=self._receive()
             fields(response,('kind','value'))
             if response['kind']!='result':
                 raise WorkerError()
