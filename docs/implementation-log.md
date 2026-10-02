@@ -20,7 +20,7 @@ The starting baseline was master `585affec56ddb0e4580f6df6926b9b6bde291dc0` (PR 
 | B7 | VERIFIED | Bounded descriptive self model | [Closure record](seed-0.2-development-plan.md#b7-hosted-verification-closure--2026-09-25), [comparison](baselines/seed-0.2-b7-comparison.json) |
 | B8 | VERIFIED | Bounded decision selection, compact persistence and read-only inspection | [Closure record](seed-0.2-development-plan.md#b8-hosted-verification-closure--2026-09-29); exact master run 36443249417 |
 | B9 | VERIFIED at source/CI level | Astra Development UI; merged PR #14; local verification and independent review PASS; exact post-merge hosted checks PASS | [Source/CI closure](seed-0.2-development-plan.md#b9-sourceci-closure--2026-10-02); master b7d8b83, run 36833492768 |
-| B10 | IN PROGRESS | Development Evaluation & Experimental Foundation | [Design revised for final owner review](superpowers/specs/2026-10-02-b10-development-evaluation-design.md); implementation NOT STARTED / NOT AUTHORIZED |
+| B10 | IN PROGRESS | Development Evaluation & Experimental Foundation | [Owner-approved design](superpowers/specs/2026-10-02-b10-development-evaluation-design.md); implementation NOT STARTED / NOT AUTHORIZED |
 
 ## Post-B6 hardening — separate from B7
 
