@@ -84,6 +84,13 @@ class GrowthMonitor:
         self.commits += 1
         logical = connection.execute('PRAGMA page_count').fetchone()[0] * connection.execute('PRAGMA page_size').fetchone()[0]
         physical = sum(p.stat().st_size for p in self.home.iterdir() if p.name in ('memory.sqlite3','memory.sqlite3-wal','memory.sqlite3-shm') and p.is_file())
+        workspace = self.workspace_bytes()
+        if logical > self.logical_limit or physical > self.physical_limit or workspace > self.workspace_limit:
+            self.stopped = True
+            self.overshoot_exceeded = physical > self.physical_limit+36*1024**2 or workspace > self.workspace_limit+36*1024**2
+            raise LimitReached()
+
+    def workspace_bytes(self):
         workspace = 0
         for p in self.home.parent.rglob('*'):
             st = p.lstat()
@@ -95,9 +102,22 @@ class GrowthMonitor:
             elif not stat.S_ISDIR(st.st_mode):
                 self.stopped = True
                 raise ContractError()
-        if logical > self.logical_limit or physical > self.physical_limit or workspace > self.workspace_limit:
-            self.stopped = True
-            self.overshoot_exceeded = physical > self.physical_limit+36*1024**2 or workspace > self.workspace_limit+36*1024**2
+        return workspace
+
+    def admit_backup(self, connection):
+        if self.stopped:
+            raise LimitReached()
+        logical=connection.execute('PRAGMA page_count').fetchone()[0]*connection.execute('PRAGMA page_size').fetchone()[0]
+        # Destination plus a full rollback journal page set and bounded metadata.
+        allocation=2*logical+65536
+        if logical>self.logical_limit or self.workspace_bytes()+allocation>self.workspace_limit:
+            self.stopped=True
+            raise LimitReached()
+        return logical
+
+    def check_backup(self, target, logical):
+        if target.stat().st_size>logical or self.workspace_bytes()>self.workspace_limit:
+            self.stopped=True
             raise LimitReached()
 
 

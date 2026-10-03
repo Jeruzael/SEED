@@ -81,54 +81,49 @@ class OwnedState:
             result[name]=content
         return result
 
-    def checkpoint(self):
-        self.capability.validate()
+    def _backup(self, slot, kind, name):
+        self.memory.db.validate_storage()
         self.memory.db.commit()
-        path=self.capability.home/'checkpoint.sqlite3'
-        fd=self.capability.open('snapshot','checkpoint','create')
+        slot.validate()
+        logical=self.monitor.admit_backup(self.memory.db)
+        fd=slot.open(kind,name,'create')
         os.close(fd)
-        identity=StorageIdentity(self.capability,'checkpoint.sqlite3')
-        target=None
+        filename='checkpoint.sqlite3' if kind=='snapshot' else 'memory.sqlite3'
+        path=slot.home/filename
+        identity=None; target=None
         try:
+            identity=StorageIdentity(slot,filename)
             target=CONNECT(path.as_uri()+'?mode=rw',uri=True)
             identity.validate(target)
-            self.memory.db.backup(target,pages=256)
+            def progress(status, remaining, total):
+                self.memory.db.validate_storage()
+                identity.validate(target)
+                self.monitor.check_backup(path,logical)
+            self.memory.db.backup(target,pages=256,progress=progress)
             target.commit()
             identity.validate(target)
             self.memory.db.validate_storage()
+            self.monitor.check_backup(path,logical)
             os.fsync(identity.fd)
+            slot.sync()
+        except BaseException:
+            # Retain the owned incomplete prefix; never return it as trusted state.
+            self.monitor.stopped=True
+            raise
         finally:
-            if target is not None:
-                target.close()
-            identity.close()
-        if path.stat().st_size>32*1024**2:
-            raise LimitReached()
-        self.capability.sync()
+            if target is not None: target.close()
+            if identity is not None: identity.close()
         return path
+
+    def checkpoint(self):
+        return self._backup(self.capability,'snapshot','checkpoint')
 
     def clone(self, slot):
         _worker_only()
         self.capability.validate()
         if type(slot) is not LearnerCapability or slot.home.parent != self.capability.home.parent or slot.home==self.capability.home:
             raise ContractError()
-        slot.validate()
-        self.memory.db.validate_storage()
-        fd=slot.open('state','db','create')
-        os.close(fd)
-        identity=StorageIdentity(slot)
-        target=None
-        try:
-            target=CONNECT((slot.home/'memory.sqlite3').as_uri()+'?mode=rw',uri=True)
-            identity.validate(target)
-            self.memory.db.commit()
-            self.memory.db.backup(target,pages=256)
-            target.commit()
-            identity.validate(target)
-            self.memory.db.validate_storage()
-        finally:
-            if target is not None:
-                target.close()
-            identity.close()
+        self._backup(slot,'state','db')
         import seed.memory as module
         monitor=GrowthMonitor(slot.home)
         module.sqlite3=OwnedSqlite(slot,monitor)

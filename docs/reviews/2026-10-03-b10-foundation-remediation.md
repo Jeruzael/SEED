@@ -16,7 +16,7 @@ Pre-flight: R1 identity guard is consumed by R2 finalization and R3 backup; R3 w
 | --- | --- | --- | --- |
 | R1 | 7 expected failures (missing DB, post-connect replacement, 3 sidecars, writer lease, foreign root), plus target identity reproduction | test_storage_identity; pre/post/ongoing/backup identity + owned writer lease | Author focused verification PASS; independent gate pending |
 | R2 | 6 expected RETURNING failures: fetchone/fetchmany/fetchall/iteration/close/reuse | test_statement_finalization; cursor finalization/GC guard plus existing commit paths | Author focused verification PASS; independent gate pending |
-| R3 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
+| R3 | 4 expected failures: checkpoint/clone combined capacity, one-byte-over admission, retained snapshot accounting | test_backup_admission + state/storage regressions | Author focused verification PASS; independent gate pending |
 | R4 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R5 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R6 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
@@ -28,3 +28,5 @@ Pre-flight: R1 identity guard is consumed by R2 finalization and R3 backup; R3 w
 R1: writer ownership uses a separate owned lease file because macOS DB-file flock interferes with SQLite native locks. This is an application trusted-writer lease, not native-open race prevention. Source/target observable checks and terminal identity latch retained; 29 focused/adjacent tests passed.
 
 R2: statement completion is checked across fetch, iteration, close, reuse and discarded cursors; explicit/context/isolation/script commit paths retain checks. No producer SQL change. Focused/adjacent result recorded in b10-r2-green.log.
+
+R3: pre-admits destination allocation plus a complete journal page set and 64-KiB metadata margin (conservative within existing ceilings); progress/completion checks charge every retained run file. Failed backups retain an owned incomplete prefix and return no trusted checkpoint/clone. This adds no scientific artifact publication or protocol.
