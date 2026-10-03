@@ -11,6 +11,10 @@ from .paths import _directory, _open_file
 CONNECT = sqlite3.connect
 
 
+class WriterBusy(ContractError):
+    """Lease contention rejects only the extra writer, not a storage mismatch."""
+
+
 class StorageIdentity:
     """Observable trusted-code checks; not hostile native-open race prevention."""
     def __init__(self, capability, name='memory.sqlite3', *, writer=True):
@@ -31,8 +35,14 @@ class StorageIdentity:
                 except ContractError:
                     pass
                 self.lease=capability.open('lease',lease_name,'read')
-                fcntl.flock(self.lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                try:
+                    fcntl.flock(self.lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                except BlockingIOError:
+                    raise WriterBusy() from None
             self.validate()
+        except WriterBusy:
+            self.close()
+            raise
         except BaseException:
             self.close()
             raise ContractError() from None
@@ -366,23 +376,27 @@ class OwnedSqlite:
             raise ContractError()
         if self.monitor.stopped:
             raise LimitReached()
-        self.capability.validate()
-        expected=self.capability.home/'memory.sqlite3'
-        read_only=kwargs.get('uri') and str(path)==expected.as_uri()+'?mode=ro'
-        if str(path) != str(expected) and not read_only:
-            raise ContractError()
-        identity=StorageIdentity(self.capability,writer=not read_only)
+        identity=None
         connection=None
         try:
+            self.capability.validate()
+            expected=self.capability.home/'memory.sqlite3'
+            read_only=kwargs.get('uri') and str(path)==expected.as_uri()+'?mode=ro'
+            if str(path) != str(expected) and not read_only:
+                raise ContractError()
+            identity=StorageIdentity(self.capability,writer=not read_only)
             # Every factory open is for an already-admitted existing DB.
             kwargs['uri']=True
             connection=CONNECT(expected.as_uri()+('?mode=ro' if read_only else '?mode=rw'),*args,**kwargs)
             identity.validate(connection)
             return ConnectionProxy(connection,self.monitor,identity,read_only=read_only)
+        except WriterBusy:
+            raise
         except BaseException:
             if connection is not None:
                 connection.close()
-            identity.close()
+            if identity is not None:
+                identity.close()
             self.monitor.stopped=True
             self.monitor.invalid_storage=True
             raise

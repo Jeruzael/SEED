@@ -150,3 +150,14 @@ def test_observable_foreign_owner_rejected(foundation_module,tmp_path,monkeypatc
     monkeypatch.setattr(a,'CONNECT',lambda *args,**kwargs: reached.append(True))
     with pytest.raises(ValueError): a.OwnedSqlite(cap,a.GrowthMonitor(cap.home)).connect(path)
     assert reached==[]
+
+
+def test_preconnect_mismatch_latches_run_terminal(foundation_module,tmp_path):
+    _,cap,path=assigned(foundation_module,tmp_path)
+    a=foundation_module('db_adapter'); monitor=a.GrowthMonitor(cap.home)
+    factory=a.OwnedSqlite(cap,monitor)
+    sidecar=path.with_name(path.name+'-wal'); sidecar.symlink_to(tmp_path/'foreign')
+    with pytest.raises(ValueError): factory.connect(path)
+    assert monitor.stopped
+    sidecar.unlink()
+    with pytest.raises(ValueError): factory.connect(path)
