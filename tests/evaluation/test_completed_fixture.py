@@ -26,6 +26,9 @@ def _make_fixture(pipe, cap, slot, invalid_schema=None):
         clone=state.clone(slot)
         clone.memory.set_meta('fixture-marker',{'preserve':'exact'})
         if invalid_schema:
+            # Deliberately construct an invalid technical fixture, bypassing FK
+            # rejection so this test reaches the completion manifest boundary.
+            clone.memory.db.execute('PRAGMA foreign_keys=OFF')
             sql='DROP TABLE world_beliefs' if invalid_schema=='missing' else 'CREATE TABLE evaluator_truth(x)'
             clone.memory.db.execute(sql); clone.memory.db.commit()
             try: clone.complete_fixture()
