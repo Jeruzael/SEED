@@ -15,7 +15,7 @@ Pre-flight: R1 identity guard is consumed by R2 finalization and R3 backup; R3 w
 | Finding | Before | Repair/test/commit | Current |
 | --- | --- | --- | --- |
 | R1 | 7 expected failures (missing DB, post-connect replacement, 3 sidecars, writer lease, foreign root), plus target identity reproduction | test_storage_identity; pre/post/ongoing/backup identity + owned writer lease | Author focused verification PASS; independent gate pending |
-| R2 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
+| R2 | 6 expected RETURNING failures: fetchone/fetchmany/fetchall/iteration/close/reuse | test_statement_finalization; cursor finalization/GC guard plus existing commit paths | Author focused verification PASS; independent gate pending |
 | R3 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R4 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R5 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
@@ -25,4 +25,6 @@ Pre-flight: R1 identity guard is consumed by R2 finalization and R3 backup; R3 w
 | R9 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R10 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 
-R1: writer ownership uses a separate owned lease file because macOS DB-file flock interferes with SQLite native locks. This is an application trusted-writer lease, not native-open race prevention. Source/target observable checks and terminal identity latch retained; 30 focused/adjacent tests passed.
+R1: writer ownership uses a separate owned lease file because macOS DB-file flock interferes with SQLite native locks. This is an application trusted-writer lease, not native-open race prevention. Source/target observable checks and terminal identity latch retained; 29 focused/adjacent tests passed.
+
+R2: statement completion is checked across fetch, iteration, close, reuse and discarded cursors; explicit/context/isolation/script commit paths retain checks. No producer SQL change. Focused/adjacent result recorded in b10-r2-green.log.

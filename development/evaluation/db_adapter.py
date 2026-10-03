@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 import stat
 import fcntl
+import weakref
 from .contracts import ContractError
 
 CONNECT = sqlite3.connect
@@ -111,10 +112,17 @@ def _read_only(sql):
 
 
 class CursorProxy:
-    def __init__(self, connection, cursor):
+    def __init__(self, connection, cursor, *, mutating=False):
         self.connection, self._cursor = connection, cursor
+        self._mutating,self._closed=mutating,False
+        connection._cursors.add(self)
     def execute(self, sql, parameters=()):
+        if self._mutating:
+            self.close()
+            self._cursor=self.connection._connection.cursor()
+            self._closed=False
         self.connection._execute(self._cursor.execute,sql,parameters)
+        self._mutating=not _read_only(sql)
         return self
     def executemany(self, sql, parameters):
         # Individual executions also cover autocommit producers.
@@ -122,9 +130,35 @@ class CursorProxy:
             self.execute(sql,row)
         return self
     def __iter__(self):
-        return iter(self._cursor)
+        return self
+    def __next__(self):
+        value=self.fetchone()
+        if value is None:
+            raise StopIteration
+        return value
+    def _finish(self, method, *args):
+        self.connection.validate_storage()
+        if self._mutating and self.connection.monitor.stopped:
+            raise LimitReached()
+        result=method(*args)
+        if self._mutating and not self.connection.in_transaction:
+            self.connection.monitor.check(self.connection._connection)
+        return result
+    def fetchone(self): return self._finish(self._cursor.fetchone)
+    def fetchmany(self, *args): return self._finish(self._cursor.fetchmany,*args)
+    def fetchall(self): return self._finish(self._cursor.fetchall)
+    def close(self):
+        if not self._closed:
+            self._closed=True
+            self._finish(self._cursor.close)
+    def __del__(self):
+        # A discarded RETURNING cursor can finalize an autocommit write too.
+        try: self.close()
+        except BaseException:
+            if self._mutating:
+                self.connection.monitor.stopped=True
     def __getattr__(self, name):
-        if name in ('fetchone','fetchmany','fetchall','close','rowcount','lastrowid','description','arraysize'):
+        if name in ('rowcount','lastrowid','description','arraysize'):
             return getattr(self._cursor,name)
         raise AttributeError(name)
 
@@ -133,6 +167,7 @@ class ConnectionProxy:
     def __init__(self, connection, monitor, identity=None, *, read_only=False):
         self._connection, self.monitor = connection, monitor
         self.identity,self.read_only,self._closed=identity,read_only,False
+        self._cursors=weakref.WeakSet()
         if read_only:
             return
         page_size = connection.execute('PRAGMA page_size').fetchone()[0]
@@ -174,7 +209,7 @@ class ConnectionProxy:
 
     def execute(self, sql, parameters=()):
         cursor=self._execute(self._connection.execute,sql,parameters)
-        return CursorProxy(self,cursor)
+        return CursorProxy(self,cursor,mutating=not _read_only(sql))
     def cursor(self):
         return CursorProxy(self,self._connection.cursor())
     def executemany(self, sql, parameters):
@@ -236,6 +271,9 @@ class ConnectionProxy:
         if not self._closed:
             self._closed=True
             try:
+                for cursor in list(self._cursors):
+                    try: cursor.close()
+                    except (LimitReached,ContractError): pass
                 self._connection.close()
             finally:
                 if self.identity is not None:
