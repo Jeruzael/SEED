@@ -46,7 +46,7 @@ def test_profile_compatibility(foundation_module, tmp_path, monkeypatch):
     profile = p.capture_profile(cap)
     report = json.dumps(profile.as_dict())
     assert 'PRIVATE_SECRET_SENTINEL' not in report and str(root) not in report
-    p.require_source({'source_commit':profile.source_commit,'lock_digest':profile.lock_digest},profile)
+    p.require_source({'source_commit':profile.source_commit,'lock_digest':profile.lock_digest,'profile_digest':profile.digest},profile)
     assert p.compatible(profile, profile)
     from dataclasses import replace
     for field, value in [('schema_version',8),('source_commit','f'*40),('lock_digest','a'*64),

@@ -9,6 +9,7 @@ import subprocess
 import sys
 from .contracts import ContractError, ExperimentSpec, strict_json
 from .paths import EvaluationRoot
+from .canonical import canonical_bytes
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,12 @@ class Profile:
 
     def as_dict(self):
         return asdict(self)
+
+    @property
+    def digest(self):
+        value=self.as_dict()
+        value['sqlite_compile']=list(self.sqlite_compile)
+        return hashlib.sha256(canonical_bytes({'schema':'b10_execution_profile_v1','profile':value})).hexdigest()
 
 
 def _constant(path, name):
@@ -68,7 +75,7 @@ def capture_profile(checkout):
 
 def require_source(spec, profile):
     value = strict_json(spec.body, max_bytes=128*1024) if isinstance(spec,ExperimentSpec) else spec
-    if not profile.clean or profile.schema_version != 7 or value['source_commit'] != profile.source_commit or value['lock_digest'] != profile.lock_digest:
+    if not profile.clean or profile.schema_version != 7 or value.get('source_commit') != profile.source_commit or value.get('lock_digest') != profile.lock_digest or value.get('profile_digest') != profile.digest:
         raise ContractError()
 
 
