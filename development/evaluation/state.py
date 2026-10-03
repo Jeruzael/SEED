@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 import threading
 import hashlib
+import re
 from dataclasses import dataclass
 from .contracts import ContractError
 from .paths import LearnerCapability
@@ -31,7 +32,10 @@ def _fixture_facts(capability):
         if schema_version(db)!=7 or db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
             raise ContractError()
         tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if not {'meta','settings','sqlite_sequence','transitions','q_values','decision_records','self_model_current','consolidation_runs'}.issubset(tables):
+        from seed import migrations, memory as producer_memory
+        statements=producer_memory.SCHEMA+'\n'+'\n'.join(statement for name in ('STATEMENTS',*(f'V{i}_STATEMENTS' for i in range(2,8))) for statement in getattr(migrations,name))
+        expected=set(re.findall(r'CREATE TABLE (?:IF NOT EXISTS )?([a-z_]+)',statements))|{'sqlite_sequence'}
+        if tables!=expected:
             raise ContractError()
         sha=hashlib.sha256(); size=0
         os.lseek(identity.fd,0,os.SEEK_SET)

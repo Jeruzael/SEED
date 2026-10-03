@@ -7,7 +7,7 @@ import pytest
 from contextlib import closing
 
 
-def _make_fixture(pipe, cap, slot):
+def _make_fixture(pipe, cap, slot, invalid_schema=None):
     try:
         from development.evaluation.bootstrap import install_worker_adapters
         from development.evaluation.contracts import WorkerLaunch
@@ -25,6 +25,12 @@ def _make_fixture(pipe, cap, slot):
         state=OwnedState(cap,core.memory,state.monitor)
         clone=state.clone(slot)
         clone.memory.set_meta('fixture-marker',{'preserve':'exact'})
+        if invalid_schema:
+            sql='DROP TABLE world_beliefs' if invalid_schema=='missing' else 'CREATE TABLE evaluator_truth(x)'
+            clone.memory.db.execute(sql); clone.memory.db.commit()
+            try: clone.complete_fixture()
+            except ValueError: pipe.send(('rejected',None)); core.close(); return
+            pipe.send(('accepted-invalid',None)); core.close(); return
         fixture=clone.complete_fixture()
         core.close()
         pipe.send(('ok',fixture))
@@ -114,3 +120,14 @@ def test_completed_launch_has_fresh_process_objects_and_streams(foundation_modul
     # First MT19937 draw for seed 91, independently derived.
     assert results[0][2]==results[1][2]==0.08352052115358566
     assert results[0][3]==results[1][3]
+
+
+@pytest.mark.parametrize('invalid',['missing','foreign_table'])
+def test_incomplete_v7_table_manifest_cannot_be_completed(foundation_module,tmp_path,invalid):
+    root=foundation_module('paths').EvaluationRoot.create(tmp_path.resolve())
+    cap=root.assign_learner('run',0); slot=root.assign_learner('run',1)
+    ctx=multiprocessing.get_context('spawn'); parent,child=ctx.Pipe()
+    worker=ctx.Process(target=_make_fixture,args=(child,cap,slot,invalid),name='seed-evaluation-worker')
+    worker.start(); child.close(); assert parent.poll(15)
+    result=parent.recv(); worker.join(5); parent.close()
+    assert result[0]=='rejected',result

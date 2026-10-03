@@ -40,3 +40,5 @@ R9 follow-up: fresh-stream probe initially requested an unsupported UUID role; c
 R10 resolves approved import/module/assignment alias patterns and propagates unknown dynamic-import edges through protected reachable helpers. Clean repository graph and SEED operation with evaluator absent pass; this is not general Python static-analysis completeness.
 
 R2 acceptance completion: explicit Python 3.13 Connection.autocommit transition reproduced a missing bound check (1 expected RED); property forwarding now guards/finalizes/checks it, 20 statement/adapter tests GREEN. Python 3.11 lacks that native property and skips only that regression.
+
+R9 manifest acceptance: two additional expected RED cases (missing B4 table and foreign evaluator table in a purported v7 fixture). Completion now binds the complete current producer table manifest without running migrations; focused launch/state/worker regressions GREEN.
