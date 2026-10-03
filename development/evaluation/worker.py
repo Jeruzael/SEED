@@ -7,7 +7,7 @@ import sys
 import threading
 import time
 from .bootstrap import validate_launch, install_worker_adapters
-from .contracts import ContractError, RunResult, fields, strict_json, MESSAGE_BYTES
+from .contracts import ContractError, RunResult, fields, strict_json, validate_event_key, MESSAGE_BYTES
 from .paths import worker_environment
 from .registry import ACTIONS
 from .channel import LearnerClient, validate_request
@@ -15,6 +15,17 @@ from .channel import LearnerClient, validate_request
 REAL_CLOCK = time.monotonic
 _LEASE = threading.Lock()
 _ENV_LOCK = threading.Lock()
+
+
+def validate_command(message):
+    value=strict_json(_encode(message))
+    if value.get('operation')=='cycle':
+        fields(value,('operation','key'))
+        key=validate_event_key(value['key'])
+        if key[3]!='pre' or key[0] not in ('training','measured'):
+            raise WorkerError()
+        return value
+    return validate_request(value)
 
 
 class WorkerError(ContractError):
@@ -39,17 +50,12 @@ def _worker_entry(pipe, launch):
     core=None
     try:
         session=install_worker_adapters(launch)
-        from .state import OwnedState, CompletedLearner
+        from .adapters import construct_core, CaptureSession
         from seed.migrations import schema_version
-        if launch.launch_mode=='FRESH':
-            state=OwnedState.fresh(launch.learner,strict_json(launch.settings))
-            state.close()
-            from seed.organism import SeedOrganism
-            core=SeedOrganism(launch.learner.home)
-            core.decisions.rng=session.learner_rng
-        else:
-            core=CompletedLearner(launch.fixture,strict_json(launch.settings),session)
         client=LearnerClient(pipe,session.clock)
+        core=construct_core(launch,session,client)
+        capture=CaptureSession(client,session.clock)
+        capture.attach(core)
         if _memory_bytes()>512*1024**2:
             raise WorkerError()
         pipe.send_bytes(_encode({'status':'ready','schema':schema_version(core.memory.db),
@@ -59,10 +65,22 @@ def _worker_entry(pipe, launch):
             if message=={'operation':'stop'}:
                 break
             try:
-                message=validate_request(message)
+                message=validate_command(message)
                 if _memory_bytes()>512*1024**2:
                     raise WorkerError()
-                if message['operation']=='action_catalog':
+                if message['operation']=='cycle':
+                    if launch.protocol!='PREQUENTIAL':raise WorkerError()
+                    capture.begin(message['key'])
+                    try:
+                        result=core.cycle()
+                        value=dict(status=result.status,reason=result.reason,delay_seconds=result.delay_seconds,
+                                   acked=capture.acked,capture={k:v for k,v in capture.record.items() if k!='history_rows'})
+                    except (ValueError,RuntimeError,OSError):
+                        capture.failed=True
+                        value=dict(status='incomplete' if capture.acked else 'failed',reason='CYCLE_INTERRUPTED',
+                                   delay_seconds=None,acked=capture.acked,
+                                   capture={k:v for k,v in capture.record.items() if k!='history_rows'})
+                elif message['operation']=='action_catalog':
                     value={'actions':list(client.action_catalog())}
                 elif message['operation']=='observation':
                     key=message['key']
@@ -72,6 +90,7 @@ def _worker_entry(pipe, launch):
                         raise WorkerError()
                     value=client.apply(message['action'],message['key'][2])
                 pipe.send_bytes(_encode({'kind':'result','value':value}))
+                if capture.failed:break
             except (ValueError,RuntimeError):
                 pipe.send_bytes(_encode({'kind':'error','code':'INVALID_CONTRACT'}))
                 break
@@ -156,7 +175,7 @@ class WorkerHandle:
             raise WorkerError()
         sent=False
         try:
-            message=validate_request(message)
+            message=validate_command(message)
             self.pipe.send_bytes(_encode(message))
             sent=True
             response=self._receive()
@@ -164,7 +183,14 @@ class WorkerHandle:
                 fields(response,('kind','request'))
                 try:
                     incoming=validate_request(response['request'])
-                    if incoming!=message:
+                    if message['operation']=='cycle':
+                        if incoming['operation'] in ('observation','apply'):
+                            if incoming['key'][:3]!=message['key'][:3]:raise WorkerError()
+                        elif incoming['operation']=='checkpoint':
+                            evidence=incoming['evidence']
+                            if [evidence['phase'],evidence['subcase'],evidence['transition_ordinal']]!=message['key'][:3]:raise WorkerError()
+                        else:raise WorkerError()
+                    elif incoming!=message:
                         raise WorkerError()
                     if self._channel is None:
                         if incoming!={'operation':'action_catalog'}:
