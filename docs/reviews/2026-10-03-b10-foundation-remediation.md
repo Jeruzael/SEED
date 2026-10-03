@@ -2,7 +2,7 @@
 
 **Current authorization: B10 FOUNDATION REVIEW REMEDIATION — R1–R10 ONLY.** Canonical amendment master `1ea281f4cc968f97ca27cba8b7255a87d8798716`, exact push CI 37106546153, all three jobs SUCCESS. Original foundation `df0569a99f192a576fa2d60d0c2050500403fbc9`, engineering review `1dd7c580ac329d18fb9b04768fdaeb3558efc6a3`, original review 0 BLOCKER / 9 MAJOR / 1 MINOR. Normal integration `358e2bd` preserves all eight task commits. Tracker/log conflicts retain canonical amendment publication plus original foundation review; all three amended technical documents match canonical master at integration.
 
-Foundation I01–I08 LOCAL ACCEPTANCE VERIFIED / PUBLICATION AND HOSTED VERIFICATION PENDING. R1–R10 RESOLVED. G1 PASS / G2 PASS — foundation scope. B10 engineering IN PROGRESS. I09–I30 NOT STARTED / NOT AUTHORIZED BY THIS INSTRUCTION. Empirical evaluation NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED. INSTALLED SEED UNTOUCHED. No core/schema/dependency/workflow/native VFS changes authorized.
+Foundation I01–I08 engineering/source-CI acceptance VERIFIED at master `797f7c8b6278d19fe713fef7e6cc36bbcd7055a2`; exact push CI 37141620283 SUCCESS. Separate documentation closure has its own verification gates. R1–R10 RESOLVED. G1 PASS / G2 PASS — foundation scope. B10 engineering IN PROGRESS. I09–I30 NOT STARTED / NOT AUTHORIZED BY THIS INSTRUCTION. Empirical evaluation NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED. INSTALLED SEED UNTOUCHED. No core/schema/dependency/workflow/native VFS changes authorized.
 
 Amended trusted-code storage contract applies: capability/path isolation remains required; adversarial concurrent same-UID mutation inside SQLite native opens is excluded. No prevention claim for that excluded race.
 
@@ -93,3 +93,8 @@ Final independent continuation reviewed exact engineering head `912b95b95bf696e5
 | R10 | `27a6537ccb4fa881277a47d946b30d4e4eaf0b66`; `d0029cbe6d87c4294a845f9aa5e05a93da4a83b2` |
 
 Local acceptance is verified. Foundation publication, exact hosted PR CI, normal merge, exact master CI and separate documentation closure publication remain pending. No I09+ work is permitted.
+
+
+## Foundation publication verification — 2026-10-04
+
+Exact local head 085096cf became available on GitHub with original SHAs intact; no metadata recreation was needed. [PR #21](https://github.com/Jeruzael/SEED/pull/21) exact PR run 37141432098 passed all three jobs and merged normally at 797f7c8b6278d19fe713fef7e6cc36bbcd7055a2. Exact master push run 37141620283 passed all three jobs. Merged tree is identical to final PR head. Fresh head rerun: foundation 156 / full 1039 with 2 existing warnings / adversarial 94 / all seven standalone scenarios PASS. [Separate closure record](2026-10-04-b10-foundation-closure.md) records full identities and job IDs; its own exact publication/verification remains the final gate. No I09+ work or experiments.
