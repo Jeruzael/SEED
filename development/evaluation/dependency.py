@@ -20,27 +20,31 @@ def audit_dependencies(checkout: Path):
         unresolved=False
         package = module if path.name == '__init__.py' else module.rpartition('.')[0]
         tree=ast.parse(path.read_text())
-        bindings={'__import__':'builtins.__import__'}
+        bindings={'__import__':{'builtins.__import__'}}
         nodes=list(ast.walk(tree))
         for node in nodes:
             if isinstance(node,ast.Import):
-                for alias in node.names: bindings[alias.asname or alias.name.split('.')[0]]=alias.name if alias.asname else alias.name.split('.')[0]
+                for alias in node.names: bindings.setdefault(alias.asname or alias.name.split('.')[0],set()).add(alias.name if alias.asname else alias.name.split('.')[0])
             elif isinstance(node,ast.ImportFrom) and node.module in ('importlib','builtins'):
-                for alias in node.names: bindings[alias.asname or alias.name]=node.module+'.'+alias.name
+                for alias in node.names: bindings.setdefault(alias.asname or alias.name,set()).add(node.module+'.'+alias.name)
         def resolved(node):
-            if isinstance(node,ast.Name): return bindings.get(node.id,node.id)
-            if isinstance(node,ast.Attribute): return resolved(node.value)+'.'+node.attr
-            return ''
-        # Fixed-point assignment aliases, including functions exported through a local name.
+            if isinstance(node,ast.Name): return bindings.get(node.id,{node.id})
+            if isinstance(node,ast.Attribute): return {value+'.'+node.attr for value in resolved(node.value)}
+            return set()
+        # Conservatively union bindings across scopes. A nested shadow cannot
+        # erase an importer; ambiguous checked-in bindings fail closed.
+        # Fixed-point assignment aliases, including exported local functions.
         for _ in range(len(nodes)+1):
             changed=False
             for node in nodes:
                 if isinstance(node,ast.Assign):
-                    value=resolved(node.value)
-                    if value in ('importlib','builtins','importlib.import_module','builtins.__import__'):
+                    value=resolved(node.value) & {'importlib','builtins','importlib.import_module','builtins.__import__'}
+                    if value:
                         for target in node.targets:
-                            if isinstance(target,ast.Name) and bindings.get(target.id)!=value:
-                                bindings[target.id]=value; changed=True
+                            if isinstance(target,ast.Name):
+                                prior=bindings.setdefault(target.id,set())
+                                if not value<=prior:
+                                    prior.update(value); changed=True
             if not changed: break
         for node in nodes:
             if isinstance(node, ast.Import):
@@ -55,7 +59,7 @@ def audit_dependencies(checkout: Path):
                 edges.update(target + '.' + alias.name for alias in node.names)
             elif isinstance(node, ast.Call):
                 name=resolved(node.func)
-                if name in ('importlib.import_module','builtins.__import__'):
+                if name & {'importlib.import_module','builtins.__import__'}:
                     if node.args and isinstance(node.args[0],ast.Constant) and isinstance(node.args[0].value,str) and not node.args[0].value.startswith('.'):
                         edges.add(node.args[0].value)
                     else:

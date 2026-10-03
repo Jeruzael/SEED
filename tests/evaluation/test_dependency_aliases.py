@@ -23,3 +23,17 @@ def test_protected_reachable_helper_import_patterns(foundation_module,tmp_path,s
 
 def test_clean_checked_in_graph_still_passes(foundation_module):
     assert foundation_module('dependency').audit_dependencies(Path.cwd())==()
+
+
+@pytest.mark.parametrize('binding',[
+    'import importlib as x',
+    'from importlib import import_module as x',
+    'from builtins import __import__ as x',
+    'x=__import__',
+])
+def test_nested_shadowing_cannot_erase_importer(foundation_module,tmp_path,binding):
+    (tmp_path/'seed').mkdir(); (tmp_path/'bridge').mkdir()
+    (tmp_path/'seed/__init__.py').write_text('from bridge import helper\n')
+    call='x.import_module' if binding=='import importlib as x' else 'x'
+    (tmp_path/'bridge/helper.py').write_text(binding+'\n'+call+'("development.evaluation.private")\ndef unrelated():\n    import math as x\n')
+    assert foundation_module('dependency').audit_dependencies(tmp_path)
