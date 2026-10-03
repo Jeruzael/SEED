@@ -703,6 +703,8 @@ These are dependency stages, not work tickets, code tasks, TDD steps, commit ins
 
 ## 25. Review checkpoint and stop
 
+**Historical final-design checkpoint — 2026-10-02.** This closing block preserves that phase's status/authority and is not the current engineering or amendment status. Current authority/status is at the top of this document and in the owner-approved storage-safety amendment record.
+
 Deliverable coverage: sections 1–2 starting state/scope; 3 audit; 4 architecture/responsibilities/dependencies; 5 truth/feedback; 6 spec/isolation; 7–8 protocols; 9 determinism; 10 families; 11 baselines; 12 metrics/statistics; 13 bounds; 14 artifacts; 15 digests; 16 replay; 17 Astra/API; 18 placement; 19 future tests; 20 security/failures/adversarial review; 21 decisions/open questions; 22 future compatibility; 23 acceptance; 24 conceptual sequence. This covers all 29 requested deliverables without implementation.
 
 Exact final hardening documentation scope: this existing specification, the development tracker and implementation log. The immutable roadmap PDF/index, historical baseline artifacts, existing production/tests/schema/dependencies/workflows and installed organism are unchanged. No fresh production suite, scenario, experiment, browser acceptance or B10 hosted CI is claimed. Documentation validation is recorded separately in the tracker after it is run.
