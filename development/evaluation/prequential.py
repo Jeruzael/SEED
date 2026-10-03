@@ -10,6 +10,8 @@ class PrequentialDriver:
             raise ContractError()
         self.training,self.measured,self.declared_maintenance=training,measured,maintenance
         self.events,self.skipped,self.maintenance=[],[],[]
+        self.failures=[]
+        self.failure_capture=None
         self._used=False
 
     def capture_completed(self, value, key, worker):
@@ -21,11 +23,26 @@ class PrequentialDriver:
             raise OSError('POST_ACK_RECORD_LIMIT')
         self.events.append(CompletedEvidence(tuple(key[:3])+('update',),body))
 
+    def capture_failure(self, value, key, attempt, result, worker):
+        if self.failures:return
+        # One bounded terminal detail, separately joined by a <=512-byte
+        # attempt summary. Keep the real worker response, including prior
+        # effects and unconfirmed updates, even when no ACK was given.
+        self.failure_capture=wire_bytes(value) if value is not None else None
+        summary=wire_bytes(dict(key=key,attempt=attempt,execution=result.status,reason=result.reason,
+            acked=value.get('acked') if value is not None else None,
+            checkpoint_bytes=getattr(worker,'checkpoint_bytes',0),
+            capture_status='captured' if value is not None else 'unavailable_worker_response'))
+        if len(summary)>512:raise ContractError()
+        self.failures.append(summary)
+
     def run(self, request: RunRequest, worker):
         if self._used or type(request) is not RunRequest or request.count!=1:
             raise ContractError()
         self._used=True
         attempts=consecutive=completed=0
+        key=None
+        value=None
         try:
             for phase,count in (('training',self.training),('measured',self.measured)):
                 ordinal=1
@@ -34,6 +51,7 @@ class PrequentialDriver:
                         return RunResult('INCOMPLETE','LIMIT_REACHED')
                     attempts+=1
                     key=[phase,'default',ordinal,'pre']
+                    value=None
                     value=worker.request({'operation':'cycle','key':key})
                     if value['status']=='skipped':
                         if value['acked'] or value['reason']!='stale_decision':raise ContractError()
@@ -50,7 +68,9 @@ class PrequentialDriver:
                         self.capture_completed(value,key,worker)
                     if value['status']!='completed':
                         failure=getattr(worker,'last_channel_failure',None)
-                        return failure or RunResult('INCOMPLETE' if value.get('acked') else 'FAILED','CYCLE_INTERRUPTED')
+                        result=failure or RunResult('INCOMPLETE' if value.get('acked') else 'FAILED','CYCLE_INTERRUPTED')
+                        self.capture_failure(value,key,attempts,result,worker)
+                        return result
                     if not value.get('acked'):raise ContractError()
                     completed+=1
                     if self.declared_maintenance and completed%8==0:
@@ -58,19 +78,29 @@ class PrequentialDriver:
                         self.maintenance.append(dict(after_completed=completed,provenance='owner_requested',
                             annotation='declared_maintenance',**maintenance))
                         if maintenance.get('execution')=='incomplete' or maintenance['status'] in ('failed','unconfirmed'):
-                            return RunResult('INCOMPLETE','MAINTENANCE_INTERRUPTED')
+                            result=RunResult('INCOMPLETE','MAINTENANCE_INTERRUPTED')
+                            self.capture_failure(value,key,attempts,result,worker)
+                            return result
                     ordinal+=1
             return RunResult('COMPLETED',None)
         except ContractError:
-            return getattr(worker,'last_channel_failure',None) or RunResult('FAILED','INVALID_CONTRACT')
+            result=getattr(worker,'last_channel_failure',None) or RunResult('FAILED','INVALID_CONTRACT')
+            self.capture_failure(value,key,attempts,result,worker)
+            return result
         except (OSError,RuntimeError,KeyError,TypeError):
-            return RunResult('INCOMPLETE','CAPTURE_INTERRUPTED')
+            result=RunResult('INCOMPLETE','CAPTURE_INTERRUPTED')
+            self.capture_failure(value,key,attempts,result,worker)
+            return result
         finally:
             # No implicit resume/automatic retry after any ambiguous completed
             # mutation; preserve journal and learner files for technical audit.
             try:
                 worker.stop()
                 if getattr(worker,'cleanup_status','closed')!='closed':
-                    return RunResult('INCOMPLETE','CLEANUP_UNCONFIRMED')
+                    result=RunResult('INCOMPLETE','CLEANUP_UNCONFIRMED')
+                    self.capture_failure(value,key,attempts,result,worker)
+                    return result
             except (OSError,RuntimeError,ValueError):
-                return RunResult('INCOMPLETE','CLEANUP_FAILED')
+                result=RunResult('INCOMPLETE','CLEANUP_FAILED')
+                self.capture_failure(value,key,attempts,result,worker)
+                return result

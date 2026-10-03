@@ -18,7 +18,7 @@ def _fault_entry(pipe,launch,mode):
     def construct(*args):
         core=original(*args)
         from .test_adapter_equivalence import FixedRng
-        core.decisions.rng=FixedRng('observe')
+        core.decisions.rng=FixedRng('consolidate' if mode=='prior_consolidate' else 'observe')
         targets={'q':(core.learner,'update'),'b1':(core.memory,'record_transition_experience'),
                  'b4':(core.world_model,'recover'),'b7':(core.self_model,'update')}
         prefix,_,timing=mode.partition('_')
@@ -187,4 +187,29 @@ def test_swallowed_maintenance_failure_is_incomplete(tmp_path,foundation_module,
         assert len(driver.events)==8 and len(driver.maintenance)==1
         assert driver.maintenance[0]['status']=='failed'
         assert persisted(path)==dict(transitions=8,visits=8,b4=8,b7=1,b6=1)
+    finally:worker.stop();journal.close()
+
+
+def test_failed_checkpoint_retains_attempt_and_prior_consolidation(tmp_path,foundation_module,monkeypatch):
+    from development.evaluation.contracts import RunRequest
+    worker,journal,path=harness(tmp_path,foundation_module,monkeypatch,'prior_consolidate')
+    original=journal._file
+    class FlushFailure:
+        def flush(self):raise OSError('injected flush')
+        def __getattr__(self,name):return getattr(original,name)
+    journal._file=FlushFailure()
+    driver=foundation_module('prequential').PrequentialDriver(measured=2)
+    try:
+        result=driver.run(RunRequest('a'*32),worker)
+        assert result.status=='INCOMPLETE' and result.reason=='STORAGE_INTERRUPTED'
+        assert not driver.events and not driver.skipped
+        assert len(driver.failures)==1
+        failure=json.loads(driver.failures[0])
+        assert failure['key']==['measured','default',1,'pre'] and failure['attempt']==1
+        assert failure['execution']=='INCOMPLETE' and failure['acked'] is False
+        capture=json.loads(driver.failure_capture)['capture']
+        assert capture['prior_action_effects']['consolidation_runs'][0]['id']==1
+        assert capture['events'][-1]=='checkpoint'
+        assert persisted(path)==dict(transitions=0,visits=0,b4=0,b7=0,b6=1)
+        assert len(driver.failures[0])<=512 and len(driver.failure_capture)<=65536
     finally:worker.stop();journal.close()
