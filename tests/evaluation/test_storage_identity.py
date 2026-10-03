@@ -130,3 +130,23 @@ def test_invalidated_checkpoint_target_not_published(foundation_module, tmp_path
     try:
         with pytest.raises(ValueError): state.checkpoint()
     finally: db.close()
+
+
+@pytest.mark.parametrize('suffix',['','-wal','-shm','-journal'])
+def test_observable_foreign_owner_rejected(foundation_module,tmp_path,monkeypatch,suffix):
+    _,cap,path=assigned(foundation_module,tmp_path)
+    a=foundation_module('db_adapter')
+    from pathlib import Path
+    target=Path(str(path)+suffix)
+    if suffix: target.write_bytes(b'fixture')
+    real=Path.lstat
+    def owner_changed(value,*args,**kwargs):
+        st=real(value,*args,**kwargs)
+        if value==target:
+            return SimpleNamespace(st_mode=st.st_mode,st_uid=os.geteuid()+1,st_nlink=st.st_nlink,st_dev=st.st_dev,st_ino=st.st_ino)
+        return st
+    monkeypatch.setattr(Path,'lstat',owner_changed)
+    reached=[]
+    monkeypatch.setattr(a,'CONNECT',lambda *args,**kwargs: reached.append(True))
+    with pytest.raises(ValueError): a.OwnedSqlite(cap,a.GrowthMonitor(cap.home)).connect(path)
+    assert reached==[]

@@ -53,3 +53,18 @@ def test_other_retained_snapshots_charged(foundation_module,tmp_path):
         with pytest.raises(a.LimitReached): state.checkpoint()
         assert not (state.capability.home/'checkpoint.sqlite3').exists()
     finally: state.memory.db.close()
+
+
+def test_failed_backup_retains_only_incomplete_prefix(foundation_module,tmp_path,monkeypatch):
+    _,state,a=fixture(foundation_module,tmp_path)
+    def failed(target,**kwargs):
+        target.execute('CREATE TABLE partial(x)'); target.commit()
+        raise RuntimeError('technical injected backup failure')
+    monkeypatch.setattr(state.memory.db,'backup',failed)
+    try:
+        with pytest.raises(RuntimeError): state.checkpoint()
+        assert state.monitor.stopped
+        target=state.capability.home/'checkpoint.sqlite3'
+        assert target.exists() and target.stat().st_size==8192
+        with pytest.raises(a.LimitReached): state.checkpoint()
+    finally: state.memory.db.close()
