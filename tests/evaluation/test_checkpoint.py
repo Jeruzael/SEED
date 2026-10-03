@@ -155,3 +155,24 @@ def test_checkpoint_truth_or_nonconstant_ack_is_terminal(foundation_module):
     client=LearnerClient(Pipe())
     with pytest.raises(ValueError): client.send_checkpoint(evidence())
     assert client.failed
+
+
+@pytest.mark.parametrize('ancestor',['run','partials','evaluation','file'])
+@pytest.mark.parametrize('when',['before','during_fsync'])
+def test_declared_journal_path_replacement_never_receives_ack(tmp_path,foundation_module,monkeypatch,ancestor,when):
+    module=foundation_module('checkpoint');j=journal(tmp_path,foundation_module)
+    def replace_path():
+        source={'run':j.path.parent,'partials':j.path.parent.parent,'evaluation':j.path.parent.parent.parent,'file':j.path}[ancestor]
+        source.rename(source.with_name('detached-'+source.name))
+        j.path.parent.mkdir(parents=True,exist_ok=True)
+        j.path.write_bytes(b'')
+    if when=='before':replace_path()
+    else:
+        original=module.os.fsync
+        def fsync(fd):original(fd);replace_path()
+        monkeypatch.setattr(module.os,'fsync',fsync)
+    try:
+        with pytest.raises(module.CheckpointError):j.ack(evidence())
+        assert j.failed
+        assert j.path.read_bytes()==b''
+    finally:j.close()

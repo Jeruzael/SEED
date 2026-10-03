@@ -49,6 +49,7 @@ class ScoreJournal:
             obj.root, obj.run_id = root, run_id
             obj.path = root.path / 'evaluation' / 'partials' / run_id / 'preupdate.ndjson'
             obj._directory = run
+            obj._directory_inode = _identity(os.fstat(run))
             run = None
             obj._file = os.fdopen(stream, 'wb')
             stream = None
@@ -98,11 +99,8 @@ class ScoreJournal:
             raise ContractError()
         raw = bounded_bytes(wire_bytes(dict(header=header, evidence=evidence)) + b'\n', 65536)
         self.root.admit_control(len(raw))
-        os.close(self.root._validate())
-        st = os.fstat(self._file.fileno())
-        _checked(st)
-        if (_identity(st) != self._inode or _identity(os.stat('preupdate.ndjson',dir_fd=self._directory,
-                follow_symlinks=False)) != self._inode or st.st_size + len(raw) > 64*1024**2):
+        self._validate_storage()
+        if os.fstat(self._file.fileno()).st_size + len(raw) > 64*1024**2:
             raise ContractError()
         if self._clock() - started > 10:
             raise CheckpointError('INCOMPLETE', 'ACK_DEADLINE')
@@ -111,9 +109,26 @@ class ScoreJournal:
             raise OSError('partial write')
         self._file.flush()
         os.fsync(self._file.fileno())
+        self._validate_storage()
         if self._clock() - started > 10:
             raise CheckpointError('INCOMPLETE', 'ACK_DEADLINE')
         self._last[key[:2]] = key[2]
+
+    def _validate_storage(self):
+        os.close(self.root._validate())
+        # An open directory descriptor can outlive a rename/replacement. Bind
+        # the declared path to the original run directory before AND after IO.
+        directory=_directory(self.path.parent)
+        try:
+            if _identity(os.fstat(directory)) != self._directory_inode:
+                raise ContractError()
+            st=os.fstat(self._file.fileno())
+            _checked(st)
+            current=os.stat('preupdate.ndjson',dir_fd=directory,follow_symlinks=False)
+            _checked(current)
+            if _identity(st)!=self._inode or _identity(current)!=self._inode:
+                raise ContractError()
+        finally:os.close(directory)
 
     def _durable(self, build):
         if not self._lock.acquire(blocking=False):
