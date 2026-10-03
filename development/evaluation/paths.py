@@ -80,21 +80,42 @@ def _open_file(directory, name, mode):
 
 
 @dataclass(frozen=True)
+class RootAdmission:
+    """Identity/accounting only: no evaluator open, plan path or slot assignment.
+
+    The registry shares live parent accounting locally; spawn copies accounting
+    facts, while every validation rescans current retained storage. No reference
+    back to the evaluator Budget or EvaluationRoot crosses serialization.
+    """
+    inode: tuple[int,int]
+    _reservations: dict
+
+    def validate(self, home):
+        root=home.parent.parent.parent
+        if root.name!='.seed-evaluation': raise ContractError()
+        usage=_root_usage(root,self.inode)
+        budget=Budget(retained_bytes=usage.bytes,retained_runs=usage.runs)
+        budget.reconcile(usage)
+        budget._reservations=self._reservations
+        budget.require_capacity()
+
+
+@dataclass(frozen=True)
 class LearnerCapability:
     home: Path
     token: str
     inode: tuple[int, int]
     kind: str = 'learner'
-    root: object = None
+    admission: object = None
     run_inode: tuple[int, int] = ()
 
     def validate(self):
         if self.kind != 'learner' or type(self.token) is not str or not re.fullmatch('[0-9a-f]{64}', self.token):
             raise ContractError()
-        if type(self.root) is not EvaluationRoot or self.home.parent.parent != self.root.path/'work' or self.home.name not in ('learner','clone'):
+        if type(self.admission) is not RootAdmission or self.home.parent.parent.name != 'work' or self.home.name not in ('learner','clone'):
             raise ContractError()
         identifier(self.home.parent.name)
-        self.root.admit_control(0)
+        self.admission.validate(self.home)
         runfd = _directory(self.home.parent)
         try:
             if _identity(os.fstat(runfd)) != self.run_inode:
@@ -248,7 +269,7 @@ class EvaluationRoot:
                         f.flush()
                         os.fsync(f.fileno())
                     os.fsync(learner)
-                    return LearnerCapability(self.path/'work'/run/name, token, _identity(os.fstat(learner)), root=self, run_inode=_identity(os.fstat(runfd)))
+                    return LearnerCapability(self.path/'work'/run/name, token, _identity(os.fstat(learner)), admission=RootAdmission(self._inode,self.budget._reservations), run_inode=_identity(os.fstat(runfd)))
                 finally:
                     os.close(learner)
             finally:
@@ -259,36 +280,43 @@ class EvaluationRoot:
             os.close(root)
 
     def usage(self):
-        root = self._validate()
-        total, runs, run_bytes = 0, set(), {}
-        def scan(fd, prefix):
-            nonlocal total
-            for name in os.listdir(fd):
-                st = os.stat(name, dir_fd=fd, follow_symlinks=False)
-                if stat.S_ISDIR(st.st_mode):
-                    _checked(st, directory=True)
-                    if prefix in ('work', 'evaluation/runs', 'evaluation/partials'):
-                        runs.add(name)
-                    child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
-                    try:
-                        if _identity(os.fstat(child)) != _identity(st):
-                            raise ContractError()
-                        scan(child, prefix + '/' + name if prefix else name)
-                    finally:
-                        os.close(child)
-                else:
-                    _checked(st)
-                    total += st.st_size
-                    parts=prefix.split('/')
-                    identity=parts[1] if len(parts)>=2 and parts[0]=='work' else parts[2] if len(parts)>=3 and parts[:2] in (['evaluation','runs'],['evaluation','partials']) else None
-                    if identity is not None: run_bytes[identity]=run_bytes.get(identity,0)+st.st_size
-                    if total > CAPS['root_bytes'] or len(runs) > CAPS['retained_runs']:
+        return _root_usage(self.path,self._inode)
+
+
+def _root_usage(path, inode):
+    root = _directory(path)
+    if _identity(os.fstat(root)) != inode:
+        os.close(root)
+        raise ContractError()
+    total, runs, run_bytes = 0, set(), {}
+    def scan(fd, prefix):
+        nonlocal total
+        for name in os.listdir(fd):
+            st = os.stat(name, dir_fd=fd, follow_symlinks=False)
+            if stat.S_ISDIR(st.st_mode):
+                _checked(st, directory=True)
+                if prefix in ('work', 'evaluation/runs', 'evaluation/partials'):
+                    runs.add(name)
+                child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                try:
+                    if _identity(os.fstat(child)) != _identity(st):
                         raise ContractError()
-        try:
-            scan(root, '')
-            if len(runs)>CAPS['retained_runs']: raise ContractError()
-            return Usage(total,len(runs),tuple(sorted(run_bytes.items())),tuple(sorted(runs)))
-        except OSError:
-            raise ContractError() from None
-        finally:
-            os.close(root)
+                    scan(child, prefix + '/' + name if prefix else name)
+                finally:
+                    os.close(child)
+            else:
+                _checked(st)
+                total += st.st_size
+                parts=prefix.split('/')
+                identity=parts[1] if len(parts)>=2 and parts[0]=='work' else parts[2] if len(parts)>=3 and parts[:2] in (['evaluation','runs'],['evaluation','partials']) else None
+                if identity is not None: run_bytes[identity]=run_bytes.get(identity,0)+st.st_size
+                if total > CAPS['root_bytes'] or len(runs) > CAPS['retained_runs']:
+                    raise ContractError()
+    try:
+        scan(root, '')
+        if len(runs)>CAPS['retained_runs']: raise ContractError()
+        return Usage(total,len(runs),tuple(sorted(run_bytes.items())),tuple(sorted(runs)))
+    except OSError:
+        raise ContractError() from None
+    finally:
+        os.close(root)

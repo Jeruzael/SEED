@@ -112,7 +112,7 @@ def test_incomplete_foreign_changed_fixture_rejected(foundation_module,tmp_path,
     request=c.WorkerLaunch(fixture.learner,b'{"epsilon":0}',3,'a'*64,launch_mode='COMPLETED_OWNED_FIXTURE',fixture=fixture)
     if invalid=='missing': request=replace(request,fixture=None)
     elif invalid=='foreign':
-        root=fixture.learner.root; other=root.assign_learner('foreign',0); request=replace(request,learner=other)
+        root=foundation_module('paths').EvaluationRoot.create(fixture.learner.home.parents[3]); other=root.assign_learner('foreign',0); request=replace(request,learner=other)
     elif invalid=='fresh_existing': request=replace(request,launch_mode='FRESH',fixture=None)
     else:
         with sqlite3.connect(fixture.learner.home/'memory.sqlite3') as db: db.execute('UPDATE seed_schema SET version=8')

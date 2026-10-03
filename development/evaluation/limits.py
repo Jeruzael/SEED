@@ -14,17 +14,17 @@ class Usage:
 
 class Reservation:
     def __init__(self, budget, request):
-        self._budget, self.request, self._released = budget, request, False
+        self._registry, self.request, self._released = budget._reservations, request, False
         self._active=set()
     def activate(self, run):
         identifier(run)
-        if self._released or run in self._active or len(self._active)>=self.request.count or any(run in r._active for r in self._budget._reservations.values()):
+        if self._released or run in self._active or len(self._active)>=self.request.count or any(run in r._active for r in self._registry.values()):
             raise ContractError()
         self._active.add(run)
 
     def release(self):
         if not self._released:
-            self._budget._reservations.pop(self.request.identity)
+            self._registry.pop(self.request.identity)
             self._released = True
 
 
