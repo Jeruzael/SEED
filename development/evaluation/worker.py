@@ -71,6 +71,7 @@ def _worker_entry(pipe, launch):
                 pipe.send_bytes(_encode({'kind':'result','value':value}))
             except (ValueError,RuntimeError):
                 pipe.send_bytes(_encode({'kind':'error','code':'INVALID_CONTRACT'}))
+                break
     except BaseException:
         try: pipe.send_bytes(b'{"kind":"error","code":"WORKER_FAILED"}')
         except (OSError,EOFError): pass
@@ -150,9 +151,11 @@ class WorkerHandle:
             raise WorkerError()
         if not self._request_lock.acquire(blocking=False):
             raise WorkerError()
+        sent=False
         try:
             message=validate_request(message)
             self.pipe.send_bytes(_encode(message))
+            sent=True
             response=self._receive()
             while response.get('kind')=='request':
                 fields(response,('kind','request'))
@@ -174,7 +177,11 @@ class WorkerHandle:
             if response['kind']!='result':
                 raise WorkerError()
             return response['value']
-        except (OSError,EOFError,ValueError):
+        except (OSError,EOFError,ValueError,RuntimeError):
+            if sent:
+                from .db_adapter import RunBudget
+                try: RunBudget(self.launch.learner.home.parent).stop()
+                finally: self.stop('WORKER_DIED')
             raise WorkerError() from None
         finally:
             self._request_lock.release()

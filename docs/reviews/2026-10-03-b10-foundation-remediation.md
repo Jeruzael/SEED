@@ -20,7 +20,7 @@ Pre-flight: R1 identity guard is consumed by R2 finalization and R3 backup; R3 w
 | R4 | 3 expected failures: sibling write, new monitor/spawn, pre-launch rejection | test_shared_budget; durable run latch shared across sibling monitors/processes | Author focused verification PASS; independent gate pending |
 | R5 | 9 expected failures: missing/zero/mismatched digest and changed complete runtime facts | test_profile_admission + profile/spec tests, 13 passed | Author focused verification PASS; independent gate pending |
 | R6 | 4 expected failures: post-growth freeze/admission, partial count, active reservation reconciliation | test_live_capacity + limits/paths/analysis/state/workers | Author focused verification PASS; independent gate pending |
-| R7 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
+| R7 | 4 expected failures: malformed/exception action retry, continuing worker, client reuse | test_terminal_channel + channel/workers/leakage, 15 passed | Author focused verification PASS; independent gate pending |
 | R8 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R9 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R10 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |

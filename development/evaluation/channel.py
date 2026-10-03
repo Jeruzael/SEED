@@ -42,12 +42,16 @@ class ChannelRouter:
         self._last={}
         self._pending=None
         self._lock=threading.Lock()
+        self.failed=False
 
     def dispatch(self, request):
         value=validate_request(request)
         if not self._lock.acquire(blocking=False):
             raise ContractError()
         try:
+            if self.failed:
+                raise ContractError()
+            applied=False
             op=value['operation']
             if op=='action_catalog':
                 return {'actions':list(ACTIONS)}
@@ -61,11 +65,13 @@ class ChannelRouter:
             else:
                 if self._pending!=key[:3]:
                     raise ContractError()
+                applied=True
                 result=validate_observation(self._scenario.apply_action(value['action'],key))
                 self._last[identity]=key[2]
                 self._pending=None
             return strict_json(wire_bytes(result))
         except BaseException:
+            if locals().get('applied',False): self.failed=True
             # Fixed errors never disclose exception messages, truth, or root names.
             raise ContractError() from None
         finally:
@@ -78,10 +84,11 @@ class LearnerClient:
         self._connection,self._clock=connection,clock
         self._pending=None
         self._busy=False
+        self.failed=False
 
     def _rpc(self, request):
         validate_request(request)
-        if self._busy or self._connection is None:
+        if self.failed or self._busy or self._connection is None:
             raise ContractError()
         self._busy=True
         try:
@@ -92,6 +99,7 @@ class LearnerClient:
                 raise ContractError()
             return reply['value']
         except (OSError,EOFError,ValueError):
+            self.failed=True
             raise ContractError() from None
         finally:
             self._busy=False
@@ -115,13 +123,19 @@ class LearnerClient:
         return tuple(value['actions'])
 
     def apply(self, action, ordinal):
+        if self.failed:
+            raise ContractError()
         if self._pending is None or self._pending[2]!=ordinal:
             raise ContractError()
         key=self._pending+['action']
         validate_request({'operation':'apply','key':key,'action':action})
         if self._clock:
             self._clock.stage(key[0],ordinal,2)
-        value=validate_observation(self._rpc({'operation':'apply','key':key,'action':action}))
+        try:
+            value=validate_observation(self._rpc({'operation':'apply','key':key,'action':action}))
+        except BaseException:
+            self.failed=True
+            raise ContractError() from None
         self._pending=None
         return value
 
