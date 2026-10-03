@@ -6,7 +6,6 @@ from pathlib import Path
 import sqlite3
 import threading
 import hashlib
-import re
 from dataclasses import dataclass
 from .contracts import ContractError
 from .paths import LearnerCapability
@@ -31,11 +30,20 @@ def _fixture_facts(capability):
         from seed.migrations import schema_version
         if schema_version(db)!=7 or db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
             raise ContractError()
-        tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         from seed import migrations, memory as producer_memory
-        statements=producer_memory.SCHEMA+'\n'+'\n'.join(statement for name in ('STATEMENTS',*(f'V{i}_STATEMENTS' for i in range(2,8))) for statement in getattr(migrations,name))
-        expected=set(re.findall(r'CREATE TABLE (?:IF NOT EXISTS )?([a-z_]+)',statements))|{'sqlite_sequence'}
-        if tables!=expected:
+        # Build only an in-memory structural reference from unchanged producer
+        # DDL. Never initialize, migrate, or rewrite the admitted fixture.
+        reference=CONNECT(':memory:')
+        try:
+            reference.executescript(producer_memory.SCHEMA)
+            migrations.migrate(reference)
+            schema_sql="SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name"
+            expected=reference.execute(schema_sql).fetchall()
+        finally:
+            reference.close()
+        if db.execute(schema_sql).fetchmany(len(expected)+1)!=expected:
+            raise ContractError()
+        if db.execute('PRAGMA foreign_key_check').fetchone() is not None:
             raise ContractError()
         sha=hashlib.sha256(); size=0
         os.lseek(identity.fd,0,os.SEEK_SET)

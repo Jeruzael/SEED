@@ -29,8 +29,12 @@ def _make_fixture(pipe, cap, slot, invalid_schema=None):
             # Deliberately construct an invalid technical fixture, bypassing FK
             # rejection so this test reaches the completion manifest boundary.
             clone.memory.db.execute('PRAGMA foreign_keys=OFF')
-            sql='DROP TABLE world_beliefs' if invalid_schema=='missing' else 'CREATE TABLE evaluator_truth(x)'
-            clone.memory.db.execute(sql); clone.memory.db.commit()
+            sql='DROP TABLE world_beliefs' if invalid_schema in ('missing','malformed') else 'CREATE TABLE evaluator_truth(x)' if invalid_schema=='foreign_table' else "INSERT INTO annotations(episode_id,important,tags_json) VALUES(999999,0,'[]')"
+            clone.memory.db.execute(sql)
+            if invalid_schema=='malformed':
+                clone.memory.db.execute('CREATE TABLE world_beliefs(private_truth TEXT)')
+                clone.memory.db.execute("INSERT INTO world_beliefs VALUES('private sentinel')")
+            clone.memory.db.commit()
             try: clone.complete_fixture()
             except ValueError: pipe.send(('rejected',None)); core.close(); return
             pipe.send(('accepted-invalid',None)); core.close(); return
@@ -131,7 +135,7 @@ def test_completed_launch_has_fresh_process_objects_and_streams(foundation_modul
     assert results[0][3]==results[1][3]
 
 
-@pytest.mark.parametrize('invalid',['missing','foreign_table'])
+@pytest.mark.parametrize('invalid',['missing','foreign_table','malformed','orphan'])
 def test_incomplete_v7_table_manifest_cannot_be_completed(foundation_module,tmp_path,invalid):
     root=foundation_module('paths').EvaluationRoot.create(tmp_path.resolve())
     cap=root.assign_learner('run',0); slot=root.assign_learner('run',1)
