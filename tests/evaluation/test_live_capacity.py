@@ -44,3 +44,28 @@ def test_active_reservation_not_double_counted_and_release(foundation_module):
     budget.reserve(request('last',1,448*1024**2))
     reservation.release()
     assert 'run' not in budget._reservations
+
+
+@pytest.mark.parametrize('remaining,accepted',[(32,False),(64,True)])
+def test_assignment_marker_preadmitted(foundation_module,tmp_path,remaining,accepted):
+    root=foundation_module('paths').EvaluationRoot.create(tmp_path.resolve())
+    allocated=root.usage().bytes
+    with (root.path/'retained').open('wb') as f:
+        f.truncate(16*1024**3-allocated-remaining)
+    if accepted:
+        cap=root.assign_learner('new',0); cap.validate()
+        assert root.usage().bytes==16*1024**3
+    else:
+        with pytest.raises(ValueError): root.assign_learner('new',0)
+        assert not (root.path/'work'/'new').exists()
+
+
+def test_assignment_marker_uses_active_reservation(foundation_module,tmp_path):
+    root=foundation_module('paths').EvaluationRoot.create(tmp_path.resolve())
+    request=foundation_module('contracts').RunRequest('run',1,128)
+    root.budget.reserve(request)
+    allocated=root.usage().bytes
+    with (root.path/'retained').open('wb') as f: f.truncate(16*1024**3-allocated-128)
+    root.assign_learner('run',0).validate()
+    root.assign_learner('run',1).validate()
+    assert root.usage().bytes==16*1024**3

@@ -221,10 +221,15 @@ class EvaluationRoot:
         if type(slot) is not int or slot not in (0, 1):
             raise ContractError()
         usage = self.usage()
-        reserved=self.budget._reservations.get(run)
+        reserved=next((r for key,r in self.budget._reservations.items() if key==run or run in r._active),None)
         if reserved is not None and run not in reserved._active:
             reserved.activate(run)
-        self.budget.require_capacity(runs=0 if run in usage.run_ids or reserved is not None else 1)
+        # Ownership marker bytes consume an active run's reservation, or must
+        # be newly admitted before any directory/marker is created.
+        if reserved is not None and dict(usage.run_bytes).get(run,0)+64>reserved.request.reservation_bytes:
+            raise ContractError()
+        self.budget.require_capacity(bytes=0 if reserved is not None else 64,
+                                      runs=0 if run in usage.run_ids or reserved is not None else 1)
         root = self._validate()
         try:
             work = _mkdir(root, 'work')
