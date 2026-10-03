@@ -19,10 +19,14 @@ _ENV_LOCK = threading.Lock()
 
 def validate_command(message):
     value=strict_json(_encode(message))
-    if value.get('operation')=='cycle':
+    if value.get('operation')=='freeze':
+        fields(value,('operation',))
+        return value
+    if value.get('operation') in ('cycle','probe'):
         fields(value,('operation','key'))
         key=validate_event_key(value['key'])
-        if key[3]!='pre' or key[0] not in ('training','measured'):
+        phases=('probe',) if value['operation']=='probe' else ('training','measured')
+        if key[3]!='pre' or key[0] not in phases:
             raise WorkerError()
         return value
     return validate_request(value)
@@ -53,11 +57,18 @@ def _worker_entry(pipe, launch):
         from .adapters import construct_core, CaptureSession
         from seed.migrations import schema_version
         client=LearnerClient(pipe,session.clock)
-        core=construct_core(launch,session,client)
-        capture=CaptureSession(client,session.clock)
-        capture.attach(core)
+        if launch.protocol=='FROZEN_SELECTION_ASSAY':
+            if launch.launch_mode!='COMPLETED_OWNED_FIXTURE':raise WorkerError()
+            from .frozen import FrozenWorker
+            core=FrozenWorker(launch.fixture,session)
+            capture=None
+        else:
+            core=construct_core(launch,session,client)
+            capture=CaptureSession(client,session.clock)
+            capture.attach(core)
         if _memory_bytes()>512*1024**2:
             raise WorkerError()
+        training_completed=0
         pipe.send_bytes(_encode({'status':'ready','schema':schema_version(core.memory.db),
                                  'memory_accounting':'best_effort','rss_bytes':_memory_bytes()}))
         while True:
@@ -68,13 +79,27 @@ def _worker_entry(pipe, launch):
                 message=validate_command(message)
                 if _memory_bytes()>512*1024**2:
                     raise WorkerError()
-                if message['operation']=='cycle':
+                if message['operation']=='freeze':
+                    if launch.protocol!='PREQUENTIAL' or capture.failed or training_completed!=launch.training_count:
+                        raise WorkerError()
+                    from .state import OwnedState
+                    from .frozen import freeze_state
+                    owned=OwnedState(launch.learner,core.memory,core.memory.db.monitor)
+                    fixture=freeze_state(owned)
+                    value=dict(inode=list(fixture.inode),byte_length=fixture.byte_length,sha256=fixture.sha256)
+                elif message['operation']=='probe':
+                    if launch.protocol!='FROZEN_SELECTION_ASSAY':raise WorkerError()
+                    key=message['key']
+                    observation=client.observation(key[0],key[2],key[1])
+                    value=strict_json(core.probe(observation,key,client).body)
+                elif message['operation']=='cycle':
                     if launch.protocol!='PREQUENTIAL':raise WorkerError()
                     capture.begin(message['key'])
                     try:
                         result=core.cycle()
                         value=dict(status=result.status,reason=result.reason,delay_seconds=result.delay_seconds,
                                    acked=capture.acked,capture={k:v for k,v in capture.record.items() if k!='history_rows'})
+                        if result.status=='completed' and message['key'][0]=='training':training_completed+=1
                     except (ValueError,RuntimeError,OSError):
                         capture.failed=True
                         value=dict(status='incomplete' if capture.acked else 'failed',reason='CYCLE_INTERRUPTED',
@@ -90,7 +115,8 @@ def _worker_entry(pipe, launch):
                         raise WorkerError()
                     value=client.apply(message['action'],message['key'][2])
                 pipe.send_bytes(_encode({'kind':'result','value':value}))
-                if capture.failed:break
+                if message['operation']=='freeze':break
+                if capture is not None and capture.failed:break
             except (ValueError,RuntimeError):
                 pipe.send_bytes(_encode({'kind':'error','code':'INVALID_CONTRACT'}))
                 break
@@ -183,10 +209,11 @@ class WorkerHandle:
                 fields(response,('kind','request'))
                 try:
                     incoming=validate_request(response['request'])
-                    if message['operation']=='cycle':
+                    if message['operation'] in ('cycle','probe'):
                         if incoming['operation'] in ('observation','apply'):
                             if incoming['key'][:3]!=message['key'][:3]:raise WorkerError()
                         elif incoming['operation']=='checkpoint':
+                            if message['operation']!='cycle':raise WorkerError()
                             evidence=incoming['evidence']
                             if [evidence['phase'],evidence['subcase'],evidence['transition_ordinal']]!=message['key'][:3]:raise WorkerError()
                         else:raise WorkerError()
@@ -233,3 +260,11 @@ class WorkerHandle:
                     self.pipe.close()
                     _LEASE.release()
         return RunResult('INCOMPLETE',reason)
+
+    def freeze(self):
+        value=self.request({'operation':'freeze'})
+        self.stop()
+        fields(value,('inode','byte_length','sha256'))
+        from .state import CompletedFixture
+        fixture=CompletedFixture(self.launch.learner,tuple(value['inode']),value['byte_length'],value['sha256'])
+        return fixture.validate()
