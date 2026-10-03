@@ -163,3 +163,20 @@ def test_action_start_metadata_uses_declared_stage_one(tmp_path,foundation_modul
         assert value['updates']['b1']['transition']['started_at']==1800000011.
         assert value['updates']['b1']['transition']['completed_at']==1800000012.
     finally:worker.stop();journal.close()
+
+
+def test_unavailable_worker_response_retains_attempt_without_inventing_ack(foundation_module):
+    from development.evaluation.contracts import RunRequest
+    class Worker:
+        calls=0
+        def request(self,message):
+            self.calls+=1
+            raise RuntimeError('response unavailable')
+        def stop(self):pass
+    worker=Worker();driver=foundation_module('prequential').PrequentialDriver(measured=2)
+    result=driver.run(RunRequest('unavailable'),worker)
+    assert result.status=='INCOMPLETE' and worker.calls==1
+    failure=json.loads(driver.failures[0])
+    assert failure['key']==['measured','default',1,'pre'] and failure['attempt']==1
+    assert failure['acked'] is None and failure['capture_status']=='unavailable_worker_response'
+    assert driver.failure_capture is None and not driver.events

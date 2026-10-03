@@ -50,6 +50,9 @@ class ScoreJournal:
             obj.path = root.path / 'evaluation' / 'partials' / run_id / 'preupdate.ndjson'
             obj._directory = run
             obj._directory_inode = _identity(os.fstat(run))
+            obj._ancestry=((root.path/'evaluation',_identity(os.fstat(evaluation))),
+                           (root.path/'evaluation'/'partials',_identity(os.fstat(partials))),
+                           (obj.path.parent,obj._directory_inode))
             run = None
             obj._file = os.fdopen(stream, 'wb')
             stream = None
@@ -118,6 +121,11 @@ class ScoreJournal:
         os.close(self.root._validate())
         # An open directory descriptor can outlive a rename/replacement. Bind
         # the declared path to the original run directory before AND after IO.
+        for path,expected in self._ancestry:
+            ancestor=_directory(path)
+            try:
+                if _identity(os.fstat(ancestor))!=expected:raise ContractError()
+            finally:os.close(ancestor)
         directory=_directory(self.path.parent)
         try:
             if _identity(os.fstat(directory)) != self._directory_inode:

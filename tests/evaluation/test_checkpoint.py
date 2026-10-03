@@ -176,3 +176,16 @@ def test_declared_journal_path_replacement_never_receives_ack(tmp_path,foundatio
         assert j.failed
         assert j.path.read_bytes()==b''
     finally:j.close()
+
+
+@pytest.mark.parametrize('ancestor',['partials','evaluation'])
+def test_journal_ancestor_replacement_rejected_even_when_run_inode_survives(tmp_path,foundation_module,ancestor):
+    module=foundation_module('checkpoint');j=journal(tmp_path,foundation_module)
+    source=j.path.parent.parent if ancestor=='partials' else j.path.parent.parent.parent
+    detached=source.with_name('detached-'+source.name);source.rename(detached);source.mkdir()
+    if ancestor=='partials':(detached/j.path.parent.name).rename(j.path.parent)
+    else:(detached/'partials').rename(source/'partials')
+    try:
+        with pytest.raises(module.CheckpointError):j.ack(evidence())
+        assert j.failed
+    finally:j.close()
