@@ -104,6 +104,7 @@ def test_freeze_worker_prepares_owned_checkpoint_before_read_worker(tmp_path,fou
         assert worker.request({'operation':'cycle','key':['training','default',1,'pre']})['status']=='completed'
         assert hasattr(worker,'freeze'),'owned freeze preparation transport missing'
         fixture=worker.freeze()
+        assert worker.cleanup_status=='closed'
         assert fixture.validate() is fixture
         assert (cap.home/'checkpoint.sqlite3').is_file()
     finally:worker.stop();journal.close()
@@ -195,3 +196,33 @@ def test_freeze_rejects_pending_or_incomplete_work(tmp_path,foundation_module,mo
     finally:
         if worker.is_alive():worker.terminate();worker.join(5)
         parent.close()
+
+
+def test_failed_close_cannot_publish_frozen_fixture(tmp_path,foundation_module,monkeypatch):
+    from development.evaluation.contracts import WorkerLaunch
+    from development.evaluation.channel import ChannelRouter
+    from .test_prequential import _cleanup_fault_entry
+    module=foundation_module('worker');context=module.multiprocessing.get_context('spawn')
+    class Context:
+        Pipe=staticmethod(context.Pipe)
+        @staticmethod
+        def Process(**kwargs):
+            kwargs['target']=_cleanup_fault_entry
+            return context.Process(**kwargs)
+    monkeypatch.setattr(module.multiprocessing,'get_context',lambda _:Context())
+    root=foundation_module('paths').EvaluationRoot.create(tmp_path.resolve());cap=root.assign_learner('f'*32,0)
+    journal=foundation_module('checkpoint').ScoreJournal.create(root,'f'*32)
+    class Scenario:
+        def initial_observation(self,key):return checkpoint()['state_before']
+        def apply_action(self,action,key):return checkpoint()['state_after']
+    worker=module.WorkerHandle.start(WorkerLaunch(cap,b'{"epsilon":0}',3,'a'*64,training_count=1),
+        channel=ChannelRouter(Scenario(),journal=journal))
+    try:
+        assert worker.request({'operation':'cycle','key':['training','default',1,'pre']})['acked']
+        with pytest.raises(module.WorkerError):worker.freeze()
+        assert worker.cleanup_status=='failed'
+        assert worker.last_channel_failure.status=='INCOMPLETE'
+        assert (cap.home/'checkpoint.sqlite3').is_file()
+        from .test_failure_fidelity import persisted
+        assert persisted(cap.home/'memory.sqlite3')['transitions']==1
+    finally:worker.stop();journal.close()

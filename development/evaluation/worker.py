@@ -109,7 +109,7 @@ def _worker_entry(pipe, launch):
                     from .state import OwnedState
                     from .frozen import freeze_state
                     owned=OwnedState(launch.learner,core.memory,core.memory.db.monitor)
-                    fixture=freeze_state(owned)
+                    fixture=freeze_state(owned,close_owner=core.close)
                     value=dict(inode=list(fixture.inode),byte_length=fixture.byte_length,sha256=fixture.sha256)
                 elif message['operation']=='probe':
                     if launch.protocol!='FROZEN_SELECTION_ASSAY':raise WorkerError()
@@ -325,6 +325,9 @@ class WorkerHandle:
     def freeze(self):
         value=self.request({'operation':'freeze'})
         self.stop()
+        if self.cleanup_status!='closed':
+            self.last_channel_failure=RunResult('INCOMPLETE','CLEANUP_UNCONFIRMED')
+            raise WorkerError()
         fields(value,('inode','byte_length','sha256'))
         from .state import CompletedFixture
         fixture=CompletedFixture(self.launch.learner,tuple(value['inode']),value['byte_length'],value['sha256'])

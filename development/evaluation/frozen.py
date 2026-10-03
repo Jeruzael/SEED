@@ -9,7 +9,7 @@ from .db_adapter import CONNECT, StorageIdentity, LimitReached
 from .state import CompletedFixture, ReadFacade, OwnedState, _worker_only
 
 
-def freeze_state(owned):
+def freeze_state(owned, *, close_owner=None):
     _worker_only()
     if type(owned) is not OwnedState or owned._closed or owned.monitor.stopped:
         raise ContractError()
@@ -27,7 +27,7 @@ def freeze_state(owned):
             raise ContractError()
     else:raise ContractError()
     owned.checkpoint()
-    return owned.complete_fixture()
+    return owned.complete_fixture(close_owner=close_owner)
 
 
 class _ReadConnection:
