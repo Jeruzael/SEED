@@ -93,10 +93,16 @@ def _worker_entry(pipe, launch):
                 elif message['operation']=='maintenance':
                     if capture is None or not capture.acked or message['key'][:3]!=list(capture.key[:3]):raise WorkerError()
                     session.clock.stage(capture.key[0],capture.key[2],4)
-                    run=core.consolidate(state=core.memory.get_meta('last_state',{}),provenance='owner_requested')
-                    stored=core.memory.db.execute('SELECT * FROM consolidation_runs WHERE id=?',(run['id'],)).fetchone()
-                    if stored is None:raise WorkerError()
-                    value=dict(run_id=run['id'],status=run['status'],stored=producer_payload(stored))
+                    prior=core.memory.db.execute('SELECT COALESCE(MAX(id),0) FROM consolidation_runs').fetchone()[0]
+                    execution='completed'
+                    try:
+                        run=core.consolidate(state=core.memory.get_meta('last_state',{}),provenance='owner_requested')
+                        if run['status']=='failed':execution='incomplete'
+                    except Exception:execution='incomplete'
+                    stored=core.memory.db.execute('SELECT * FROM consolidation_runs WHERE id>? ORDER BY id DESC LIMIT 1',(prior,)).fetchone()
+                    value=dict(run_id=stored['id'] if stored else None,status=stored['status'] if stored else 'unconfirmed',
+                               execution=execution,stored=producer_payload(stored))
+                    if stored is None or execution!='completed':capture.failed=True
                 elif message['operation']=='freeze':
                     if launch.protocol!='PREQUENTIAL' or capture.failed or training_completed!=launch.training_count:
                         raise WorkerError()

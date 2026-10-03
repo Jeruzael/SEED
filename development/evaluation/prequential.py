@@ -57,6 +57,8 @@ class PrequentialDriver:
                         maintenance=worker.request({'operation':'maintenance','key':key[:3]+['update']})
                         self.maintenance.append(dict(after_completed=completed,provenance='owner_requested',
                             annotation='declared_maintenance',**maintenance))
+                        if maintenance.get('execution')=='incomplete' or maintenance['status'] in ('failed','unconfirmed'):
+                            return RunResult('INCOMPLETE','MAINTENANCE_INTERRUPTED')
                     ordinal+=1
             return RunResult('COMPLETED',None)
         except ContractError:

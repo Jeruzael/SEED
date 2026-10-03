@@ -145,3 +145,53 @@ def test_frozen_worker_handle_never_constructs_mutable_organism(tmp_path,foundat
         assert result['assay_kind']=='FROZEN_SELECTION_ASSAY'
     finally:worker.stop()
     assert path.read_bytes()==before
+
+
+def _freeze_guard_child(pipe,launch,mode):
+    state=None
+    try:
+        from development.evaluation.bootstrap import install_worker_adapters
+        from development.evaluation.state import OwnedState
+        from development.evaluation.frozen import freeze_state
+        install_worker_adapters(launch)
+        state=OwnedState.fresh(launch.learner,{'epsilon':0})
+        if mode=='pending_command':
+            with state.memory.db:state.memory.db.execute("INSERT INTO commands VALUES('fixture','reflect','session',1,2,'pending',NULL)")
+        elif mode=='transaction':state.memory.db.execute('BEGIN')
+        elif mode=='b4_no_progress':
+            state.close()
+            from seed.organism import SeedOrganism
+            core=SeedOrganism(launch.learner.home)
+            class Body:
+                def perceive(self):return checkpoint()['state_before']
+            core.body=Body();core.cycle()
+            state.close()
+            state=OwnedState(launch.learner,core.memory,core.memory.db.monitor)
+            with state.memory.db:
+                state.memory.db.execute('DELETE FROM world_model_processed')
+                state.memory.db.execute('INSERT INTO world_model_queue VALUES(1)')
+            from seed.world_model import WorldModel
+            WorldModel.recover=lambda self:0
+        try:freeze_state(state)
+        except ValueError:pipe.send(('rejected',not (launch.learner.home/'checkpoint.sqlite3').exists()))
+        else:pipe.send(('incorrectly_accepted',))
+    except BaseException:
+        import traceback;traceback.print_exc();pipe.send(('error',))
+    finally:
+        if state:state.close()
+        pipe.close()
+
+
+@pytest.mark.parametrize('mode',['pending_command','transaction','b4_no_progress'])
+def test_freeze_rejects_pending_or_incomplete_work(tmp_path,foundation_module,mode):
+    from development.evaluation.contracts import WorkerLaunch
+    root=foundation_module('paths').EvaluationRoot.create(tmp_path.resolve());cap=root.assign_learner('guard',0)
+    ctx=multiprocessing.get_context('spawn');parent,child=ctx.Pipe()
+    worker=ctx.Process(target=_freeze_guard_child,args=(child,WorkerLaunch(cap,b'{"epsilon":0}',3,'a'*64),mode),name='seed-evaluation-worker')
+    worker.start();child.close()
+    try:
+        assert parent.poll(15);result=parent.recv();worker.join(5)
+        assert result==('rejected',True),result
+    finally:
+        if worker.is_alive():worker.terminate();worker.join(5)
+        parent.close()
