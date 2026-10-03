@@ -1,6 +1,6 @@
 # B10 foundation storage-safety design amendment — 2026-10-03
 
-**OWNER APPROVED DIRECTION / PUBLICATION IN PROGRESS. DOCUMENTATION / DESIGN AMENDMENT ONLY.** The owner selected **Option B**: preserve strong application-level capability/path isolation for trusted checked-in B10 code; explicitly exclude adversarial concurrent same-UID filesystem mutation during SQLite's internal native file-open interval. This record amends the [canonical specification](2026-10-02-b10-development-evaluation-design.md) and [implementation plan](../plans/2026-10-02-b10-development-evaluation-implementation.md). It does not fix implementation or establish G1/G2.
+**B10 FOUNDATION STORAGE-SAFETY DESIGN AMENDMENT OWNER APPROVED / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL. DOCUMENTATION / DESIGN AMENDMENT ONLY.** The owner selected **Option B**: preserve strong application-level capability/path isolation for trusted checked-in B10 code; explicitly exclude adversarial concurrent same-UID filesystem mutation during SQLite's internal native file-open interval. This record amends the [canonical specification](2026-10-02-b10-development-evaluation-design.md) and [implementation plan](../plans/2026-10-02-b10-development-evaluation-implementation.md). It does not fix implementation or establish G1/G2.
 
 ## Provenance and authorization
 
@@ -88,8 +88,32 @@ Future R1 repair tests (planned only): reject pre-existing symlink/nonregular/fo
 
 **B10 engineering IN PROGRESS. Foundation I01–I08 IMPLEMENTED CHECKPOINT / NOT VERIFIED; NOT COMPLETE. G1 NOT VERIFIED. G2 NOT VERIFIED. I09–I30 NOT STARTED / NOT AUTHORIZED. Empirical evaluation NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED. INSTALLED SEED UNTOUCHED; DEPLOYMENT NOT PERFORMED.**
 
-Amendment publication is separate from foundation implementation. Current amendment review/PR/exact-head CI/normal merge/exact post-merge master CI are pending; no prior CI is reused as amendment evidence. After successful verification the amendment alone becomes **OWNER APPROVED / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL**; engineering findings and G1/G2 remain pending.
+Amendment publication is separate from foundation implementation. Amendment review, exact PR-head CI, normal merge and exact post-merge master CI passed as recorded below; no prior baseline CI is reused. The amendment alone is **OWNER APPROVED / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL**; engineering findings and G1/G2 remain pending. This status/provenance closure has its own separate publication gates.
 
 Only a later **B10 FOUNDATION REVIEW REMEDIATION — R1–R10 ONLY** owner instruction may integrate the newly verified canonical master into the existing stopped foundation branch, repair findings, rerun focused/full/seven-scenario verification, perform fresh foundation review, determine G1/G2 and then open a foundation PR if eligible. Do not perform those steps now, rewrite/discard task history, create a protocol branch, implement I09 or run experiments.
 
-Documentation checks before publication: PASS — git diff --check, complete authorized diff/scope inspection, 89 local links/anchors and balanced Markdown/Mermaid fences; 31 task IDs, phases A–P and G1–G7 preserved; R1–R10 all unresolved and G1/G2 NOT VERIFIED. Spec scientific sections 7–17 and plan I09–I31 task bodies remain byte-identical to canonical base. Core/schema/dependencies/workflows/roadmap/baselines unchanged; stopped foundation ref unchanged. No new code/tests or fresh local production/scientific run for this documentation task. Amendment independent review/hosted CI/merge/exact master verification are separate pending gates.
+Historical pre-publication documentation checks: PASS — git diff --check, complete authorized diff/scope inspection, 89 local links/anchors and balanced Markdown/Mermaid fences; 31 task IDs, phases A–P and G1–G7 preserved; R1–R10 all unresolved and G1/G2 NOT VERIFIED. Spec scientific sections 7–17 and plan I09–I31 task bodies remain byte-identical to canonical base. Core/schema/dependencies/workflows/roadmap/baselines unchanged; stopped foundation ref unchanged. No new code/tests or fresh local production/scientific run for this documentation task. Amendment independent review/hosted CI/merge/exact master verification are separate pending gates.
+
+
+## B10 foundation storage-safety amendment publication closure — 2026-10-03
+
+**B10 FOUNDATION STORAGE-SAFETY DESIGN AMENDMENT OWNER APPROVED / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL.** Only the authorized five documents changed. This closure records the verified amendment and changes status/provenance only; its own publication CI/merge gates remain separate until reported after completion.
+
+| Evidence | Exact identity / result |
+| --- | --- |
+| Starting canonical master | `196631baef225fa02983f40ffca22cc26190757d` |
+| Amendment branch | `docs/b10-foundation-storage-safety-amendment` |
+| Amendment PR | [PR #19](https://github.com/Jeruzael/SEED/pull/19); base `196631baef225fa02983f40ffca22cc26190757d`; exact head `f7cbfed1a5167849d8a8b16a11362e73b67c2153` |
+| Fresh independent amendment review | **0 BLOCKER / 0 MAJOR / 0 MINOR — NONE** after resolving one initial MINOR by explicitly labeling old approval checkpoints historical. Published head shares reviewed tree `b60bfa5c66e408ea0087762eecda44fab5266077`; empty diff to reviewed `415de06fb383e082a96d11298db6ac5d91007e76`. |
+| Exact PR-head CI | [Run 37105944108](https://github.com/Jeruzael/SEED/actions/runs/37105944108), pull_request at `f7cbfed1a5167849d8a8b16a11362e73b67c2153`; `test (linux-py311)`, `test (linux-py313)`, `test (macos-py313)` all SUCCESS |
+| Normal amendment merge / exact master | `dd1f1a7af8125abd828361e5130c1299d592f7bb`; same reviewed documentation tree |
+| Exact post-merge master CI | [Run 37106124884](https://github.com/Jeruzael/SEED/actions/runs/37106124884), push at `dd1f1a7af8125abd828361e5130c1299d592f7bb`; `test (linux-py311)`, `test (linux-py313)`, `test (macos-py313)` all SUCCESS |
+| Foundation preserved | `seed-0.2-b10-impl-01-foundation` remains `df0569a99f192a576fa2d60d0c2050500403fbc9`; no integration, repair, history rewrite or foundation PR |
+
+PR and master runs were inspected separately at exact SHAs. All three full-suite steps passed in each run; the Linux 3.11 standalone-scenario step was skipped by unchanged workflow policy, while both Python 3.13 scenario steps passed. These canonical CI checks contain no new B10 evaluation implementation or experiment execution; they do not verify the stopped foundation or G1/G2.
+
+The owner-selected Option B contract is unchanged by closure: trusted checked-in code retains fixed owned roots, assigned capabilities, no arbitrary/live/foreign/evaluator routing, ordinary-file descriptor/no-follow checks, SQLite pre/post/ongoing/backup checks, one trusted writer and terminal detected mismatch failure. Only adversarial concurrent same-UID mutation during SQLite native opens is explicitly excluded. Native VFS **NOT ADOPTED FOR B10 V1**; stronger sandbox/native VFS/authenticity profiles remain deferred.
+
+**R1 DESIGN CONTRACT AMENDMENT APPROVED — IMPLEMENTATION FIX STILL REQUIRED. R1–R10 UNRESOLVED / REMEDIATION REQUIRED. B10 FOUNDATION I01–I08 NOT COMPLETE / NOT VERIFIED. G1 NOT VERIFIED. G2 NOT VERIFIED. B10 ENGINEERING IMPLEMENTATION IN PROGRESS. I09–I30 NOT STARTED / NOT AUTHORIZED. B10 EMPIRICAL EVALUATION NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED. INSTALLED SEED UNTOUCHED. DEPLOYMENT NOT PERFORMED.**
+
+**STOP after verified closure publication.** The next separate owner task is B10 FOUNDATION REVIEW REMEDIATION — R1–R10 ONLY. Do not integrate master into foundation, repair source/tests, implement I09, create a protocol branch or execute experiments under this documentation authority.

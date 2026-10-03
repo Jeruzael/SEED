@@ -1,6 +1,6 @@
 # B10 — Development Evaluation & Experimental Foundation
 
-Date: 2026-10-02. Technical revision 3, with owner-approved storage-safety amendment dated 2026-10-03. **B10 DESIGN OWNER APPROVED / COMPLETE; STORAGE AMENDMENT PUBLICATION IN PROGRESS.**
+Date: 2026-10-02. Technical revision 3, with owner-approved storage-safety amendment dated 2026-10-03. **B10 DESIGN OWNER APPROVED / COMPLETE; STORAGE AMENDMENT OWNER APPROVED / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL.**
 
 B10 overall: **IN PROGRESS**. Original technical design approval is `6cd7504b96dec158bbedbadec4f133150f0e80b9`; the [storage-safety amendment](2026-10-03-b10-foundation-storage-safety-amendment.md) records the owner's selected Option B and supersedes only the SQLite native-open threat-model promise. Current authority is **B10 FOUNDATION STORAGE-SAFETY DESIGN AMENDMENT ONLY**: documentation/review/PR/CI/normal merge/exact-master verification, no implementation repair. Engineering I01–I08 exist as stopped local checkpoints on `seed-0.2-b10-impl-01-foundation` at `df0569a99f192a576fa2d60d0c2050500403fbc9`, **NOT COMPLETE / NOT VERIFIED**. R1–R10 remain unresolved; **G1 NOT VERIFIED; G2 NOT VERIFIED**. I09–I30 and empirical evaluation remain NOT STARTED / NOT AUTHORIZED. No B10 experiments executed; no deployment or installed-organism access. Original dated approval/authority records below remain historical; this paragraph states current authority. This specification is not proof that its implementation passes acceptance.
 
