@@ -17,7 +17,7 @@ Pre-flight: R1 identity guard is consumed by R2 finalization and R3 backup; R3 w
 | R1 | 7 expected failures (missing DB, post-connect replacement, 3 sidecars, writer lease, foreign root), plus target identity reproduction | test_storage_identity; pre/post/ongoing/backup identity + owned writer lease | Author focused verification PASS; independent gate pending |
 | R2 | 6 expected RETURNING failures: fetchone/fetchmany/fetchall/iteration/close/reuse | test_statement_finalization; cursor finalization/GC guard plus existing commit paths | Author focused verification PASS; independent gate pending |
 | R3 | 4 expected failures: checkpoint/clone combined capacity, one-byte-over admission, retained snapshot accounting | test_backup_admission + state/storage regressions | Author focused verification PASS; independent gate pending |
-| R4 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
+| R4 | 3 expected failures: sibling write, new monitor/spawn, pre-launch rejection | test_shared_budget; durable run latch shared across sibling monitors/processes | Author focused verification PASS; independent gate pending |
 | R5 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R6 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R7 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |

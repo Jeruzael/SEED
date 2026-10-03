@@ -6,6 +6,7 @@ import stat
 import fcntl
 import weakref
 from .contracts import ContractError
+from .paths import _directory, _open_file
 
 CONNECT = sqlite3.connect
 
@@ -72,13 +73,53 @@ class LimitReached(RuntimeError):
         super().__init__('LIMIT_REACHED')
 
 
+class RunBudget:
+    """Durable run-scoped terminal latch; never cleared by a new monitor/spawn."""
+    def __init__(self, run):
+        self.run=Path(run)
+
+    @property
+    def stopped(self):
+        directory=_directory(self.run)
+        try:
+            try: os.stat('.budget-terminal',dir_fd=directory,follow_symlinks=False)
+            except FileNotFoundError: return False
+            fd=_open_file(directory,'.budget-terminal','read')
+            with os.fdopen(fd,'rb') as f:
+                if f.read(64)!=b'B10_RUN_TERMINAL_V1':
+                    raise ContractError()
+            return True
+        finally: os.close(directory)
+
+    def stop(self):
+        directory=_directory(self.run)
+        try:
+            try: fd=_open_file(directory,'.budget-terminal','create')
+            except ContractError:
+                if not self.stopped: raise
+                return
+            with os.fdopen(fd,'wb') as f:
+                f.write(b'B10_RUN_TERMINAL_V1'); f.flush(); os.fsync(f.fileno())
+            os.fsync(directory)
+        finally: os.close(directory)
+
+
 class GrowthMonitor:
     def __init__(self, home, *, logical_limit=32*1024**2, physical_limit=64*1024**2, workspace_limit=128*1024**2):
         self.home = Path(home)
         self.logical_limit, self.physical_limit, self.workspace_limit = logical_limit, physical_limit, workspace_limit
-        self.stopped, self.overshoot_exceeded = False, False
+        self.run_budget=RunBudget(self.home.parent)
+        self._stopped, self.overshoot_exceeded = False, False
         self.invalid_storage=False
         self.commits = 0
+
+    @property
+    def stopped(self): return self._stopped or self.run_budget.stopped
+    @stopped.setter
+    def stopped(self,value):
+        if value:
+            self._stopped=True
+            self.run_budget.stop()
 
     def check(self, connection):
         self.commits += 1
@@ -309,6 +350,8 @@ class OwnedSqlite:
     def connect(self, path, *args, **kwargs):
         if self.monitor.invalid_storage:
             raise ContractError()
+        if self.monitor.stopped:
+            raise LimitReached()
         self.capability.validate()
         expected=self.capability.home/'memory.sqlite3'
         read_only=kwargs.get('uri') and str(path)==expected.as_uri()+'?mode=ro'

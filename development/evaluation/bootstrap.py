@@ -41,6 +41,9 @@ def validate_launch(launch):
     if type(launch) is not WorkerLaunch or type(launch.learner) is not LearnerCapability:
         raise ContractError()
     launch.learner.validate()
+    from .db_adapter import RunBudget
+    if RunBudget(launch.learner.home.parent).stopped:
+        raise ContractError()
     digest(launch.uuid_identity)
     integer(launch.rng_seed,0,2**256-1)
     integer(launch.training_count,0,512)
