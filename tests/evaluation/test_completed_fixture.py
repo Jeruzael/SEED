@@ -63,7 +63,7 @@ def _process_local_probe(pipe, request):
         assert core.decisions.rng is session.learner_rng
         assert core.learner.memory is core.memory and core.world_model.memory is core.memory
         assert core.self_model.memory is core.memory and core.consolidator.memory is core.memory
-        pipe.send(('ok',os.getpid(),core.decisions.rng.random(),session.uuids.next_hex('probe')))
+        pipe.send(('ok',os.getpid(),core.decisions.rng.random(),session.uuids.next_hex('producer')))
         core.close()
     except BaseException as e: pipe.send(('error',type(e).__name__))
     finally: pipe.close()
