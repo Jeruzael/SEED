@@ -44,3 +44,19 @@ def test_transaction_finalization_paths_still_guarded(foundation_module, tmp_pat
             else: db.commit()
         assert db.monitor.stopped
     finally: db.close()
+
+
+def test_python_autocommit_transition_enforces_growth(foundation_module,tmp_path):
+    a=foundation_module('db_adapter')
+    home=tmp_path/'run'/'learner'; home.mkdir(parents=True)
+    raw=sqlite3.connect(home/'memory.sqlite3')
+    if not hasattr(raw,'autocommit'):
+        raw.close(); pytest.skip('Python 3.11 has no Connection.autocommit property')
+    db=a.ConnectionProxy(raw,a.GrowthMonitor(home,physical_limit=8192))
+    db.execute('CREATE TABLE t(x)')
+    db.execute('INSERT INTO t VALUES(zeroblob(12000))')
+    try:
+        with pytest.raises(a.LimitReached): db.autocommit=True
+        assert db.monitor.stopped
+        with pytest.raises(a.LimitReached): db.execute('INSERT INTO t VALUES(NULL)')
+    finally: db.close()

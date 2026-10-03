@@ -38,3 +38,5 @@ R9: explicit FRESH/COMPLETED_OWNED_FIXTURE launch, completed owned schema-v7 DB 
 R9 follow-up: fresh-stream probe initially requested an unsupported UUID role; corrected the technical probe to the declared producer role. R9 is not inferred from the earlier failed probe; the corrected focused run is the verification authority.
 
 R10 resolves approved import/module/assignment alias patterns and propagates unknown dynamic-import edges through protected reachable helpers. Clean repository graph and SEED operation with evaluator absent pass; this is not general Python static-analysis completeness.
+
+R2 acceptance completion: explicit Python 3.13 Connection.autocommit transition reproduced a missing bound check (1 expected RED); property forwarding now guards/finalizes/checks it, 20 statement/adapter tests GREEN. Python 3.11 lacks that native property and skips only that regression.

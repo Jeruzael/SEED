@@ -252,6 +252,19 @@ class ConnectionProxy:
             self.commit()
         self._connection.isolation_level=value
 
+    @property
+    def autocommit(self): return self._connection.autocommit
+    @autocommit.setter
+    def autocommit(self,value):
+        # Available only on Python 3.12+; retain the native legacy mode contract.
+        if not hasattr(self._connection,'autocommit'): raise AttributeError('autocommit')
+        self.validate_storage()
+        if self.monitor.stopped: raise LimitReached()
+        if value is True and self.in_transaction:
+            self.commit()
+        self._connection.autocommit=value
+        if not self.in_transaction: self.monitor.check(self._connection)
+
     def _execute(self, method, sql, parameters):
         read = _read_only(sql)
         self.validate_storage()
