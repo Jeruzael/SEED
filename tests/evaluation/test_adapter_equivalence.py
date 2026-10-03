@@ -2,6 +2,7 @@
 import json
 import multiprocessing
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -143,8 +144,8 @@ def incidental_pid(tables,pid,columns):
                 else:scrub(v,path+[k])
         elif type(value) is list:
             for i,v in enumerate(value):scrub(v,path+[i])
-    # raw_tables returns ordered lists of dictionaries; reserialize only rows
-    # whose raw JSON really includes the process PID, audit exact locations.
+    # Validate exact decoded PID locations, then mask only scalar value spans
+    # in the original raw text. Whitespace/order/escaping stay byte-for-byte.
     for table,rows in result.items():
         for i,row in enumerate(rows):
             for column,v in zip(columns[table],row):
@@ -153,7 +154,16 @@ def incidental_pid(tables,pid,columns):
                     try:decoded=json.loads(v)
                     except ValueError:continue
                     prior=len(audit);scrub(decoded,[table,i,column])
-                    if len(audit)!=prior:row[index]=json.dumps(decoded,sort_keys=True)
+                    if len(audit)!=prior:
+                        matches=[]
+                        def mask(match):
+                            actual=json.loads(match.group(2))
+                            assert actual==pid or actual is None
+                            matches.append(actual)
+                            return match.group(1)+'"INCIDENTAL_PID"'
+                        row[index]=re.sub(r'("pid"\s*:\s*)(null|[0-9]+)(?=\s*[,}])',mask,v)
+                        assert len(matches)==len(audit)-prior
+
                 elif column=='pid':
                     assert v==pid or v is None;row[index]='INCIDENTAL_PID';audit.append([table,i,column])
     return result,audit
@@ -195,3 +205,18 @@ assert not any(n.startswith('development.evaluation') for n in sys.modules)
                           env={**os.environ,'PYTHONPATH':str(tmp_path)},timeout=30)
     assert result.returncode==0,result.stderr
     assert not (tmp_path/'development').exists()
+
+
+@pytest.mark.parametrize('raw',[
+    '{ "pid": 456, "other":1}', '{"other":1,"pid":456}',
+    '{"pid":456,"other":1.0}', '{"pid":456,"other":1e0}'])
+def test_pid_exclusion_preserves_all_non_pid_json_bytes(raw):
+    left,_=incidental_pid({'runtime':[['{"pid":123,"other":1}']]},123,{'runtime':['data_json']})
+    right,_=incidental_pid({'runtime':[[raw]]},456,{'runtime':['data_json']})
+    assert left!=right
+
+
+def test_pid_exclusion_preserves_non_pid_string_escapes():
+    left,_=incidental_pid({'runtime':[[r'{"pid":123,"other":"a"}']]},123,{'runtime':['data_json']})
+    right,_=incidental_pid({'runtime':[[r'{"pid":456,"other":"\u0061"}']]},456,{'runtime':['data_json']})
+    assert left!=right
