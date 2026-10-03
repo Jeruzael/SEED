@@ -3,9 +3,67 @@ import os
 from pathlib import Path
 import sqlite3
 import stat
+import fcntl
 from .contracts import ContractError
 
 CONNECT = sqlite3.connect
+
+
+class StorageIdentity:
+    """Observable trusted-code checks; not hostile native-open race prevention."""
+    def __init__(self, capability, name='memory.sqlite3', *, writer=True):
+        self.capability, self.path = capability, capability.home/name
+        self.failed, self.fd, self.lease = False, None, None
+        capability.validate()
+        kind, identity = ('state','db') if name=='memory.sqlite3' else ('snapshot','checkpoint')
+        self.fd = capability.open(kind,identity,'read')
+        st = os.fstat(self.fd)
+        self.inode = (st.st_dev,st.st_ino)
+        try:
+            if writer:
+                # SQLite owns locks on the DB; use a distinct owned lease file.
+                lease_name='writer' if name=='memory.sqlite3' else 'checkpoint'
+                try:
+                    lease=capability.open('lease',lease_name,'create')
+                    os.close(lease)
+                except ContractError:
+                    pass
+                self.lease=capability.open('lease',lease_name,'read')
+                fcntl.flock(self.lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            self.validate()
+        except BaseException:
+            self.close()
+            raise ContractError() from None
+
+    def validate(self, connection=None):
+        if self.failed:
+            raise ContractError()
+        try:
+            self.capability.validate()
+            for suffix in ('','-wal','-shm','-journal'):
+                file=Path(str(self.path)+suffix)
+                if suffix and not file.exists() and not file.is_symlink():
+                    continue
+                st=file.lstat()
+                if not stat.S_ISREG(st.st_mode) or st.st_uid!=os.geteuid() or st.st_nlink!=1:
+                    raise ContractError()
+                if not suffix and (st.st_dev,st.st_ino)!=self.inode:
+                    raise ContractError()
+            if connection is not None:
+                facts=connection.execute('PRAGMA database_list').fetchall()
+                if len(facts)!=1 or facts[0][1]!='main' or facts[0][2]!=str(self.path):
+                    raise ContractError()
+        except (OSError,ValueError,sqlite3.DatabaseError):
+            self.failed=True
+            raise ContractError() from None
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd=None
+        if self.lease is not None:
+            os.close(self.lease)
+            self.lease=None
 
 
 class LimitReached(RuntimeError):
@@ -18,6 +76,7 @@ class GrowthMonitor:
         self.home = Path(home)
         self.logical_limit, self.physical_limit, self.workspace_limit = logical_limit, physical_limit, workspace_limit
         self.stopped, self.overshoot_exceeded = False, False
+        self.invalid_storage=False
         self.commits = 0
 
     def check(self, connection):
@@ -71,8 +130,11 @@ class CursorProxy:
 
 
 class ConnectionProxy:
-    def __init__(self, connection, monitor):
+    def __init__(self, connection, monitor, identity=None, *, read_only=False):
         self._connection, self.monitor = connection, monitor
+        self.identity,self.read_only,self._closed=identity,read_only,False
+        if read_only:
+            return
         page_size = connection.execute('PRAGMA page_size').fetchone()[0]
         capped = connection.execute('PRAGMA max_page_count='+str(monitor.logical_limit//page_size)).fetchone()[0]
         if capped*page_size > monitor.logical_limit:
@@ -95,6 +157,7 @@ class ConnectionProxy:
 
     def _execute(self, method, sql, parameters):
         read = _read_only(sql)
+        self.validate_storage()
         if self.monitor.stopped and not read:
             raise LimitReached()
         try:
@@ -135,6 +198,7 @@ class ConnectionProxy:
             self._connection.isolation_level=prior
         return self.cursor()
     def commit(self):
+        self.validate_storage()
         if not self.in_transaction:
             return
         if self.monitor.stopped:
@@ -145,6 +209,9 @@ class ConnectionProxy:
         self._connection.rollback()
     def __enter__(self): return self
     def __exit__(self, kind, value, traceback):
+        if self.read_only:
+            self.close()
+            return False
         if kind:
             self.rollback()
         else:
@@ -153,9 +220,26 @@ class ConnectionProxy:
     def set_progress_handler(self, handler, steps):
         return self._connection.set_progress_handler(handler,steps)
     def backup(self, target, **kwargs):
+        self.validate_storage()
         return self._connection.backup(target._connection if isinstance(target,ConnectionProxy) else target,**kwargs)
+    def validate_storage(self):
+        if self.monitor.invalid_storage:
+            raise ContractError()
+        if self.identity is not None:
+            try:
+                self.identity.validate(self._connection)
+            except ContractError:
+                self.monitor.stopped=True
+                self.monitor.invalid_storage=True
+                raise
     def close(self):
-        self._connection.close()
+        if not self._closed:
+            self._closed=True
+            try:
+                self._connection.close()
+            finally:
+                if self.identity is not None:
+                    self.identity.close()
 
 
 class OwnedSqlite:
@@ -165,18 +249,25 @@ class OwnedSqlite:
     def __getattr__(self, name):
         return getattr(sqlite3,name)
     def connect(self, path, *args, **kwargs):
+        if self.monitor.invalid_storage:
+            raise ContractError()
         self.capability.validate()
         expected=self.capability.home/'memory.sqlite3'
         read_only=kwargs.get('uri') and str(path)==expected.as_uri()+'?mode=ro'
         if str(path) != str(expected) and not read_only:
             raise ContractError()
-        for suffix in ('','-wal','-shm','-journal'):
-            file=Path(str(expected)+suffix)
-            if file.exists() or file.is_symlink():
-                st=file.lstat()
-                if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid() or st.st_nlink != 1:
-                    raise ContractError()
-        connection=CONNECT(path,*args,**kwargs)
-        if read_only:
-            return connection
-        return ConnectionProxy(connection,self.monitor)
+        identity=StorageIdentity(self.capability,writer=not read_only)
+        connection=None
+        try:
+            # Every factory open is for an already-admitted existing DB.
+            kwargs['uri']=True
+            connection=CONNECT(expected.as_uri()+('?mode=ro' if read_only else '?mode=rw'),*args,**kwargs)
+            identity.validate(connection)
+            return ConnectionProxy(connection,self.monitor,identity,read_only=read_only)
+        except BaseException:
+            if connection is not None:
+                connection.close()
+            identity.close()
+            self.monitor.stopped=True
+            self.monitor.invalid_storage=True
+            raise

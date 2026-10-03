@@ -85,10 +85,22 @@ class LearnerCapability:
     token: str
     inode: tuple[int, int]
     kind: str = 'learner'
+    root: object = None
+    run_inode: tuple[int, int] = ()
 
     def validate(self):
         if self.kind != 'learner' or type(self.token) is not str or not re.fullmatch('[0-9a-f]{64}', self.token):
             raise ContractError()
+        if type(self.root) is not EvaluationRoot or self.home.parent.parent != self.root.path/'work' or self.home.name not in ('learner','clone'):
+            raise ContractError()
+        identifier(self.home.parent.name)
+        self.root.usage()
+        runfd = _directory(self.home.parent)
+        try:
+            if _identity(os.fstat(runfd)) != self.run_inode:
+                raise ContractError()
+        finally:
+            os.close(runfd)
         fd = _directory(self.home)
         try:
             if _identity(os.fstat(fd)) != self.inode:
@@ -103,7 +115,7 @@ class LearnerCapability:
 
     def open(self, kind, identity, mode):
         self.validate()
-        names = {('state', 'db'): 'memory.sqlite3', ('snapshot', 'checkpoint'): 'checkpoint.sqlite3'}
+        names = {('state', 'db'): 'memory.sqlite3', ('snapshot', 'checkpoint'): 'checkpoint.sqlite3', ('lease','writer'): '.writer-lease', ('lease','checkpoint'): '.checkpoint-lease'}
         if (kind, identity) not in names:
             raise ContractError()
         fd = _directory(self.home)
@@ -223,7 +235,7 @@ class EvaluationRoot:
                         f.flush()
                         os.fsync(f.fileno())
                     os.fsync(learner)
-                    return LearnerCapability(self.path/'work'/run/name, token, _identity(os.fstat(learner)))
+                    return LearnerCapability(self.path/'work'/run/name, token, _identity(os.fstat(learner)), root=self, run_inode=_identity(os.fstat(runfd)))
                 finally:
                     os.close(learner)
             finally:

@@ -7,7 +7,7 @@ import sqlite3
 import threading
 from .contracts import ContractError
 from .paths import LearnerCapability
-from .db_adapter import CONNECT, ConnectionProxy, GrowthMonitor, OwnedSqlite, LimitReached
+from .db_adapter import CONNECT, ConnectionProxy, GrowthMonitor, OwnedSqlite, LimitReached, StorageIdentity
 
 
 def _worker_only():
@@ -41,6 +41,8 @@ class OwnedState:
         capability.validate()
         if (capability.home/'memory.sqlite3').exists():
             raise ContractError()
+        fd=capability.open('state','db','create')
+        os.close(fd)
         from seed.config import validate_settings
         settings=validate_settings(public_settings)
         if settings.keys() - {'epsilon','alpha','observe_interval','reflect_interval','rest_interval','memory_budget','prediction_error_curiosity','advanced_concept_inference'}:
@@ -85,16 +87,22 @@ class OwnedState:
         path=self.capability.home/'checkpoint.sqlite3'
         fd=self.capability.open('snapshot','checkpoint','create')
         os.close(fd)
-        target=CONNECT(path)
+        identity=StorageIdentity(self.capability,'checkpoint.sqlite3')
+        target=None
         try:
+            target=CONNECT(path.as_uri()+'?mode=rw',uri=True)
+            identity.validate(target)
             self.memory.db.backup(target,pages=256)
             target.commit()
+            identity.validate(target)
+            self.memory.db.validate_storage()
+            os.fsync(identity.fd)
         finally:
-            target.close()
+            if target is not None:
+                target.close()
+            identity.close()
         if path.stat().st_size>32*1024**2:
             raise LimitReached()
-        with path.open('rb') as f:
-            os.fsync(f.fileno())
         self.capability.sync()
         return path
 
@@ -104,15 +112,23 @@ class OwnedState:
         if type(slot) is not LearnerCapability or slot.home.parent != self.capability.home.parent or slot.home==self.capability.home:
             raise ContractError()
         slot.validate()
+        self.memory.db.validate_storage()
         fd=slot.open('state','db','create')
         os.close(fd)
-        target=CONNECT(slot.home/'memory.sqlite3')
+        identity=StorageIdentity(slot)
+        target=None
         try:
+            target=CONNECT((slot.home/'memory.sqlite3').as_uri()+'?mode=rw',uri=True)
+            identity.validate(target)
             self.memory.db.commit()
             self.memory.db.backup(target,pages=256)
             target.commit()
+            identity.validate(target)
+            self.memory.db.validate_storage()
         finally:
-            target.close()
+            if target is not None:
+                target.close()
+            identity.close()
         import seed.memory as module
         monitor=GrowthMonitor(slot.home)
         module.sqlite3=OwnedSqlite(slot,monitor)
