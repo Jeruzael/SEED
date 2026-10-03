@@ -2,7 +2,7 @@
 
 Canonical roadmap and batch tracker. Initialized **2026-09-21** from the owner's SEED 0.2 master development instruction and inspection of the current checkout.
 
-**Current authorization: B10 FOUNDATION REVIEW REMEDIATION — R1–R10 ONLY.** Canonical amendment master `1ea281f4cc968f97ca27cba8b7255a87d8798716` (exact CI 37106546153 SUCCESS). Original I01–I08/review history preserved by normal integration. Foundation **LOCAL ACCEPTANCE VERIFIED / PUBLICATION AND HOSTED VERIFICATION PENDING** at engineering head `912b95b95bf696e599ff91ec33e5be638f5a7031`. R1–R10 RESOLVED; independent review 0 BLOCKER / 0 MAJOR / 0 MINOR / 0 unresolved; **G1 PASS / G2 PASS — foundation scope**. Author verification: foundation 156 passed; full suite 1039 passed / 2 existing warnings; 94 explicit remediation regressions and seven standalone regressions PASS. Storage amendment OWNER APPROVED / MERGED / VERIFIED AT DOCUMENTATION-CI LEVEL. B10 engineering IN PROGRESS. I09–I30 NOT STARTED / NOT AUTHORIZED BY THIS INSTRUCTION. Empirical evaluation NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED. INSTALLED SEED UNTOUCHED. Current status overrides older dated checkpoints; exact hosted publication/closure remains required.
+**Current authorization: B10 FOUNDATION REVIEW REMEDIATION — R1–R10 ONLY; documentation closure.** Foundation [PR #21](https://github.com/Jeruzael/SEED/pull/21) merged normally at `797f7c8b6278d19fe713fef7e6cc36bbcd7055a2`; exact PR run 37141432098 and exact master push run 37141620283 passed all three required jobs. Foundation engineering/source-CI acceptance VERIFIED; R1–R10 RESOLVED; independent review 0 BLOCKER / 0 MAJOR / 0 MINOR / 0 unresolved; G1 PASS / G2 PASS — foundation scope. Original I01–I08/remediation history remains exact. This closure documentation has separate exact PR/master CI gates; final COMPLETE / VERIFIED closeout takes effect only when those pass. B10 overall/engineering IN PROGRESS. I09–I30 NOT STARTED / NOT AUTHORIZED BY THIS INSTRUCTION. Empirical NOT STARTED / NOT AUTHORIZED. NO B10 EXPERIMENTS EXECUTED. DEPLOYMENT NOT PERFORMED. INSTALLED SEED UNTOUCHED. Older dated checkpoints remain historical.
 
 ## Objective and architectural transition
 
@@ -2398,3 +2398,8 @@ The owner authorized only I01–I08 on `seed-0.2-b10-impl-01-foundation` from ex
 ## B10 foundation remediation authorization — 2026-10-03
 
 The owner authorized R1–R10 only under the merged storage amendment. [Remediation evidence](reviews/2026-10-03-b10-foundation-remediation.md) records normal master integration and finding-by-finding verification. Foundation not complete/verified; G1/G2 pending. No I09+, empirical, core/schema/dependency/workflow or installed-home work.
+
+
+## B10 foundation source/CI closure — 2026-10-04
+
+[Complete closure record](reviews/2026-10-04-b10-foundation-closure.md) records the preserved original task history, normal amendment integration, every R1–R10 repair/test/commit, fresh independent acceptance, concrete G1/G2 evidence, local 156/1039/94 regression counts, seven standalone regressions, PR #21 / exact head 085096cf / run 37141432098 and normal master merge 797f7c8b / run 37141620283. Both runs passed all three required jobs. Core/schema/dependencies/workflows unchanged; no B10 experiments, deployment or installed-home access. This separate documentation closure needs its own exact PR/master verification; successful final statuses and mandatory STOP are defined in the record. I09+ remains NOT AUTHORIZED.
