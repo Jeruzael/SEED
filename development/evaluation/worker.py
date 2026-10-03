@@ -1,4 +1,4 @@
-"""Bounded spawned lifecycle. Foundation has no cycle/experiment dispatcher."""
+"""Bounded spawned lifecycle and closed protocol dispatch, without science execution."""
 import json
 import multiprocessing
 import os
@@ -19,14 +19,19 @@ _ENV_LOCK = threading.Lock()
 
 def validate_command(message):
     value=strict_json(_encode(message))
+    if value.get('operation')=='retry':
+        fields(value,('operation','interval'))
+        if type(value['interval']) is not int or not 1<=value['interval']<=3600:raise WorkerError()
+        return value
     if value.get('operation')=='freeze':
         fields(value,('operation',))
         return value
-    if value.get('operation') in ('cycle','probe'):
+    if value.get('operation') in ('cycle','probe','maintenance'):
         fields(value,('operation','key'))
         key=validate_event_key(value['key'])
         phases=('probe',) if value['operation']=='probe' else ('training','measured')
-        if key[3]!='pre' or key[0] not in phases:
+        stage='update' if value['operation']=='maintenance' else 'pre'
+        if key[3]!=stage or key[0] not in phases:
             raise WorkerError()
         return value
     return validate_request(value)
@@ -54,7 +59,7 @@ def _worker_entry(pipe, launch):
     core=None
     try:
         session=install_worker_adapters(launch)
-        from .adapters import construct_core, CaptureSession
+        from .adapters import construct_core, CaptureSession, capture_updates, producer_payload
         from seed.migrations import schema_version
         client=LearnerClient(pipe,session.clock)
         if launch.protocol=='FROZEN_SELECTION_ASSAY':
@@ -69,6 +74,7 @@ def _worker_entry(pipe, launch):
         if _memory_bytes()>512*1024**2:
             raise WorkerError()
         training_completed=0
+        last_cycle=None
         pipe.send_bytes(_encode({'status':'ready','schema':schema_version(core.memory.db),
                                  'memory_accounting':'best_effort','rss_bytes':_memory_bytes()}))
         while True:
@@ -79,7 +85,19 @@ def _worker_entry(pipe, launch):
                 message=validate_command(message)
                 if _memory_bytes()>512*1024**2:
                     raise WorkerError()
-                if message['operation']=='freeze':
+                if message['operation']=='retry':
+                    if last_cycle is None or last_cycle['status']!='skipped':raise WorkerError()
+                    session.clock.retry(message['interval'])
+                    last_cycle=None
+                    value={'status':'retry_scheduled'}
+                elif message['operation']=='maintenance':
+                    if capture is None or not capture.acked or message['key'][:3]!=list(capture.key[:3]):raise WorkerError()
+                    session.clock.stage(capture.key[0],capture.key[2],4)
+                    run=core.consolidate(state=core.memory.get_meta('last_state',{}),provenance='owner_requested')
+                    stored=core.memory.db.execute('SELECT * FROM consolidation_runs WHERE id=?',(run['id'],)).fetchone()
+                    if stored is None:raise WorkerError()
+                    value=dict(run_id=run['id'],status=run['status'],stored=producer_payload(stored))
+                elif message['operation']=='freeze':
                     if launch.protocol!='PREQUENTIAL' or capture.failed or training_completed!=launch.training_count:
                         raise WorkerError()
                     from .state import OwnedState
@@ -99,12 +117,25 @@ def _worker_entry(pipe, launch):
                         result=core.cycle()
                         value=dict(status=result.status,reason=result.reason,delay_seconds=result.delay_seconds,
                                    acked=capture.acked,capture={k:v for k,v in capture.record.items() if k!='history_rows'})
+                        if result.status=='skipped':client.discard_skipped(message['key'])
+                        if capture.acked:
+                            value['updates']=capture_updates(core,message['key'])
+                            calls=capture.record['producer_calls']
+                            if calls.get('b7',{}).get('result')=='failed' or any(
+                                    value['updates'][name]['status']!='confirmed' for name in ('q','b1','b4','b5','b7','b8')):
+                                value.update(status='incomplete',reason='PRODUCER_UNCONFIRMED')
+                                capture.failed=True
+                            value['capture']={k:v for k,v in capture.record.items() if k not in ('history_rows','updates')}
                         if result.status=='completed' and message['key'][0]=='training':training_completed+=1
-                    except (ValueError,RuntimeError,OSError):
+                    except Exception:
                         capture.failed=True
                         value=dict(status='incomplete' if capture.acked else 'failed',reason='CYCLE_INTERRUPTED',
                                    delay_seconds=None,acked=capture.acked,
                                    capture={k:v for k,v in capture.record.items() if k!='history_rows'})
+                        try:value['updates']=capture_updates(core,message['key'])
+                        except BaseException:value['updates']=capture.record.get('updates',{})
+                        value['capture']={k:v for k,v in capture.record.items() if k not in ('history_rows','updates')}
+                    last_cycle=value
                 elif message['operation']=='action_catalog':
                     value={'actions':list(client.action_catalog())}
                 elif message['operation']=='observation':
@@ -124,9 +155,12 @@ def _worker_entry(pipe, launch):
         try: pipe.send_bytes(b'{"kind":"error","code":"WORKER_FAILED"}')
         except (OSError,EOFError): pass
     finally:
+        cleanup='closed'
         if core is not None:
             try: core.close()
-            except BaseException: pass
+            except BaseException: cleanup='failed'
+        try: pipe.send_bytes(_encode({'kind':'cleanup','status':cleanup}))
+        except (OSError,EOFError): pass
         pipe.close()
 
 
@@ -140,6 +174,9 @@ class WorkerHandle:
         self._stop_lock=threading.Lock()
         self._deadline_cancel=threading.Event()
         self._channel=channel
+        self.last_channel_failure=None
+        self.checkpoint_bytes=0
+        self.cleanup_status='unconfirmed'
 
     @classmethod
     def start(cls, launch, *, run_seconds=120, cleanup_seconds=5, channel=None):
@@ -202,6 +239,9 @@ class WorkerHandle:
         sent=False
         try:
             message=validate_command(message)
+            if message['operation']=='cycle':
+                self.checkpoint_bytes=0
+                self.last_channel_failure=None
             self.pipe.send_bytes(_encode(message))
             sent=True
             response=self._receive()
@@ -224,17 +264,24 @@ class WorkerHandle:
                             raise WorkerError()
                         value={'actions':list(ACTIONS)}
                     else:
+                        previous_size=self._channel._journal.path.stat().st_size if incoming['operation']=='checkpoint' and self._channel._journal else None
                         value=self._channel.dispatch(incoming)
+                        if previous_size is not None:self.checkpoint_bytes=self._channel._journal.path.stat().st_size-previous_size
                     self.pipe.send_bytes(_encode({'kind':'response','value':value}))
-                except BaseException:
+                except BaseException as error:
+                    self.last_channel_failure=RunResult(getattr(error,'status','FAILED'),getattr(error,'reason','INVALID_CONTRACT'))
                     self.pipe.send_bytes(b'{"kind":"error","code":"INVALID_CONTRACT"}')
                 response=self._receive()
             fields(response,('kind','value'))
             if response['kind']!='result':
                 raise WorkerError()
+            if message['operation']=='cycle' and response['value']['status']=='skipped' and self._channel is not None:
+                self._channel.discard_skipped(message['key'])
             return response['value']
         except (OSError,EOFError,ValueError,RuntimeError):
             if sent:
+                if self.last_channel_failure is None and self.checkpoint_bytes:
+                    self.last_channel_failure=RunResult('INCOMPLETE','WORKER_DIED_AFTER_ACK')
                 from .db_adapter import RunBudget
                 try: RunBudget(self.launch.learner.home.parent).stop()
                 finally: self.stop('WORKER_DIED')
@@ -256,6 +303,14 @@ class WorkerHandle:
                         self.process.join(self.cleanup_seconds)
                         if self.process.is_alive(): self.process.terminate(); self.process.join(1)
                         if self.process.is_alive(): self.process.kill(); self.process.join(1)
+                    # A dead process alone does not prove successful producer
+                    # cleanup. Require the worker's separate closed status.
+                    if self.pipe.poll(0):
+                        try:
+                            receipt=strict_json(self.pipe.recv_bytes(MESSAGE_BYTES))
+                            if receipt in ({'kind':'cleanup','status':'closed'},{'kind':'cleanup','status':'failed'}):
+                                self.cleanup_status=receipt['status']
+                        except (OSError,EOFError,ValueError):pass
                 finally:
                     self.pipe.close()
                     _LEASE.release()

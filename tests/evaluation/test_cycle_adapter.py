@@ -30,6 +30,13 @@ def _cycle_child(pipe, launch, mode):
         if mode=='consolidate':
             core.decisions.rng=type('Rng',(),dict(random=lambda s:0.,choice=lambda s,p:'consolidate'))()
         capture.begin(('measured','default',1,'pre'))
+        if mode in ('stale','exact_five'):
+            from types import SimpleNamespace
+            monotonic_calls=[0]
+            def controlled_monotonic():
+                monotonic_calls[0]+=1
+                return 10. if monotonic_calls[0]==1 else (15. if mode=='exact_five' else 15.001)
+            organism.time=SimpleNamespace(time=streams.clock.wall,monotonic=controlled_monotonic)
         try:
             result=core.cycle()
             status=result.status
@@ -112,7 +119,9 @@ def test_prior_action_effects_remain_without_ack(tmp_path,foundation_module,mode
     assert 'ack' not in result['record']['events']
     assert not raw
     if mode=='reflect':assert result['tables']['concepts']==2
-    if mode=='consolidate':assert result['tables']['consolidation_runs']==1
+    if mode=='consolidate':
+        assert result['tables']['consolidation_runs']==1
+        assert result['record']['prior_action_effects']['consolidation_runs'][0]['id']==1
 
 
 def test_synthetic_body_installed_before_constructor(tmp_path,foundation_module):
@@ -143,3 +152,18 @@ def test_worker_handle_delegates_cycle_through_parent_journal(tmp_path,foundatio
         assert 'point_scores' not in result
         assert len(journal.path.read_bytes().splitlines())==1
     finally:worker.stop();journal.close()
+
+
+def test_stale_attempt_is_not_sample(tmp_path,foundation_module):
+    result,trace,raw=run_cycle(tmp_path,foundation_module,mode='stale')
+    assert result['status']=='skipped'
+    assert trace==['observation'] and not raw
+    assert result['tables']['transitions']==0 and result['tables']['q_values']==0
+    assert result['b3_calls']==0
+
+
+def test_exact_five_second_boundary_completes(tmp_path,foundation_module):
+    result,trace,raw=run_cycle(tmp_path,foundation_module,mode='exact_five')
+    assert result['status']=='completed'
+    assert trace==['observation','apply','checkpoint']
+    assert result['tables']['transitions']==1

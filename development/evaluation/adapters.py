@@ -104,13 +104,35 @@ class CaptureSession:
         core.decisions.select = self._select
         core.perform_action = self._action
         organism.evaluate_prediction = self.evaluate_with_checkpoint
+        core._evaluation_capture = self
+        self._wrap_producer(core.learner,'update','q')
+        self._wrap_producer(core.memory,'record_transition_experience','b1')
+        self._wrap_producer(core.world_model,'recover','b4')
+        self._wrap_producer(core.self_model,'update','b7',stage=4)
+
+    def _wrap_producer(self, target, method, name, stage=3):
+        original=getattr(target,method)
+        def delegated(*args,**kwargs):
+            if not self.acked:raise ContractError()
+            self.clock.stage(self.key[0],self.key[2],stage)
+            call=dict(status='started',result=None)
+            self.record['producer_calls'][name]=call
+            try:
+                result=original(*args,**kwargs)
+                call.update(status='returned',result=list(result) if type(result) is tuple else result)
+                return result
+            except BaseException:
+                call['status']='raised'
+                raise
+        setattr(target,method,delegated)
 
     def begin(self, key):
         key = validate_event_key(list(key))
         if self.failed or self.core is None or key[3] != 'pre' or key[0] not in ('training','measured'):
             raise ContractError()
         self.key, self.acked, self.b3_result = key, False, None
-        self.record = dict(events=[],driver='existing_cycle_adapter_v1')
+        self.record = dict(events=[],driver='existing_cycle_adapter_v1',producer_calls={},prior_action_effects={})
+        self.before_transition_id=self.core.memory.db.execute('SELECT COALESCE(MAX(id),0) FROM transitions').fetchone()[0]
         self.core.body.begin(key)
 
     def _snapshot(self, key):
@@ -137,12 +159,19 @@ class CaptureSession:
         self.record['selected_prediction'] = copy.deepcopy(result.prediction)
         self.record['events'].append('select')
         self.core.body.action = result.decision.action
+        self.clock.stage(self.key[0], self.key[2], 1)
         return result
 
     def _action(self, action, state=None):
         self.clock.stage(self.key[0], self.key[2], 1)
         self.record['events'].append('action')
-        return self._original_action(action, state=state)
+        prior=self.core.memory.db.execute('SELECT COALESCE(MAX(id),0) FROM consolidation_runs').fetchone()[0]
+        try:return self._original_action(action, state=state)
+        finally:
+            if action=='consolidate':
+                self.record['prior_action_effects']['consolidation_runs']=[producer_payload(row) for row in
+                    self.core.memory.db.execute('SELECT * FROM consolidation_runs WHERE id>? ORDER BY id',(prior,)).fetchall()]
+
 
     def evaluate_with_checkpoint(self, prediction, outcome):
         if 'b3' in self.record['events'] or prediction != self.record['selected_prediction']:
@@ -169,3 +198,54 @@ class CaptureSession:
         except BaseException:
             self.failed = True
             raise
+
+
+def capture_updates(core, key):
+    """Confirm real persisted producers even when a call raised after commit."""
+    capture=core._evaluation_capture
+    updates={name:dict(status='unconfirmed') for name in ('q','b1','b4','b5','b6','b7','b8')}
+    capture.record['updates']=updates
+    if not capture.acked:return updates
+    db=core.memory.db
+    selection=capture.record['selection']
+    action=selection['selected_action']
+    before=capture.record['q_snapshot'][action]
+    after=core.memory.get_q(selection['state_key'],action)
+    updates['q']=dict(status='confirmed' if after[1]==before['visits']+1 else 'unconfirmed',
+                       before=before,after=dict(value=after[0],visits=after[1]))
+    # B8 stores decision identity inside its unchanged JSON payload, not a
+    # separate SQL column. Only the new single-writer row can confirm this event.
+    row=db.execute('SELECT * FROM transitions WHERE id>? ORDER BY id DESC LIMIT 1',
+                   (capture.before_transition_id,)).fetchone()
+    if row is None:return updates
+    tid=row['id']
+    decision=db.execute('SELECT * FROM decision_records WHERE transition_id=?',(tid,)).fetchone()
+    if decision is None or json.loads(decision['data_json'])['decision_id']!=selection['decision_id']:
+        return updates
+    episode=db.execute('SELECT * FROM episodes WHERE id=?',(row['episode_id'],)).fetchone()
+    updates['b1']=dict(status='confirmed' if episode is not None else 'unconfirmed',transition_id=tid,
+                       episode_id=row['episode_id'],transition=producer_payload(row),episode=producer_payload(episode))
+    processed=db.execute('SELECT * FROM world_model_processed WHERE transition_id=?',(tid,)).fetchone()
+    updates['b4']=dict(status='confirmed' if processed else 'unconfirmed',processed=dict(processed) if processed else None,
+                       queued=db.execute('SELECT 1 FROM world_model_queue WHERE transition_id=?',(tid,)).fetchone() is not None)
+    curiosity=db.execute('SELECT * FROM curiosity_assessments WHERE transition_id=?',(tid,)).fetchone()
+    updates['b5']=dict(status='confirmed' if curiosity else 'unconfirmed',assessment=dict(curiosity) if curiosity else None)
+    self_model=db.execute('SELECT * FROM self_model_current WHERE singleton=1').fetchone()
+    updates['b7']=dict(status='confirmed' if self_model and self_model['source_transition_id']==tid else 'unconfirmed',
+                       state=producer_payload(self_model),
+                       producer_return=capture.record['producer_calls'].get('b7',{}).get('result'))
+    updates['b8']=dict(status='confirmed' if decision else 'unconfirmed',record=producer_payload(decision))
+    # B6 is not a current-transition implicit mutation. Selected consolidation
+    # is prior-evidence work; declared maintenance is separately recorded.
+    runs=capture.record['prior_action_effects'].get('consolidation_runs',[])
+    updates['b6']=(dict(status='confirmed',scope='PRIOR_COMPLETED_EVIDENCE_ACTION',runs=runs) if runs else
+                   dict(status='not_applicable',reason='NO_CURRENT_TRANSITION_CONSOLIDATION'))
+    return updates
+
+
+def producer_payload(row):
+    if row is None:return None
+    # Preserve original producer JSON bytes losslessly; individual wire strings
+    # remain bounded, without changing source payloads or scientific projection.
+    return {key:({'raw_json_chunks':[value[i:i+4096] for i in range(0,len(value),4096)]}
+                 if key.endswith('_json') and type(value) is str else value) for key,value in dict(row).items()}

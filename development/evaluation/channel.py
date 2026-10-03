@@ -49,6 +49,11 @@ class ChannelRouter:
         self._lock=threading.Lock()
         self.failed=False
 
+    def discard_skipped(self, key):
+        if self.failed or self._pending!=tuple(key[:3]) or self._checkpoint_pending is not None:
+            raise ContractError()
+        self._pending=None
+
     def dispatch(self, request):
         value=validate_request(request)
         if not self._lock.acquire(blocking=False):
@@ -179,3 +184,7 @@ class LearnerClient:
         except BaseException:
             self.failed=True
             raise ContractError() from None
+
+    def discard_skipped(self, key):
+        if self.failed or self._pending!=list(key[:3]):raise ContractError()
+        self._pending=None
