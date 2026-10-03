@@ -180,6 +180,8 @@ class WorkerLaunch:
     uuid_identity: str
     training_count: int = 0
     protocol: str = 'PREQUENTIAL'
+    launch_mode: str = 'FRESH'
+    fixture: object = None
 
 
 @dataclass(frozen=True)

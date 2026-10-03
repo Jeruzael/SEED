@@ -39,13 +39,16 @@ def _worker_entry(pipe, launch):
     core=None
     try:
         session=install_worker_adapters(launch)
-        from .state import OwnedState
-        state=OwnedState.fresh(launch.learner,strict_json(launch.settings))
-        state.close()
-        from seed.organism import SeedOrganism
+        from .state import OwnedState, CompletedLearner
         from seed.migrations import schema_version
-        core=SeedOrganism(launch.learner.home)
-        core.decisions.rng=session.learner_rng
+        if launch.launch_mode=='FRESH':
+            state=OwnedState.fresh(launch.learner,strict_json(launch.settings))
+            state.close()
+            from seed.organism import SeedOrganism
+            core=SeedOrganism(launch.learner.home)
+            core.decisions.rng=session.learner_rng
+        else:
+            core=CompletedLearner(launch.fixture,strict_json(launch.settings),session)
         client=LearnerClient(pipe,session.clock)
         if _memory_bytes()>512*1024**2:
             raise WorkerError()

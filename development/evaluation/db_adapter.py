@@ -53,7 +53,8 @@ class StorageIdentity:
                     raise ContractError()
             if connection is not None:
                 facts=connection.execute('PRAGMA database_list').fetchall()
-                if len(facts)!=1 or facts[0][1]!='main' or facts[0][2]!=str(self.path):
+                main=[row for row in facts if row[1]=='main']
+                if len(main)!=1 or main[0][2]!=str(self.path) or any(row[1]!='main' and (row[1]!='temp' or row[2]!='') for row in facts):
                     raise ContractError()
         except (OSError,ValueError,sqlite3.DatabaseError):
             self.failed=True

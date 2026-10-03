@@ -44,6 +44,16 @@ def validate_launch(launch):
     from .db_adapter import RunBudget
     if RunBudget(launch.learner.home.parent).stopped:
         raise ContractError()
+    if launch.launch_mode=='FRESH':
+        if launch.fixture is not None or (launch.learner.home/'memory.sqlite3').exists():
+            raise ContractError()
+    elif launch.launch_mode=='COMPLETED_OWNED_FIXTURE':
+        from .state import CompletedFixture
+        if type(launch.fixture) is not CompletedFixture or launch.fixture.learner!=launch.learner:
+            raise ContractError()
+        launch.fixture.validate()
+    else:
+        raise ContractError()
     digest(launch.uuid_identity)
     integer(launch.rng_seed,0,2**256-1)
     integer(launch.training_count,0,512)

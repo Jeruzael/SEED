@@ -22,7 +22,7 @@ Pre-flight: R1 identity guard is consumed by R2 finalization and R3 backup; R3 w
 | R6 | 4 expected failures: post-growth freeze/admission, partial count, active reservation reconciliation | test_live_capacity + limits/paths/analysis/state/workers | Author focused verification PASS; independent gate pending |
 | R7 | 4 expected failures: malformed/exception action retry, continuing worker, client reuse | test_terminal_channel + channel/workers/leakage, 15 passed | Author focused verification PASS; independent gate pending |
 | R8 | 5 expected failures: wrong action, unknown top/nested/private fields, malformed forecast | test_prediction_boundary + contracts/leakage, 14 passed | Author focused verification PASS; independent gate pending |
-| R9 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
+| R9 | 5 expected missing completed-fixture launch failures | test_completed_fixture + workers/state/leakage/determinism | Author focused verification PASS; independent gate pending |
 | R10 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 
 R1: writer ownership uses a separate owned lease file because macOS DB-file flock interferes with SQLite native locks. This is an application trusted-writer lease, not native-open race prevention. Source/target observable checks and terminal identity latch retained; 29 focused/adjacent tests passed.
@@ -32,3 +32,5 @@ R2: statement completion is checked across fetch, iteration, close, reuse and di
 R3: pre-admits destination allocation plus a complete journal page set and 64-KiB metadata margin (conservative within existing ceilings); progress/completion checks charge every retained run file. Failed backups retain an owned incomplete prefix and return no trusted checkpoint/clone. This adds no scientific artifact publication or protocol.
 
 R6: live retained bytes/run identities and active allocation reconcile before control/storage admission. Explicit active reservation membership replaces actual allocated bytes/count, leaving only outstanding allowance; release removes reservation. Empty partial directories count, and retained evidence is never pruned to fit. Scientific dispatch remains disabled.
+
+R9: explicit FRESH/COMPLETED_OWNED_FIXTURE launch, completed owned schema-v7 DB identity/byte digest, no partial resume. Completed construction creates original producer objects with fresh assigned streams, avoiding Memory/organism initialization/recovery writes so tables/meta/settings/sequences/B4/B6/B7/B8 remain byte/logically unchanged. Closed-fixture validation uses immutable read-only SQLite inspection to avoid WAL/SHM creation; active state remains a normal writable producer connection. Integrity-check empty temp schema is allowed, attached DB paths still rejected. This is foundation launch plumbing only, not frozen/protocol/parity implementation.

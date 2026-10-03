@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import sqlite3
 import threading
+import hashlib
+from dataclasses import dataclass
 from .contracts import ContractError
 from .paths import LearnerCapability
 from .db_adapter import CONNECT, ConnectionProxy, GrowthMonitor, OwnedSqlite, LimitReached, StorageIdentity
@@ -13,6 +15,86 @@ from .db_adapter import CONNECT, ConnectionProxy, GrowthMonitor, OwnedSqlite, Li
 def _worker_only():
     if multiprocessing.current_process().name != 'seed-evaluation-worker':
         raise ContractError()
+
+
+def _fixture_facts(capability):
+    identity=StorageIdentity(capability)
+    db=None
+    try:
+        path=capability.home/'memory.sqlite3'
+        if any(Path(str(path)+suffix).exists() for suffix in ('-wal','-shm','-journal')):
+            raise ContractError()
+        # Admitted closed DB only: inspection must not create WAL/SHM state.
+        db=CONNECT(path.as_uri()+'?mode=ro&immutable=1',uri=True)
+        identity.validate(db)
+        from seed.migrations import schema_version
+        if schema_version(db)!=7 or db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
+            raise ContractError()
+        tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not {'meta','settings','sqlite_sequence','transitions','q_values','decision_records','self_model_current','consolidation_runs'}.issubset(tables):
+            raise ContractError()
+        sha=hashlib.sha256(); size=0
+        os.lseek(identity.fd,0,os.SEEK_SET)
+        while True:
+            chunk=os.read(identity.fd,65536)
+            if not chunk: break
+            size+=len(chunk)
+            if size>32*1024**2: raise LimitReached()
+            sha.update(chunk)
+        identity.validate(db)
+        return identity.inode,size,sha.hexdigest()
+    finally:
+        if db is not None: db.close()
+        identity.close()
+
+
+@dataclass(frozen=True)
+class CompletedFixture:
+    learner: LearnerCapability
+    inode: tuple[int,int]
+    byte_length: int
+    sha256: str
+
+    def validate(self):
+        if type(self.learner) is not LearnerCapability or _fixture_facts(self.learner)!=(self.inode,self.byte_length,self.sha256):
+            raise ContractError()
+        return self
+
+
+class CompletedLearner:
+    """Foundation object construction only; no recovery/cycle/frozen protocol."""
+    def __init__(self, fixture, settings, session):
+        self.state=OwnedState.completed(fixture)
+        self.memory=self.state.memory
+        try:
+            row=self.memory.db.execute('SELECT data_json FROM settings WHERE singleton=1').fetchone()
+            if row is None or json.loads(row[0])!=settings: raise ContractError()
+            from seed.learner import Learner
+            from seed.predictor import Predictor
+            from seed.decision import DecisionSystem
+            from seed.world_model import WorldModel
+            from seed.semantic_memory import Consolidator
+            from seed.curiosity_attention import CuriosityAttention
+            from seed.self_model import SelfModel
+            from seed.telemetry import Telemetry
+            from seed.commands import CommandQueue
+            from seed.config import DEFAULTS, validate_settings
+            self.learner=Learner(self.memory)
+            self.config={**DEFAULTS,**validate_settings(settings)}
+            self.learner.epsilon,self.learner.alpha=self.config['epsilon'],self.config['alpha']
+            self.predictor=Predictor(self.memory)
+            self.decisions=DecisionSystem(self.memory,self.predictor,self.learner,rng=session.learner_rng)
+            self.world_model=WorldModel(self.memory)
+            self.consolidator=Consolidator(self.memory)
+            self.curiosity_attention=CuriosityAttention(self.memory)
+            self.self_model=SelfModel(self.memory,clock=session.clock.wall)
+            self.telemetry=Telemetry(self.memory)
+            self.commands=CommandQueue(self.memory)
+        except BaseException:
+            self.state.close()
+            raise
+
+    def close(self): self.state.close()
 
 
 class ReadFacade:
@@ -80,6 +162,30 @@ class OwnedState:
                 content.append([{'utf8_bytes':v.hex()} if isinstance(v,bytes) else v for v in item])
             result[name]=content
         return result
+
+    def complete_fixture(self):
+        _worker_only()
+        if self._closed or self.monitor.stopped: raise ContractError()
+        self.memory.db.validate_storage()
+        self.close()
+        self.capability.sync()
+        return CompletedFixture(self.capability,*_fixture_facts(self.capability))
+
+    @classmethod
+    def completed(cls, fixture):
+        _worker_only()
+        if type(fixture) is not CompletedFixture: raise ContractError()
+        fixture.validate()
+        import seed.memory as module
+        monitor=GrowthMonitor(fixture.learner.home)
+        module.sqlite3=OwnedSqlite(fixture.learner,monitor)
+        # No Memory initializer/migration/settings write on a completed fixture.
+        memory=module.Memory.__new__(module.Memory)
+        memory.path=fixture.learner.home/'memory.sqlite3'
+        memory._lock=threading.RLock()
+        memory.db=module.sqlite3.connect(memory.path,check_same_thread=False,timeout=2)
+        memory.db.row_factory=sqlite3.Row
+        return cls(fixture.learner,memory,monitor)
 
     def _backup(self, slot, kind, name):
         self.memory.db.validate_storage()
