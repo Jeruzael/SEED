@@ -21,7 +21,7 @@ Pre-flight: R1 identity guard is consumed by R2 finalization and R3 backup; R3 w
 | R5 | 9 expected failures: missing/zero/mismatched digest and changed complete runtime facts | test_profile_admission + profile/spec tests, 13 passed | Author focused verification PASS; independent gate pending |
 | R6 | 4 expected failures: post-growth freeze/admission, partial count, active reservation reconciliation | test_live_capacity + limits/paths/analysis/state/workers | Author focused verification PASS; independent gate pending |
 | R7 | 4 expected failures: malformed/exception action retry, continuing worker, client reuse | test_terminal_channel + channel/workers/leakage, 15 passed | Author focused verification PASS; independent gate pending |
-| R8 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
+| R8 | 5 expected failures: wrong action, unknown top/nested/private fields, malformed forecast | test_prediction_boundary + contracts/leakage, 14 passed | Author focused verification PASS; independent gate pending |
 | R9 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R10 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 

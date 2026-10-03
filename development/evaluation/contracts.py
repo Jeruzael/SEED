@@ -131,6 +131,12 @@ def decode_message(raw: bytes, operation: str) -> Json:
         validate_observation(value['state_after'])
         if type(value['prediction']) is not dict:
             raise ContractError()
+        # Lazy pure producer validator: package import remains inert/pre-adapter.
+        from seed.decision_record import validate_prediction
+        try:
+            validate_prediction(value['prediction'],value['selected_action'])
+        except (ValueError,TypeError,KeyError,OverflowError,RecursionError):
+            raise ContractError() from None
         for key in ('state_before', 'prediction', 'state_after'):
             if len(json.dumps(value[key], sort_keys=True, separators=(',', ':'), allow_nan=False).encode()) > 16 * 1024:
                 raise ContractError()
