@@ -188,6 +188,7 @@ class OwnedState:
         memory.path=fixture.learner.home/'memory.sqlite3'
         memory._lock=threading.RLock()
         memory.db=module.sqlite3.connect(memory.path,check_same_thread=False,timeout=2)
+        memory.db.execute('PRAGMA foreign_keys=ON')
         memory.db.row_factory=sqlite3.Row
         return cls(fixture.learner,memory,monitor)
 

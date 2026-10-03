@@ -69,6 +69,12 @@ def _process_local_probe(pipe, request):
         from development.evaluation.state import CompletedLearner
         session=install_worker_adapters(request)
         core=CompletedLearner(request.fixture,{'epsilon':0},session)
+        try:
+            core.memory.db.execute("INSERT INTO annotations(episode_id,important,tags_json) VALUES(999999,0,'[]')")
+        except sqlite3.IntegrityError:
+            core.memory.db.rollback()
+        else:
+            raise AssertionError('completed launch disabled producer foreign-key enforcement')
         assert core.decisions.rng is session.learner_rng
         assert core.learner.memory is core.memory and core.world_model.memory is core.memory
         assert core.self_model.memory is core.memory and core.consolidator.memory is core.memory
