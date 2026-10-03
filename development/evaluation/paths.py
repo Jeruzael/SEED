@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import stat
 from .contracts import ContractError
-from .limits import Usage
+from .limits import Usage, Budget
 from .specs import CAPS, identifier
 
 
@@ -94,7 +94,7 @@ class LearnerCapability:
         if type(self.root) is not EvaluationRoot or self.home.parent.parent != self.root.path/'work' or self.home.name not in ('learner','clone'):
             raise ContractError()
         identifier(self.home.parent.name)
-        self.root.usage()
+        self.root.admit_control(0)
         runfd = _directory(self.home.parent)
         try:
             if _identity(os.fstat(runfd)) != self.run_inode:
@@ -137,6 +137,7 @@ class EvaluationRoot:
     def __init__(self, path, inode, plan_inode):
         self.path, self._inode, self._plan_inode = path, inode, plan_inode
         self.plan_directory = path / 'evaluation' / 'plans'
+        self.budget=Budget(retained_bytes=0,retained_runs=0,usage=self.usage)
 
     @classmethod
     def create(cls, checkout):
@@ -186,7 +187,11 @@ class EvaluationRoot:
             raise ContractError()
         return root
 
+    def admit_control(self, bytes):
+        self.budget.require_capacity(bytes=bytes)
+
     def open(self, kind, identity, mode):
+        if mode=='create': self.admit_control(0)
         if kind not in ('plan', 'freeze') or type(identity) is not str or not re.fullmatch('[a-z0-9][a-z0-9-]{0,127}', identity):
             raise ContractError()
         root = self._validate()
@@ -200,6 +205,7 @@ class EvaluationRoot:
             os.close(fd)
 
     def sync(self):
+        self.admit_control(0)
         root = self._validate()
         os.close(root)
         fd = _directory(self.plan_directory)
@@ -215,8 +221,10 @@ class EvaluationRoot:
         if type(slot) is not int or slot not in (0, 1):
             raise ContractError()
         usage = self.usage()
-        if usage.bytes > CAPS['root_bytes'] or usage.runs >= CAPS['retained_runs']:
-            raise ContractError()
+        reserved=self.budget._reservations.get(run)
+        if reserved is not None and run not in reserved._active:
+            reserved.activate(run)
+        self.budget.require_capacity(runs=0 if run in usage.run_ids or reserved is not None else 1)
         root = self._validate()
         try:
             work = _mkdir(root, 'work')
@@ -247,7 +255,7 @@ class EvaluationRoot:
 
     def usage(self):
         root = self._validate()
-        total, runs = 0, set()
+        total, runs, run_bytes = 0, set(), {}
         def scan(fd, prefix):
             nonlocal total
             for name in os.listdir(fd):
@@ -266,11 +274,15 @@ class EvaluationRoot:
                 else:
                     _checked(st)
                     total += st.st_size
+                    parts=prefix.split('/')
+                    identity=parts[1] if len(parts)>=2 and parts[0]=='work' else parts[2] if len(parts)>=3 and parts[:2] in (['evaluation','runs'],['evaluation','partials']) else None
+                    if identity is not None: run_bytes[identity]=run_bytes.get(identity,0)+st.st_size
                     if total > CAPS['root_bytes'] or len(runs) > CAPS['retained_runs']:
                         raise ContractError()
         try:
             scan(root, '')
-            return Usage(total, len(runs))
+            if len(runs)>CAPS['retained_runs']: raise ContractError()
+            return Usage(total,len(runs),tuple(sorted(run_bytes.items())),tuple(sorted(runs)))
         except OSError:
             raise ContractError() from None
         finally:

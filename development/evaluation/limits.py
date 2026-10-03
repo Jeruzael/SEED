@@ -8,11 +8,20 @@ from .specs import CAPS, identifier, integer
 class Usage:
     bytes: int
     runs: int
+    run_bytes: tuple[tuple[str,int], ...] = ()
+    run_ids: tuple[str, ...] = ()
 
 
 class Reservation:
     def __init__(self, budget, request):
         self._budget, self.request, self._released = budget, request, False
+        self._active=set()
+    def activate(self, run):
+        identifier(run)
+        if self._released or run in self._active or len(self._active)>=self.request.count or any(run in r._active for r in self._budget._reservations.values()):
+            raise ContractError()
+        self._active.add(run)
+
     def release(self):
         if not self._released:
             self._budget._reservations.pop(self.request.identity)
@@ -20,22 +29,44 @@ class Reservation:
 
 
 class Budget:
-    def __init__(self, *, retained_bytes, retained_runs):
+    def __init__(self, *, retained_bytes, retained_runs, usage=None):
         integer(retained_bytes, 0, CAPS['root_bytes'])
         integer(retained_runs, 0, CAPS['retained_runs'])
         self.retained_bytes, self.retained_runs = retained_bytes, retained_runs
         self._reservations = {}
+        self._usage=usage
+        self._actual=Usage(retained_bytes,retained_runs)
+
+    def reconcile(self, usage):
+        integer(usage.bytes,0,CAPS['root_bytes'])
+        integer(usage.runs,0,CAPS['retained_runs'])
+        self._actual=usage
+        self.retained_bytes,self.retained_runs=usage.bytes,usage.runs
+
+    def require_capacity(self, *, bytes=0, runs=0):
+        if self._usage is not None:
+            self.reconcile(self._usage())
+        actual=dict(self._actual.run_bytes)
+        ids=set(self._actual.run_ids)
+        reserved_bytes=reserved_runs=0
+        for reservation in self._reservations.values():
+            request=reservation.request
+            represented=reservation._active & ids
+            for identity in represented:
+                if actual.get(identity,0)>request.reservation_bytes:
+                    raise ContractError()
+            reserved_bytes+=request.count*request.reservation_bytes-sum(actual.get(identity,0) for identity in represented)
+            reserved_runs+=request.count-len(represented)
+        if self.retained_bytes+reserved_bytes+bytes>CAPS['root_bytes'] or self.retained_runs+reserved_runs+runs>CAPS['retained_runs']:
+            raise ContractError()
 
     def reserve(self, request: RunRequest):
         identifier(request.identity)
         integer(request.count, 1, 32)
         integer(request.reservation_bytes, 1, CAPS['reservation_bytes'])
-        if request.identity in self._reservations:
+        self.require_capacity(bytes=request.count*request.reservation_bytes,runs=request.count)
+        if request.identity in self._reservations or request.identity in self._actual.run_ids:
             raise ContractError()
-        reserved_bytes = sum(r.count*r.reservation_bytes for r in self._reservations.values())
-        reserved_runs = sum(r.count for r in self._reservations.values())
-        if (self.retained_runs + reserved_runs + request.count > CAPS['retained_runs']
-                or self.retained_bytes + reserved_bytes + request.count*request.reservation_bytes > CAPS['root_bytes']):
-            raise ContractError()
-        self._reservations[request.identity] = request
-        return Reservation(self, request)
+        reservation=Reservation(self,request)
+        self._reservations[request.identity]=reservation
+        return reservation

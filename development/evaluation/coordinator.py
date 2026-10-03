@@ -22,7 +22,8 @@ class Coordinator:
         require_frozen(self.frozen_plan.plan,self.root)
         usage=self.root.usage()
         if self._budget is None:
-            self._budget=Budget(retained_bytes=usage.bytes,retained_runs=usage.runs)
+            self._budget=self.root.budget
+        self._budget.reconcile(usage)
         self._budget.reserve(request)
         return request
 

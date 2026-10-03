@@ -136,6 +136,8 @@ def freeze_plan(plan, capability):
                         'identity':_identity(p),'frozen_before_execution':True,
                         'first_members':[[m['id'],'training' if m['training'] else 'measured',1]
                                          for m in strict_json(p.body, max_bytes=128*1024)['members']]})
+    if hasattr(capability,'admit_control'):
+        capability.admit_control(len(body)+len(receipt))
     try:
         # Reserve the immutable version identity first, but never expose a valid
         # receipt until the body and directory entry have been fsynced.

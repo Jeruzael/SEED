@@ -18,8 +18,8 @@ Pre-flight: R1 identity guard is consumed by R2 finalization and R3 backup; R3 w
 | R2 | 6 expected RETURNING failures: fetchone/fetchmany/fetchall/iteration/close/reuse | test_statement_finalization; cursor finalization/GC guard plus existing commit paths | Author focused verification PASS; independent gate pending |
 | R3 | 4 expected failures: checkpoint/clone combined capacity, one-byte-over admission, retained snapshot accounting | test_backup_admission + state/storage regressions | Author focused verification PASS; independent gate pending |
 | R4 | 3 expected failures: sibling write, new monitor/spawn, pre-launch rejection | test_shared_budget; durable run latch shared across sibling monitors/processes | Author focused verification PASS; independent gate pending |
-| R5 | 9 expected failures: missing/zero/mismatched digest and changed complete runtime facts | test_profile_admission + profile/spec tests, 18 passed | Author focused verification PASS; independent gate pending |
-| R6 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
+| R5 | 9 expected failures: missing/zero/mismatched digest and changed complete runtime facts | test_profile_admission + profile/spec tests, 13 passed | Author focused verification PASS; independent gate pending |
+| R6 | 4 expected failures: post-growth freeze/admission, partial count, active reservation reconciliation | test_live_capacity + limits/paths/analysis/state/workers | Author focused verification PASS; independent gate pending |
 | R7 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R8 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
 | R9 | Independent review FAIL | Pending | UNRESOLVED / REMEDIATION REQUIRED |
@@ -30,3 +30,5 @@ R1: writer ownership uses a separate owned lease file because macOS DB-file floc
 R2: statement completion is checked across fetch, iteration, close, reuse and discarded cursors; explicit/context/isolation/script commit paths retain checks. No producer SQL change. Focused/adjacent result recorded in b10-r2-green.log.
 
 R3: pre-admits destination allocation plus a complete journal page set and 64-KiB metadata margin (conservative within existing ceilings); progress/completion checks charge every retained run file. Failed backups retain an owned incomplete prefix and return no trusted checkpoint/clone. This adds no scientific artifact publication or protocol.
+
+R6: live retained bytes/run identities and active allocation reconcile before control/storage admission. Explicit active reservation membership replaces actual allocated bytes/count, leaving only outstanding allowance; release removes reservation. Empty partial directories count, and retained evidence is never pruned to fit. Scientific dispatch remains disabled.
