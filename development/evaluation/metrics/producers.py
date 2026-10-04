@@ -224,7 +224,7 @@ def _self(source,metric):
     snapshot=source.get('self_snapshot'); evidence=source.get('self_evidence')
     if snapshot is None or evidence is None:
         return None,'MISSING_SELF_SOURCE_EVIDENCE',dict(denominator=None)
-    from seed.self_model import validate_snapshot,project_snapshot,envelopes,bounded_json,_evaluation,_observations,_age
+    from seed.self_model import validate_snapshot,project_snapshot,envelopes,bounded_json,_evaluation,_observations,_age,_performance,_consolidation,_runtime,_failures,field as source_field,source as source_descriptor
     try:validate_snapshot(snapshot)
     except (ValueError,TypeError,KeyError,OverflowError,RecursionError):
         return dict(unsupported=1,claims=[dict(path='snapshot',reason='invalid_producer_contract')]),None,dict(denominator=1)
@@ -284,23 +284,40 @@ def _self(source,metric):
         for output,input_key in keys:
             expected=math.fsum(a[input_key]/len(rows) for _,a in rows) if rows else None
             check('prediction_performance.'+label+'.'+output,claim[output],expected)
-    check('sources.errors.ids',snapshot['sources']['errors']['ids'],sorted(r['id'] for r in evidence.get('errors',[])[:100]))
-    run=evidence.get('consolidation')
-    check('sources.consolidation.ids',snapshot['sources']['consolidation']['ids'],[run['id']] if run else [])
-    runtime=evidence.get('runtime')
-    if runtime is not None:
-        try:data=bounded_json(runtime['data'])
-        except ValueError:data={}
-        actual=snapshot['memory']['runtime_reported']['value']
-        if actual is not None:
-            for key in ('heartbeat','last_successful_cycle','session_id'):
-                check('memory.runtime_reported.'+key,actual[key],data.get(key))
+    # Audit complete component envelopes from original, already captured rows.
+    # These existing pure helpers neither read SQL nor rebuild/publish a snapshot.
+    # Comparing the whole value keeps false absent/error claims in a fixed denominator.
+    now=snapshot['measured_at']
+    performance,performance_sources=_performance(evaluations,now)
+    consolidation,consolidation_source=_consolidation(evidence.get('consolidation'),now)
+    runtime,runtime_source=_runtime(evidence.get('runtime'),now)
+    failures,error_source=_failures(evidence.get('errors',[]),now)
+    reference_sources=dict(observation=observation_source,**performance_sources,
+        transition=source_descriptor('transitions',[transition['id']],transition['completed_at'],'completed_at',60),
+        storage=source_descriptor(None,[],now,'query_snapshot',60,
+            tables=['seed_schema','episodes','transitions','world_model_queue','semantic_memories']),
+        consolidation=consolidation_source,runtime=runtime_source,errors=error_source)
+    for name,reference in reference_sources.items():
+        for key,expected in reference.items():
+            check('sources.'+name+'.'+key,snapshot['sources'][name][key],expected)
+    references={'last_selected_action':source_field(transition['action'],'transition'),
+        **{'prediction_performance.'+name:f for name,f in performance.items()},
+        'memory.latest_consolidation':consolidation,'memory.runtime_reported':runtime,
+        'recent_failures':failures}
+    for path,reference in references.items():
+        actual=snapshot
+        for part in path.split('.'):actual=actual[part]
+        reference=_age(reference,reference_sources[reference['source']],now,now)
+        for key in ('value','status','reason','source'):check(path+'.'+key,actual[key],reference[key])
+    storage_reference=_age(source_field(storage,'storage'),reference_sources['storage'],now,now)
+    for key in ('status','reason','source'):
+        check('memory.storage.'+key,snapshot['memory']['storage'][key],storage_reference[key])
     read_time=source.get('read_time',snapshot['measured_at'])
     projection=project_snapshot(snapshot,read_time)
     status_counts=dict(Counter(f['status'] for f in envelopes(projection)))
     if metric=='self.freshness':
         return dict(status_counts=status_counts,stale=status_counts.get('stale',0),
-            basis='producer_claim_projection',source_faithful=all(c['supported'] for c in checks if c['path'].startswith('sources.') or c['path'] in ('source_transition_id','source_event_id','source_session_id','measured_at')),
+            basis='producer_claim_projection',source_faithful=all(c['supported'] for c in checks),
             session_audit=session_audit,built_at=snapshot['measured_at'],read_at=read_time),None,dict(denominator=len(list(envelopes(projection))))
     unsupported=[c for c in checks if not c['supported']]
     if metric=='self.unsupported-claims':

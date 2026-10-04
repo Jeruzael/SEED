@@ -403,3 +403,48 @@ def test_completed_producer_sample_cannot_be_counted_at_two_stages(tmp_path,plan
     duplicate=CompletedEvidence(('measured','default',1,'checkpoint'),point.body)
     root=tmp_path/'plan';root.mkdir();frozen_plan=plan(root,plan_body)
     with pytest.raises(ContractError):measure_producers((point,duplicate),{'member-0':{}},frozen_plan)
+
+
+@pytest.mark.parametrize('defect',['error_latest','error_older','runtime_missing','runtime_error','consolidation_value','consolidation_missing'])
+def test_self_all_source_envelopes_match_original_rows(tmp_path,plan_body,defect):
+    from seed.memory import Memory
+    from seed.self_model import SelfModel,_read_evidence,validate_snapshot
+    from seed.telemetry import Telemetry
+    from seed.semantic_memory import Consolidator
+    from tests.test_self_model import record,STATE
+    memory=Memory(tmp_path/'memory.sqlite3')
+    try:
+        with memory.db:
+            memory.db.executemany("INSERT INTO events(ts,category,source,message,data_json) VALUES(990,'ERROR','actual-source','fixture','{}')",[()]*(101 if defect=='error_older' else 1))
+        Telemetry(memory).runtime(heartbeat=1000,last_successful_cycle=999,session_id='actual-session')
+        Consolidator(memory,clock=lambda:1000).run(STATE,provenance='owner_requested')
+        tid=record(memory)
+        def plain(v):
+            if isinstance(v,bytes):return v.decode()
+            if hasattr(v,'keys'):return {k:plain(v[k]) for k in v.keys()}
+            if isinstance(v,(tuple,list)):return [plain(x) for x in v]
+            return v
+        source=plain(_read_evidence(memory.db,tid))
+        assert SelfModel(memory,clock=lambda:1002).update(tid,'synthetic',threading.Event())=='updated'
+        snapshot=json.loads(memory.db.execute('SELECT data_json FROM self_model_current').fetchone()[0])
+        root=tmp_path/'plan';root.mkdir();frozen_plan=plan(root,plan_body)
+        original=results(frozen_plan,self_snapshot=snapshot,self_evidence=source)
+        assert original['self.unsupported-claims'].value['unsupported']==0
+        wrong=copy.deepcopy(snapshot)
+        if defect=='error_latest':wrong['recent_failures']['value']['latest_valid_event'].update(ts=1,source='invented-source')
+        elif defect=='error_older':
+            # Same published 100 IDs, but actual captured row101 proves the flag.
+            wrong['recent_failures']['value']['has_older_retained_errors']=False
+        elif defect=='consolidation_value':wrong['memory']['latest_consolidation']['value']['started_at']=1
+        else:
+            name='latest_consolidation' if defect=='consolidation_missing' else 'runtime_reported'
+            wrong['memory'][name].update(value=None,status='error' if defect=='runtime_error' else 'unavailable',
+                reason='invalid_value' if defect=='runtime_error' else 'no_consolidation_run' if name=='latest_consolidation' else 'missing_runtime')
+        validate_snapshot(wrong)
+        before=copy.deepcopy((wrong,source))
+        out=results(frozen_plan,self_snapshot=wrong,self_evidence=source)
+        assert out['self.unsupported-claims'].value['unsupported']>=1
+        assert measurement_data(out['self.factual-fidelity'])['denominator']==measurement_data(original['self.factual-fidelity'])['denominator']
+        assert out['self.freshness'].value['source_faithful'] is False
+        assert (wrong,source)==before
+    finally:memory.close()

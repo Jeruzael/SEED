@@ -1,0 +1,30 @@
+# Fresh independent B10 science review — second head
+
+Read-only full-branch review of canonical base `e6da08efc219a0415de6dcd11fac485cf4461f41` through exact head `eabb3da0e83f8f4394ba1ea9b8f10a8fbce4fe2f`, branch `seed-0.2-b10-impl-03-science`. Reviewer received no conversation history, inspected the entire branch against owner instruction, approved specification/plan and storage amendment, and made no checkout/index/HEAD mutations or delegations. This negative historical verdict is preserved separately from the initial review and subsequent repairs.
+
+**Ready to merge: NO. 0 BLOCKER /4 MAJOR /0 MINOR /4 unresolved. G1–G4 PASS preserved; G5 FAIL at this head.** All remedies can remain evaluator-only; no design amendment or cognition/schema change is required.
+
+## Independently reproduced findings
+
+| ID | Source at reviewed head | Reproduction and remedy |
+| --- | --- | --- |
+| R6 MAJOR | metrics/producers.py:287,305 | Real B7 error id1/time990/source actual-source; change latest_valid_event time1/source invented-source. Structural validator accepts; unsupported0/denominator57. Compare complete recent-failure, consolidation and runtime source-backed values/status/reasons/clocks against independently captured rows. False missing/error claims must remain in the denominator. |
+| R7 MAJOR | metrics/prediction.py:139,257 | Admitted A rest-only whole1–400 numeric-MAE population, one target prediction.5/outcome.4/support2: MEASURED .09999999999999998/denominator1; reconciliation PASS. Enforce five paired targets for action-specific summary values and per-action strata, retaining point scores/counts/coverage. Whole naturally weighted aggregates retain their distinct rules. |
+| R8 MAJOR | metrics/prediction.py:235; analysis.py:182 | Admitted B adaptation-v2 observe-only immediate321–360, qualifying candidate321 plus15 perfect rest exposures700–714: observed adaptation15/delay394 under incorrect dimensions; reconciliation PASS. Admit only the approved whole-horizon SEED conditioned-rest descriptor and correctly documented all-action carrier; preregister incompatible dimensions as inapplicable. Preserve boundary qualification without out-of-scope measurements. |
+| R9 MAJOR | metrics/producers.py:325,343,371 | Real exploration record selecting observe with original captured Q0/visits0/missingTrue; change unselected reflect Q42/visits99/missingFalse. Structural validator accepts; provenance structurally_valid1 with no mismatch or missing-source qualification. Compare every candidate to original captured q_snapshot and selected update-before/source linkage; explicit mismatches/missing counts, no reranking or utility recalculation. |
+
+Paths are relative to development/evaluation. No registered experiment was dispatched; literal fixtures ran in disposable storage. Original producer records were never repaired or written back.
+
+## Prior findings and evidence
+
+Original R1 independently resolved: natural early.5/late.05555555555555555/nine paired each, standardized qualifying set rest unchanged. Original R2 candidate guard reproduction resolved; false unselected restriction retained and mandatory reconciliation fails. Original R3 observation and clock reproductions resolved; R6 extends the still-incomplete source fidelity. Original R4 producer scope resolved: early.1/one revision and late.9/one; unproved custom source scopes unavailable, completed sample uniqueness enforced. R8 is an additional adaptation scope gap. Original R5 absent primary groups resolved: planned1/failed1/valid0/unavailable aggregate/missing ID and explicit FAILED_MEMBER_MISSING_REGISTERED_MEASUREMENT.
+
+Independent full evaluation, bytecode/cache disabled, disposable basetemp: **346 passed in124.23s, exit0**. Additional stdin-only literals reproduced all four findings and verified original R1/R4/R5 repairs. Both incorrect registered prediction reports passed reconciliation. Default inventory independently counted **30 members /3,220 slots /33 metric IDs /42,423 raw plan bytes**. Whitespace/protected paths passed and checkout stayed clean. Core/dependency/workflow/historical baseline changes absent; registered Coordinator.dispatch remains disabled.
+
+Author evidence inspected separately: evaluation346/repository1229(two existing warnings)/focused89/serial literal86 PASS; seven standalone JSON artifacts parsed (execution is author evidence, not reviewer rerun). Retained earlier failures include mixed-path fixture-discovery error and C parent.poll(30) timeout81 PASS/five errors; later serial verification passed. No failures were erased and no limits/core behavior changed. Sizing producer placeholders prove admission of that fixture, not universal fit; runtime byte caps remain enforced.
+
+Review strengths: approved A/B effects/reset/lengths/private boundary321; C actual producers/retained unavailable rows/+301 read-time/immutable frozen probes; D cloned actual independent trajectories/external utility; bounded raw200 baselines/corruption positions/genuine Boolean probabilities; expected inventory/missing states/exploratory separation/failed members. These strengths do not override the four defects.
+
+G1 protected/storage/dependency, G2 truth isolation, G3 original-cycle/ACK/update fidelity, G4 frozen immutability/stale transport remain PASS under regression evidence. **G5 FAIL** because of the four unresolved source/measurement defects.
+
+Declined/outside scope: I31 registered empirical suite/conclusions (not authorized); I21–I25 artifacts/replay/projection/re-execution, Astra/browser/I30 release (later sequential branches); hosted CI/PR/merge/closure (separate gates); installed-home/service/deployment/live-device operations (prohibited); native VFS/signing/hostile same-UID hard isolation (approved exclusions/deferred); favorable organism performance (not G5); redundant reviewer fullrepo/standalone runs (author evidence inspected, evaluation/adversarial independently rerun); cognition/ranking/utility recalculation (prohibited and unnecessary). Root accepts these scope rulings; none excuses R6–R9.
