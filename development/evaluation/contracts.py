@@ -218,6 +218,7 @@ class RunResult:
 class Population:
     identity: str
     members: tuple[str, ...]
+    window: str = 'whole'
 
 
 @dataclass(frozen=True)
@@ -226,6 +227,17 @@ class Measurement:
     metric: str
     version: int
     member: str
+    state: Literal['MEASURED', 'UNAVAILABLE', 'NOT_EVALUATED'] = 'UNAVAILABLE'
+    body: bytes = b'{}'
+    role: Literal['PRIMARY', 'EXPLORATORY_DIAGNOSTIC'] = 'PRIMARY'
+
+    @property
+    def value(self):
+        return strict_json(self.body).get('value')
+
+    @property
+    def reason(self):
+        return strict_json(self.body).get('reason')
 
 
 @dataclass(frozen=True)

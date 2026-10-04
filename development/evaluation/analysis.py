@@ -43,11 +43,15 @@ def validate_plan(raw) -> AnalysisPlan:
         raise ContractError()
     ids = set()
     for p in raw['populations']:
-        fields(p, ('id', 'phase', 'action', 'signal'))
+        fields(p, ('id', 'phase', 'action', 'signal'), ('method', 'comparison', 'stratum'))
         identifier(p['id'])
         if p['id'] in ids or p['phase'] not in ('training', 'measured', 'probe') or p['action'] not in ('all', 'observe', 'reflect', 'consolidate', 'rest') or p['signal'] not in ('all', 'battery_pct', 'load_ratio', 'disk_free_pct', 'network'):
             raise ContractError()
         ids.add(p['id'])
+        if (p.get('method', 'seed') not in ('seed', 'persistence', 'global-history')
+                or p.get('comparison') not in (None, 'persistence', 'global-history')
+                or p.get('stratum', 'all_methods') not in ('all_methods', 'action_mean')):
+            raise ContractError()
     fixed = {'eligibility': 'registered_support', 'coverage': 'all_opportunities', 'aggregation': 'ordered_fsum',
              'standardization': 'equal_qualifying_actions', 'missing_rules': 'unavailable_with_reason'}
     if any(raw[k] != v for k, v in fixed.items()) or type(raw['exploratory']) is not bool:
