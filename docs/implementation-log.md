@@ -348,3 +348,8 @@ The owner authorized R1–R10 only under the merged storage amendment. [Remediat
 ### 2026-10-05 — B10 science infrastructure I14–I20 engineering checkpoint
 
 I14–I19 were implemented in separate preserved commits; I20 adds preregistered complete inventory, applicability, fixed-rule findings, failed/incomplete member accounting and bounded source/report detail. [Science infrastructure gates](evaluation/science-infrastructure-gates.md) record task commits, literal/adversarial evidence and the required publication ladder. Current branch remains I14–I20 only; final G5/review/PR/master/closure gates are pending. I21–I30 owner authorized but not started pending predecessor gates; I31 and empirical evaluation not authorized. No empirical experiments or installed SEED access.
+
+
+### 2026-10-05 — B10 science source/scope review repairs and final author verification
+
+[Science gate record](evaluation/science-infrastructure-gates.md) retains the original5-MAJOR and second4-MAJOR negative reviews, all R1–R9 repair commits/RED/green evidence, explicit unavailable source/scope behavior and prior failed attempts. Final code head `0e692119140c67161ee375fc3349fe04258c058c`: complete evaluation370PASS, repository1253PASS/two existing warnings, focused113PASS, separately selected literal/adversarial110PASS, seven standalone regressions PASS. Locked environment/compile/whitespace/protected scope pass. No producer/cognition/schema/dependency/workflow changes, installed-home access or registered experiment dispatch. Fresh final independent acceptance/G5 and the full PR/master/closure ladder remain pending; I21+ not started and I31 locked.

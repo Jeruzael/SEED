@@ -27,7 +27,7 @@ Resource limits remain plan128KiB, metrics256KiB/member, detail64KiB, control4Mi
 
 I20 initial and resource/pair RED evidence and all task RED/green logs are retained in ignored `.superpowers/b10-science/`; task history is not squashed. I20 adjacent accounting/prediction/adaptation/producer/analysis/spec checks: **73 passed**. Seven existing standalone regressions: **PASS** with valid JSON. Locked environment `pip check`: **PASS**; scoped compile and whitespace: **PASS**.
 
-Full evaluation, repository and focused science verification, fresh independent full-branch review, G5 determination, exact-head PR CI, normal merge and separate exact-master push CI remain required. They will be recorded after completion; no unperformed gate is PASS here. Existing G1–G4 are preserved subject to that regression/review verification. Science closure uses its own documentation PR and CI.
+At the initial I20 checkpoint, full evaluation, repository and focused science verification, fresh independent full-branch review, G5 determination, exact-head PR CI, normal merge and separate exact-master push CI remained required. They will be recorded after completion; no unperformed gate is PASS here. Existing G1–G4 are preserved subject to that regression/review verification. Science closure uses its own documentation PR and CI.
 
 Protected scope: `seed/**`, schema v7, dependencies/lock, workflows and historical baseline bytes unchanged. Installed SEED untouched; no deployment/live device or empirical experiments. I21–I30 OWNER AUTHORIZED / NOT STARTED / WAITING ON REQUIRED PREDECESSOR GATES. I31 and empirical evaluation NOT STARTED / NOT AUTHORIZED. Stop this branch after its verified closure.
 
@@ -46,4 +46,26 @@ Protected scope: `seed/**`, schema v7, dependencies/lock, workflows and historic
 
 All-input checks remain independent of diagnostic samples. B7 observation envelope audit invokes existing pure source/age helpers over separately captured rows, without new SQL, whole-snapshot reconstruction or producer updates. Missing independent publication-session metadata is explicitly unavailable; B7 v1 makes no PID claim. B4 current-source audits disclose published lifetime-at-capture semantics; history window metrics filter captured phase/ordinal and belief scope. If a custom partial/action/signal scope cannot be proved from supplied source facts, it returns MISSING_REGISTERED_SCOPE_EVIDENCE rather than a whole-history value with a partial-window label.
 
-All repair logs and historical/final counts are retained in `.superpowers/b10-science/`. Fresh repaired-head full verification and a second fresh independent full-branch review remain pending. G5 remains pending; PR/merge/master/science-closure publication gates not yet performed.
+At the first-repair checkpoint, fresh full verification and a second independent review remained pending. All logs and historical counts are retained in `.superpowers/b10-science/`; later results follow below.
+
+
+## Second independent review and additional source/scope repairs
+
+[Second negative full-branch review](../reviews/2026-10-05-b10-science-second-review.md) at `eabb3da0e83f8f4394ba1ea9b8f10a8fbce4fe2f`: **0 BLOCKER /4 MAJOR /0 MINOR /4 unresolved; G5 FAIL**. Its independent evaluation346 PASS and literal reproductions verified the original five targeted repairs but found additional gaps. The negative verdict is preserved unchanged.
+
+| Finding / repair | Separate commit | RED / green evidence |
+| --- | --- | --- |
+| R6 complete B7 recent-failure/performance/consolidation/runtime source-backed values/status/reasons/clocks, including false absent/error claims | `4e498ea4272900e460c887d5c2e65898424dd0e2` | Six valid intended REDs;26 producer PASS |
+| R7 five paired targets for explicit action-specific and per-action summary values; raw point numerators/counts/coverage and naturally weighted whole-population means retained | `3a623b42293a5627ca3122fdad7eb21a729d6803` | Three intended REDs/one threshold-boundary PASS;48 adjacent PASS |
+| R8 approved B whole1–800 measured SEED-load adaptation scope; incompatible action/method/comparison/signal/window/variant/phase preregistered inapplicable | `2c244632261f05dec504c4ae44d4e1f2df952abf` | Eight intended REDs;76 adjacent PASS |
+| R9 every candidate Q/value/visits/missing fact compared to original q_snapshot; selected actual update-before/state/action/transition/confirmed-source and unchanged Q math checked; missing source explicit | `0e692119140c67161ee375fc3349fe04258c058c` | Six actual-worker intended REDs;56 producer/cycle/equivalence/dependency/leakage PASS |
+
+B7 references invoke existing pure component helpers on original separately captured rows; no new SQL, full-snapshot reconstruction, producer updates or claim repair. Freshness stays explicitly a producer-claim projection with checked-source fidelity and unavailable publication-session qualification. The fixed envelope comparisons retain false missing/error claims in the denominator. Q source absence reports unavailable candidates/updates, rather than treating claimed values as original state. B1 state linkage compares the recorded wire observation before the locally added logical wall_time; original bounded JSON chunks are read as captured.
+
+Adaptation-v2's estimand is actual postchange rest exposure with SEED action_mean_delta/support>=2. All-action or rest-only whole-horizon carriers preserve the separate preselection candidate at ordinal321 and all-action completed-transition context. Output explicitly names carrier action, rest measurement action/method and qualification ordinal. Only observed rows within the registered1–800 horizon enter the calculation; no unrelated population/window is silently substituted.
+
+Final author verification at code head `0e692119140c67161ee375fc3349fe04258c058c`: **370 evaluation PASS296.10s;1253 repository PASS316.21s/two existing warnings;113 focused science PASS83.80s;110 separately selected A–D literal/adversarial PASS84.08s;seven standalone regressions PASS/JSON parsed;pip check/scoped compile/whitespace/protected scope/clean head PASS**. Commands/logs retained in `.superpowers/b10-science/`; serial continuation `/private/tmp/verify_b10_science_final.py` avoids overlapping fixture processes. These are technical deterministic fixtures, not registered experiments.
+
+Intermediate failures remain retained: initial error_older fixture cutoff mismatch, helper name shadowing, first Q test helper missing update evidence, source JSON-chunk/state projection diagnostic failures, and one wrong test filename/no-tests attempt. Each was corrected before its successful targeted gate/commit. Earlier C parent.poll(30) timeouts and mixed-path fixture discovery failures remain retained as described in the second review; no timeout/resource/core changes or hidden exclusions were made. Sizing placeholders establish only their fixture admission; actual limits fail excess explicitly.
+
+Fresh final full-branch independent acceptance is still required. **G5 NOT YET ACCEPTED**; science PR/exact-head CI/merge/exact master CI and separate documentation closure publication remain pending. I21–I30 remain owner authorized/not started/waiting; I31 and registered empirical execution remain not authorized. No B10 experiments executed; installed SEED untouched.

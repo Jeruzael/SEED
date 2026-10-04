@@ -2417,3 +2417,8 @@ The owner authorized R1–R10 only under the merged storage amendment. [Remediat
 ### 2026-10-05 — Science infrastructure engineering checkpoint
 
 See [I14–I20 science infrastructure gates](evaluation/science-infrastructure-gates.md) for the preserved task commits and registered inventory/reporting contract. I14–I20 implementation is undergoing final author verification and independent full-branch review; G5/publication/closure remain pending. I21–I30 OWNER AUTHORIZED / NOT STARTED / WAITING ON REQUIRED PREDECESSOR GATES; I31 and empirical evaluation NOT STARTED / NOT AUTHORIZED. No B10 experiments executed; installed SEED untouched.
+
+
+### 2026-10-05 — B10 science infrastructure repaired-head verification
+
+[Science gate record](evaluation/science-infrastructure-gates.md) preserves both negative independent reviews and all nine source/scope/reporting findings with separate repairs. Code head `0e692119140c67161ee375fc3349fe04258c058c`: evaluation370/repository1253(two existing warnings)/focused113/explicit literal110/seven standalone regressions PASS. Core/schema/dependencies/workflows/historical baselines unchanged. Fresh final independent full-branch acceptance and G5/publication/closure remain pending; author verification does not replace acceptance. I21–I30 OWNER AUTHORIZED / NOT STARTED / WAITING ON REQUIRED PREDECESSOR GATES; I31/empirical NOT STARTED / NOT AUTHORIZED. No B10 experiments executed; installed SEED untouched.
