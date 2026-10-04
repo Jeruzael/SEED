@@ -98,11 +98,13 @@ class CaptureSession:
         self._original_select = core.decisions.select
         self._original_action = core.perform_action
         self._original_snapshot = core.decisions._snapshot
+        self._original_beliefs = core.world_model.applicable_beliefs
         core.body.capture = self
         core.decisions._snapshot = self._snapshot
         core.decisions.prepare = self._prepare
         core.decisions.select = self._select
         core.perform_action = self._action
+        core.world_model.applicable_beliefs = self._prior_beliefs
         organism.evaluate_prediction = self.evaluate_with_checkpoint
         core._evaluation_capture = self
         self._wrap_producer(core.learner,'update','q')
@@ -138,6 +140,14 @@ class CaptureSession:
     def _snapshot(self, key):
         result = self._original_snapshot(key)
         self.record['q_snapshot'], self.record['history_rows'], _ = copy.deepcopy(result)
+        return result
+
+    def _prior_beliefs(self, action):
+        # Observe the one original producer read at its original time. Do not
+        # add a snapshot query or substitute the object passed to curiosity.
+        result = self._original_beliefs(action)
+        self.record['prior_b4'] = copy.deepcopy(result)
+        self.record['prior_b4_action'] = action
         return result
 
     def _prepare(self, *args, **kwargs):
