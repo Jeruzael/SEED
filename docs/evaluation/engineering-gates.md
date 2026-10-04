@@ -46,7 +46,7 @@ I13 focused checkpoint/cycle/online/parity/failure tests: 65 passed. Three added
 
 G1/G2 remain preserved within their original trusted-code storage threat model, including terminal detectable identity mismatch and one assigned writer. No native same-UID hostile-open guarantee is introduced. `seed/** NONE`; schema v7 unchanged; no evaluator DB tables, dependencies, lock/workflow changes, API/UI, registered families/scientific suite, I14–I30/I31, deployment or installed-home access. B10 overall and engineering IN PROGRESS; empirical evaluation NOT STARTED / NOT AUTHORIZED; NO B10 EXPERIMENTS EXECUTED; INSTALLED SEED UNTOUCHED.
 
-Protocols PR/exact-head CI/normal merge/exact master CI and separate docs/b10-protocols-closure publication remain pending. Mandatory stop follows verified protocols closure.
+Protocols [PR #24](https://github.com/Jeruzael/SEED/pull/24), exact PR-head CI 37155625889, normal master merge `4fce86257a4b35e1d8bd1e9c140d1a83f239a108` and distinct exact push CI 37189929244: **SUCCESS / VERIFIED**. Separate [docs/b10-protocols-closure publication](../reviews/2026-10-04-b10-protocols-closure.md) has its own pending exact PR/master CI gates. Mandatory STOP follows verified protocols closure.
 
 ## Independent findings and separate repairs
 
