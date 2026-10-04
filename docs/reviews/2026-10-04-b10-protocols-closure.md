@@ -46,7 +46,7 @@ Full-suite steps succeeded in all three jobs. Seven standalone scenarios succeed
 | test (macos-py313) | `111399804746` | SUCCESS |
 | test (linux-py313) | `111399804786` | SUCCESS |
 
-Full-suite steps succeeded in all three jobs. Seven standalone scenarios succeeded on Linux/macOS Python 3.13; Python 3.11 retains the configured scenario skip. Workflow checks out exact PR head, not synthetic merge; PR CI is not reused as master CI.
+Full-suite steps succeeded in all three jobs. Seven standalone scenarios succeeded on Linux/macOS Python 3.13; Python 3.11 retains the configured scenario skip. This push workflow checks out the exact master merge SHA `4fce86257a4b35e1d8bd1e9c140d1a83f239a108`; PR CI is not reused as master CI.
 
 ## Preservation and scope
 
