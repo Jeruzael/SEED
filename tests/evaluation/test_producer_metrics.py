@@ -287,3 +287,33 @@ def test_unselected_false_guard_is_audited_and_fails_report(tmp_path,plan_body):
         assert not report.passed
         assert record['candidates']['consolidate']['eligible'] is False
     finally:memory.close()
+
+
+@pytest.mark.parametrize('defect',['timestamp','unavailable','error'])
+def test_self_false_missing_and_source_clock_remain_in_denominator(tmp_path,plan_body,defect):
+    from seed.memory import Memory
+    from seed.self_model import SelfModel,_read_evidence,validate_snapshot
+    from tests.test_self_model import record
+    memory=Memory(tmp_path/'memory.sqlite3')
+    try:
+        tid=record(memory)
+        def plain(v):
+            if isinstance(v,bytes):return v.decode()
+            if hasattr(v,'keys'):return {k:plain(v[k]) for k in v.keys()}
+            if isinstance(v,(tuple,list)):return [plain(x) for x in v]
+            return v
+        source=plain(_read_evidence(memory.db,tid))
+        SelfModel(memory,clock=lambda:1002).update(tid,'synthetic',threading.Event())
+        snapshot=json.loads(memory.db.execute('SELECT data_json FROM self_model_current').fetchone()[0])
+        root=tmp_path/'plan';root.mkdir();frozen_plan=plan(root,plan_body)
+        original=results(frozen_plan,self_snapshot=snapshot,self_evidence=source)
+        wrong=copy.deepcopy(snapshot)
+        if defect=='timestamp':wrong['sources']['observation']['source_observed_at']=1001
+        else:wrong['observations']['load_ratio'].update(value=None,status=defect,reason='not_recorded' if defect=='unavailable' else 'invalid_value')
+        validate_snapshot(wrong)
+        out=results(frozen_plan,self_snapshot=wrong,self_evidence=source)
+        assert out['self.unsupported-claims'].value['unsupported']>=1
+        assert measurement_data(out['self.factual-fidelity'])['denominator']==measurement_data(original['self.factual-fidelity'])['denominator']
+        if defect=='timestamp':assert out['self.freshness'].value['source_faithful'] is False
+        else:assert any(c['path']=='observations.load_ratio.status' for c in out['self.unsupported-claims'].value['claims'])
+    finally:memory.close()

@@ -224,7 +224,7 @@ def _self(source,metric):
     snapshot=source.get('self_snapshot'); evidence=source.get('self_evidence')
     if snapshot is None or evidence is None:
         return None,'MISSING_SELF_SOURCE_EVIDENCE',dict(denominator=None)
-    from seed.self_model import validate_snapshot,project_snapshot,envelopes,bounded_json,sensor_valid,_evaluation
+    from seed.self_model import validate_snapshot,project_snapshot,envelopes,bounded_json,_evaluation,_observations,_age
     try:validate_snapshot(snapshot)
     except (ValueError,TypeError,KeyError,OverflowError,RecursionError):
         return dict(unsupported=1,claims=[dict(path='snapshot',reason='invalid_producer_contract')]),None,dict(denominator=1)
@@ -237,11 +237,23 @@ def _self(source,metric):
     check('source_transition_id',snapshot['source_transition_id'],transition['id'])
     check('source_event_id',snapshot['source_event_id'],evidence['event_cutoff'])
     check('last_selected_action.value',snapshot['last_selected_action']['value'],transition['action'])
-    try:state=bounded_json(transition['state'])
-    except ValueError:state={}
+    # Original pure envelope/source projection over independently captured rows.
+    # No source reads, updates, whole-snapshot rebuild, or cognition duplication.
+    reference_observations,observation_source=_observations(transition,snapshot['measured_at'])
+    for key,expected in observation_source.items():
+        check('sources.observation.'+key,snapshot['sources']['observation'][key],expected)
+    check('sources.transition.source_observed_at',snapshot['sources']['transition']['source_observed_at'],transition['completed_at'])
+    check('sources.transition.timestamp_kind',snapshot['sources']['transition']['timestamp_kind'],'completed_at')
     for name,field in snapshot['observations'].items():
-        if field['status'] in ('available','stale'):
-            check('observations.'+name+'.value',field['value'],state.get(name))
+        reference=_age(reference_observations[name],observation_source,snapshot['measured_at'],snapshot['measured_at'])
+        for key in ('value','status','reason'):
+            check('observations.'+name+'.'+key,field[key],reference[key])
+    session_audit=dict(status='UNAVAILABLE',reason='MISSING_PUBLICATION_SESSION_SOURCE')
+    if source.get('publication_session_id') is not None:
+        check('source_session_id',snapshot['source_session_id'],source['publication_session_id'])
+        session_audit=dict(status='MEASURED',matches=snapshot['source_session_id']==source['publication_session_id'])
+    if source.get('publication_measured_at') is not None:
+        check('measured_at',snapshot['measured_at'],source['publication_measured_at'])
     storage=snapshot['memory']['storage']['value']
     for key in ('page_size','page_count','schema_version'):
         check('memory.storage.'+key,storage[key],evidence[key])
@@ -287,11 +299,13 @@ def _self(source,metric):
     projection=project_snapshot(snapshot,read_time)
     status_counts=dict(Counter(f['status'] for f in envelopes(projection)))
     if metric=='self.freshness':
-        return dict(status_counts=status_counts,stale=status_counts.get('stale',0),built_at=snapshot['measured_at'],read_at=read_time),None,dict(denominator=len(list(envelopes(projection))))
+        return dict(status_counts=status_counts,stale=status_counts.get('stale',0),
+            basis='producer_claim_projection',source_faithful=all(c['supported'] for c in checks if c['path'].startswith('sources.') or c['path'] in ('source_transition_id','source_event_id','source_session_id','measured_at')),
+            session_audit=session_audit,built_at=snapshot['measured_at'],read_at=read_time),None,dict(denominator=len(list(envelopes(projection))))
     unsupported=[c for c in checks if not c['supported']]
     if metric=='self.unsupported-claims':
-        return dict(unsupported=len(unsupported),claims=unsupported),None,dict(denominator=len(checks))
-    return dict(checked=len(checks),supported=len(checks)-len(unsupported),unsupported=len(unsupported),claims=checks),None,dict(denominator=len(checks))
+        return dict(unsupported=len(unsupported),claims=unsupported,session_audit=session_audit),None,dict(denominator=len(checks))
+    return dict(checked=len(checks),supported=len(checks)-len(unsupported),unsupported=len(unsupported),claims=checks,session_audit=session_audit),None,dict(denominator=len(checks))
 
 
 def _decisions(evidence,source,metric,family):
