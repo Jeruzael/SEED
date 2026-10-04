@@ -169,3 +169,33 @@ def test_natural_mix_keeps_sparse_paired_actions(tmp_path,plan_body):
     assert detail['natural_action_mix']['early']==pytest.approx(.5)
     assert detail['natural_action_mix']['late']==pytest.approx(.5/9)
     assert detail['natural_paired_counts']=={'early':9,'late':9}
+
+
+@pytest.mark.parametrize('count',[1,4,5])
+def test_registered_action_summaries_require_five_paired_targets(tmp_path,plan_body,count):
+    body=copy.deepcopy(plan_body);body['populations'][0]['action']='rest'
+    plan=frozen(tmp_path,body,comparison='persistence')
+    rows=tuple(evidence(n,prediction=.5,actual=.4) for n in range(1,count+1))
+    result=measure_prediction('prediction.numeric-mae',rows,Population('all',('member-0',)),plan)
+    detail=measurement_data(result)
+    assert detail['denominator']==count and detail['numerator']==pytest.approx(.1*count)
+    assert detail['coverage']=={'seed':1.,'persistence':1.}
+    stratum=detail['action_strata']['rest']
+    assert stratum['paired']==count
+    if count<5:
+        assert result.state=='UNAVAILABLE' and result.reason=='INSUFFICIENT_EVIDENCE' and result.value is None
+        assert detail['baseline_value'] is None and stratum['value'] is None and stratum['baseline_value'] is None
+        assert stratum['reason']=='INSUFFICIENT_EVIDENCE'
+    else:
+        assert result.state=='MEASURED' and result.value==pytest.approx(.1)
+        assert stratum['value']==pytest.approx(.1)
+
+
+def test_whole_natural_point_error_does_not_publish_sparse_action_summary(tmp_path,plan_body):
+    plan=frozen(tmp_path,plan_body,comparison='persistence')
+    result=measure_prediction('prediction.numeric-mae',(evidence(1),),Population('all',('member-0',)),plan)
+    assert result.state=='MEASURED' and result.value==pytest.approx(.1)
+    detail=measurement_data(result);stratum=detail['action_strata']['rest']
+    assert stratum['numerator']==pytest.approx(.1) and stratum['paired']==1
+    assert stratum['value'] is None and stratum['baseline_value'] is None
+    assert stratum['reason']=='INSUFFICIENT_EVIDENCE'

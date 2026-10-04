@@ -139,8 +139,9 @@ def _paired(rows, definition, target, metric):
     for stratum in strata.values():
         stratum['numerator']=math.fsum(stratum.pop('_losses',[]))
         stratum['baseline_numerator']=math.fsum(stratum.pop('_baseline_losses',[]))
-        stratum['value']=stratum.get('numerator',0.)/stratum['paired'] if stratum['paired'] else None
-        stratum['baseline_value']=stratum.get('baseline_numerator',0.)/stratum['paired'] if stratum['paired'] else None
+        stratum['value']=stratum.get('numerator',0.)/stratum['paired'] if stratum['paired'] >= 5 else None
+        stratum['baseline_value']=stratum.get('baseline_numerator',0.)/stratum['paired'] if stratum['paired'] >= 5 else None
+        stratum['reason']=None if stratum['paired']>=5 else 'INSUFFICIENT_EVIDENCE'
     return values, counterpart, dict(opportunities=n, numerator=math.fsum(values), denominator=len(values),
         source_ordinals=_ordinal_detail(sources), coverage=coverage, eligibility_cross_tab=dict(counts),
         reason_cross_tab=dict(reasons), action_strata=strata, methods=dict(methods),
@@ -254,9 +255,11 @@ def measure_prediction(metric_id, evidence, population, plan):
         value = dict(methods=facts['methods'], support=facts['method_support']) if rows else None
     else:
         value = math.fsum(values)/len(values) if values else None
-        if definition.get('stratum') == 'action_mean' and len(values) < 5:
+        if (definition['action'] != 'all' or definition.get('stratum') == 'action_mean') and len(values) < 5:
             value = None
-    facts['baseline_value'] = math.fsum(counterpart)/len(counterpart) if counterpart and definition.get('comparison') else None
+    minimum=5 if definition['action']!='all' or definition.get('stratum')=='action_mean' else 1
+    facts['summary_minimum_paired']=minimum
+    facts['baseline_value'] = math.fsum(counterpart)/len(counterpart) if len(counterpart)>=minimum and definition.get('comparison') else None
     unit = ('count' if metric_id == 'prediction.support-counts' else
             'fraction' if boolean or metric_id in ('prediction.coverage','prediction.numeric-normalized-mae') else
             'load_ratio' if target == 'load_ratio' else 'percentage_points')
