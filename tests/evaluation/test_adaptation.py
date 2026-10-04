@@ -66,3 +66,42 @@ def test_other_actions_evict_old_rest_and_current_is_excluded():
     bounded = tuple(r for r in history if r['id'] in prior['history']['raw_ids'])
     signal = Predictor(None).predict_candidates({'load_ratio':.5},('rest',),snapshot=bounded).predictions['rest']['signals']['load_ratio']
     assert signal['method'] == 'global_mean_delta' and signal['value'] == .5
+
+
+@pytest.mark.parametrize('defect',['action','method','comparison','signal','window','variant','phase'])
+def test_adaptation_preregistered_scope_cannot_mislabel_rest_evidence(tmp_path,plan_body,defect):
+    import copy
+    from development.evaluation.analysis import validate_plan,freeze_plan,expand_inventory
+    from .test_analysis import ClosedRoot
+    body=copy.deepcopy(plan_body)
+    body['metrics']=[dict(id='prediction.adaptation-delay',version=2)]
+    body['questions'][0]['metrics']=['prediction.adaptation-delay']
+    body['members'][0].update(family='B',scenario_version=2,rule_version=2,measured=800)
+    body['populations'][0].update(signal='load_ratio',method='seed',comparison=None,stratum='all_methods')
+    body['windows']=[dict(id='whole',start=1,end=800,unit='ordinal')]
+    if defect=='action':body['populations'][0]['action']='observe'
+    elif defect=='method':body['populations'][0]['method']='persistence'
+    elif defect=='comparison':body['populations'][0]['comparison']='persistence'
+    elif defect=='signal':body['populations'][0]['signal']='battery_pct'
+    elif defect=='window':body['windows'][0].update(start=321,end=360)
+    elif defect=='variant':body['populations'][0]['variant']='stale'
+    elif defect=='phase':body['populations'][0]['phase']='probe'
+    admitted=validate_plan(body)
+    plan=freeze_plan(admitted,ClosedRoot(tmp_path))
+    rows=(prechange(),)+tuple(evidence(700+n,prediction=.55,actual=.55) for n in range(15))
+    result=measure_prediction('prediction.adaptation-delay',rows,Population('all',('member-0',)),plan)
+    assert result.state=='NOT_EVALUATED' and result.value is None
+    assert not __import__('json').loads(expand_inventory(admitted)[0].body)['applicable']
+
+
+def test_rest_only_descriptor_keeps_boundary_candidate_and_horizon(tmp_path,plan_body):
+    import copy
+    body=copy.deepcopy(plan_body);body['populations'][0]['action']='rest'
+    plan=frozen(tmp_path,body,family='B')
+    rows=(prechange(),)+tuple(evidence(700+n,prediction=.55,actual=.55) for n in range(15))
+    rows+=tuple(evidence(801+n,prediction=.55,actual=.55) for n in range(15))
+    result=measure_prediction('prediction.adaptation-delay',rows,Population('all',('member-0',)),plan)
+    assert result.value['rest_exposures']==15 and result.value['completed_transition_delay']==394
+    detail=measurement_data(result)
+    assert detail['observed_rest_exposures']==15 and detail['measurement_action']=='rest'
+    assert detail['qualification_ordinal']==321 and detail['measurement_method']=='seed_action_mean_delta_support_at_least_2'

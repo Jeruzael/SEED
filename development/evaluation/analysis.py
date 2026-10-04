@@ -179,7 +179,15 @@ def inventory_metadata(member,metric,population,window,role='PRIMARY'):
     family,protocol=member['family'],member['protocol']
     signal=population['signal']
     applicable=True
-    if metric=='prediction.adaptation-delay':applicable=family=='B' and protocol=='PREQUENTIAL'
+    if metric=='prediction.adaptation-delay':
+        # Adaptation-v2 is the fixed SEED conditioned-rest estimand; all actions
+        # may carry boundary qualification and completed-transition context.
+        applicable=(family=='B' and protocol=='PREQUENTIAL' and member['measured']==800
+            and member['training']==0 and member['variant']=='seed'
+            and population['phase']=='measured' and population['action'] in ('all','rest')
+            and signal=='load_ratio' and population.get('method','seed')=='seed'
+            and population.get('comparison') is None and population.get('variant') is None
+            and window['start']==1 and window['end']==800 and window['unit']=='ordinal')
     elif metric=='decision.task-utility':applicable=family=='D' and protocol=='PREQUENTIAL'
     elif metric=='prediction.window-change':applicable=family in ('A','B') and protocol=='PREQUENTIAL'
     elif metric in ('world.first-belief','world.revision-latency','world.stability','semantic.promotion-latency','semantic.revisions','semantic.status-transitions'):

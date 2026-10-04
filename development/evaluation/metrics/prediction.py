@@ -4,6 +4,7 @@ import math
 
 from ..contracts import CompletedEvidence, ContractError, strict_json, validate_event_key
 from ..registry import ACTIONS, WINDOWS
+from ..analysis import inventory_metadata
 from .registry import measured, resolve
 
 PREDICTION_METRICS = ('prediction.numeric-mae', 'prediction.numeric-normalized-mae',
@@ -225,17 +226,22 @@ def measure_prediction(metric_id, evidence, population, plan):
     if metric_id not in PREDICTION_METRICS:
         raise ContractError()
     _, _, member, definition, window, dimensions = resolve(metric_id, population, plan)
-    rows = _rows(evidence, definition['phase'])
-    rows = [r for r in rows if window['start'] <= r['ordinal'] <= window['end']
+    carrier = _rows(evidence, definition['phase'])
+    carrier = [r for r in carrier if window['start']<=r['ordinal']<=window['end']
+        and (definition.get('variant') is None or r['subcase']==definition['variant'])]
+    rows = [r for r in carrier if window['start'] <= r['ordinal'] <= window['end']
             and (definition['action'] == 'all' or r['action'] == definition['action'])
             and (definition.get('variant') is None or r['subcase']==definition['variant'])]
     target = 'network_reachable' if definition['signal'] == 'network' else definition['signal']
     if metric_id == 'prediction.adaptation-delay':
-        if member['family'] != 'B' or member['protocol'] != 'PREQUENTIAL':
+        if not inventory_metadata(member,metric_id,definition,window)['applicable']:
             return measured(metric_id, population, plan, state='NOT_EVALUATED', reason='NOT_APPLICABLE_TO_REGISTERED_PROTOCOL_OR_FAMILY')
         # Qualification uses the pre-selection candidate even if the population
         # is rest-only; never erase non-rest transition321's captured candidate.
-        value, reason, facts = _adaptation(_rows(evidence, definition['phase']))
+        value, reason, facts = _adaptation(carrier)
+        facts.update(measurement_action='rest',measurement_method='seed_action_mean_delta_support_at_least_2',
+            qualification_ordinal=321,carrier_action=definition['action'],
+            completed_transition_context='all_actions_within_registered_whole_horizon')
         return measured(metric_id, population, plan, value=value, reason=reason, unit='rest_exposure', **facts)
     numeric = metric_id in ('prediction.numeric-mae','prediction.numeric-normalized-mae','prediction.window-change')
     boolean = metric_id in ('prediction.boolean-accuracy','prediction.boolean-brier')
