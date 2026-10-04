@@ -1,5 +1,6 @@
 """Read-only selection assays over an exact completed owned checkpoint."""
 import copy
+import math
 import os
 import sqlite3
 import threading
@@ -106,7 +107,7 @@ class FrozenWorker:
         if self.raw_state()!=self._before:self.failed=True
         if self.failed:raise ContractError()
 
-    def probe(self, observation, key, client):
+    def probe(self, observation, key, client, *, read_time=None):
         if self.failed:raise ContractError()
         key=validate_event_key(list(key))
         if key[0]!='probe' or key[3]!='pre' or key[2]!=self._last.get(key[:2],0)+1:
@@ -114,7 +115,10 @@ class FrozenWorker:
             raise ContractError()
         before=validate_observation(observation)
         self.streams.clock.stage(key[0],key[2],0)
-        prepared=self.decisions.prepare(before,selected_at=self.streams.clock.wall())
+        if read_time is not None and (type(read_time) not in (int,float) or not math.isfinite(read_time) or read_time<0):
+            self.failed=True
+            raise ContractError()
+        prepared=self.decisions.prepare(before,selected_at=self.streams.clock.wall() if read_time is None else read_time)
         # The reader may not disguise an authorizer rejection as a producer fallback.
         self.assert_unchanged()
         selection=self.decisions.select(prepared)
@@ -123,6 +127,7 @@ class FrozenWorker:
         self.streams.clock.stage(key[0],key[2],2)
         from seed.prediction_error import evaluate_prediction
         result=dict(driver='frozen_projection_v1',assay_kind='FROZEN_SELECTION_ASSAY',
+            read_time=prepared['selected_at'],
             internal_action_effects='suppressed_by_protocol',state_before=before,state_after=after,
             candidate_predictions=copy.deepcopy(prepared['batch'].predictions),selection=copy.deepcopy(selection.record),
             prediction=copy.deepcopy(selection.prediction),b3_projection=evaluate_prediction(selection.prediction,after).to_dict())
