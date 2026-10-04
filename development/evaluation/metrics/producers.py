@@ -98,6 +98,15 @@ def _world(source, metric):
                  rest_exposure_transition_latency=revision['ordinal']-first_rest) if revision else None), 'NO_OBSERVED_REVISION' if revision is None else None, {}
 
 
+def _bounded_facts(facts):
+    """All-input digest/count; fixed first-eight detail never used for inference."""
+    raw=json.dumps(facts,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
+    return dict(facts=facts[:8],fact_count=len(facts),
+        facts_sha256=hashlib.sha256(b'SEED_B10_AUDIT_FACTS_V1\0'+raw).hexdigest(),
+        diagnostic_sample_non_inferential=True,diagnostic_sample_count=min(8,len(facts)),
+        diagnostic_sample_rule='first_eight_in_source_order')
+
+
 def _curiosity(source, metric):
     rows = _table(source,'curiosity_assessments')
     if not rows:
@@ -148,7 +157,13 @@ def _curiosity(source, metric):
             b3_reference_surprise=reference_surprise,
             b3_source_matches=math.isclose(surprise,reference_surprise,rel_tol=0,abs_tol=1e-12) if reference_surprise is not None else None,
             prior_source_checks=prior_checks,prior_source_status='captured' if prior is not None else 'unavailable'))
-    return dict(formula_matches=sum(f['matches'] for f in facts),assessments=len(facts),facts=facts),None,{}
+    return dict(formula_matches=sum(f['matches'] for f in facts),assessments=len(facts),
+        b3_source_matches=sum(f['b3_source_matches'] is True for f in facts),
+        b3_source_mismatches=sum(f['b3_source_matches'] is False for f in facts),
+        b3_source_unavailable=sum(f['b3_source_matches'] is None for f in facts),
+        prior_source_mismatches=sum(c['matches'] is False or c['contradiction_matches'] is False for f in facts for c in f['prior_source_checks']),
+        prior_source_unavailable=sum(f['prior_source_status']=='unavailable' for f in facts),
+        **_bounded_facts(facts)),None,{}
 
 
 def _semantic(source,metric,protocol):
@@ -202,7 +217,7 @@ def _semantic(source,metric,protocol):
             source_link_valid=belief is not None and row['source_first_transition_id']==belief['source_first_transition_id'] and row['source_last_transition_id']==belief['source_last_transition_id'],
             actual_support=row['evidence_count'],actual_confidence=row['confidence'],eligible_at_capture=row['evidence_count']>=8 and row['confidence']>=.30))
     return dict(matched=sum(f['fingerprint_matches'] for f in facts),valid_source_links=sum(f['source_link_valid'] for f in facts),
-                facts=facts,cursor=_table(source,'consolidation_state'),opportunities=None if runs is None else len(runs)),None,{}
+                **_bounded_facts(facts),cursor=_table(source,'consolidation_state'),opportunities=None if runs is None else len(runs)),None,{}
 
 
 def _self(source,metric):
@@ -315,7 +330,7 @@ def _decisions(evidence,source,metric,family):
             utilities.append(task_utility(before,action))
     if metric=='decision.task-utility':
         if family!='D':return None,'NOT_APPLICABLE_TO_REGISTERED_PROTOCOL_OR_FAMILY',dict(state='NOT_EVALUATED')
-        return (math.fsum(utilities)/len(utilities) if utilities else None),'MISSING_TASK_TRANSITIONS' if not utilities else None,dict(denominator=len(utilities) if utilities else None)
+        return (math.fsum(utilities)/len(utilities) if utilities else None),'MISSING_TASK_TRANSITIONS' if not utilities else None,dict(numerator=math.fsum(utilities) if utilities else None,denominator=len(utilities) if utilities else None)
     if metric=='decision.skipped-fallback':
         skipped=source.get('skipped_attempts')
         if not facts and skipped is None:return None,'MISSING_DECISION_SOURCE',dict(denominator=None)
@@ -324,10 +339,10 @@ def _decisions(evidence,source,metric,family):
     if not facts:return None,'MISSING_DECISION_SOURCE',dict(denominator=None)
     if metric=='decision.q-compatibility':
         if not q_facts:return None,'MISSING_Q_UPDATE_SOURCE',dict(denominator=None)
-        return dict(matched=sum(f['matches'] for f in q_facts),mismatched=sum(not f['matches'] for f in q_facts),facts=q_facts),None,dict(denominator=len(q_facts))
+        return dict(matched=sum(f['matches'] for f in q_facts),mismatched=sum(not f['matches'] for f in q_facts),**_bounded_facts(q_facts)),None,dict(denominator=len(q_facts))
     if metric=='decision.constraints':return dict(violations=0,checked=len(facts)),None,dict(denominator=len(facts))
     if metric=='decision.prediction-link':return dict(matched=sum(f['prediction_link_matches'] for f in facts),checked=len(facts)),None,dict(denominator=len(facts))
-    return dict(structurally_valid=len(facts),facts=facts),None,dict(denominator=len(facts))
+    return dict(structurally_valid=len(facts),**_bounded_facts(facts)),None,dict(denominator=len(facts))
 
 
 def measure_producers(evidence, sources, plan):
@@ -347,7 +362,11 @@ def measure_producers(evidence, sources, plan):
         if len(raw)>32*1024**2:raise ContractError()
         member=members[registered.member]
         _,_,population_id,window=registered.identity.split(':')
-        population=Population(population_id,(registered.member,),window)
+        window=window.removesuffix('~exploratory')
+        population=Population(population_id,(registered.member,),window,registered.role)
+        definition=next(p for p in body['populations'] if p['id']==population_id)
+        if definition.get('variant') is not None:
+            source=source.get('variants',{}).get(definition['variant'],{})
         if metric.startswith('world.'):value,reason,facts=_world(source,metric)
         elif metric.startswith('curiosity.'):value,reason,facts=_curiosity(source,metric)
         elif metric.startswith('semantic.'):value,reason,facts=_semantic(source,metric,member['protocol'])
@@ -356,6 +375,9 @@ def measure_producers(evidence, sources, plan):
             # A flat tuple belongs to a single-member assay. A multi-member
             # input must provide each actual member's completed source evidence.
             selected=evidence if len(members)==1 else tuple(CompletedEvidence(tuple(e['key']),e['body'].encode()) for e in source.get('completed_evidence',[]))
+            window_definition=next(w for w in body['windows'] if w['id']==window)
+            selected=tuple(e for e in selected if e.key[0]==definition['phase'] and window_definition['start']<=e.key[2]<=window_definition['end']
+                           and (definition.get('variant') is None or e.key[1]==definition['variant']))
             value,reason,facts=_decisions(selected,source,metric,member['family'])
         result.append(measured(metric,population,plan,value=value,reason=reason,
             source_digest=hashlib.sha256(b'SEED_B10_PRODUCER_SOURCES_V1\0'+raw).hexdigest(),

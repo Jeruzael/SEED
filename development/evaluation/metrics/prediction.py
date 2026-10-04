@@ -89,6 +89,24 @@ def _loss(row, method, target, metric, stratum):
     return loss, 'eligible'
 
 
+def _ordinal_detail(values):
+    if len(values)<=32:return values
+    ranges=[]
+    for value in values:
+        if ranges and value==ranges[-1][1]+1:ranges[-1][1]=value
+        else:ranges.append([value,value])
+    return dict(encoding='inclusive_ranges',count=len(values),ranges=ranges)
+
+
+def _support_detail(counts):
+    if len(counts)<=32:return dict(counts)
+    ranges=[]
+    for key,count in sorted(((int(k),v) for k,v in counts.items() if k!='unavailable')):
+        if ranges and key==ranges[-1][1]+1 and count==ranges[-1][2]:ranges[-1][1]=key
+        else:ranges.append([key,key,count])
+    return dict(encoding='inclusive_support_ranges_with_count',ranges=ranges,unavailable=counts.get('unavailable',0))
+
+
 def _paired(rows, definition, target, metric):
     method, baseline = definition.get('method','seed'), definition.get('comparison')
     values, counterpart, sources = [], [], []
@@ -112,14 +130,21 @@ def _paired(rows, definition, target, metric):
         n = signal.get('evidence_count')
         support[str(n) if type(n) is int and n >= 0 else 'unavailable'] += 1
         if label == 'both':
+            stratum.setdefault('_losses',[]).append(loss)
+            stratum.setdefault('_baseline_losses',[]).append(other)
             values.append(loss); counterpart.append(other); sources.append(row['ordinal'])
     n = len(rows)
     coverage = {method: usable[method]/n if n else None}
     if baseline is not None: coverage[baseline] = usable[baseline]/n if n else None
+    for stratum in strata.values():
+        stratum['numerator']=math.fsum(stratum.pop('_losses',[]))
+        stratum['baseline_numerator']=math.fsum(stratum.pop('_baseline_losses',[]))
+        stratum['value']=stratum.get('numerator',0.)/stratum['paired'] if stratum['paired'] else None
+        stratum['baseline_value']=stratum.get('baseline_numerator',0.)/stratum['paired'] if stratum['paired'] else None
     return values, counterpart, dict(opportunities=n, numerator=math.fsum(values), denominator=len(values),
-        source_ordinals=sources, coverage=coverage, eligibility_cross_tab=dict(counts),
+        source_ordinals=_ordinal_detail(sources), coverage=coverage, eligibility_cross_tab=dict(counts),
         reason_cross_tab=dict(reasons), action_strata=strata, methods=dict(methods),
-        method_support=dict(support), exclusions=n-len(values))
+        method_support=_support_detail(support), exclusions=n-len(values))
 
 
 def _window_change(rows, definition, target, family):
@@ -199,7 +224,8 @@ def measure_prediction(metric_id, evidence, population, plan):
     _, _, member, definition, window, dimensions = resolve(metric_id, population, plan)
     rows = _rows(evidence, definition['phase'])
     rows = [r for r in rows if window['start'] <= r['ordinal'] <= window['end']
-            and (definition['action'] == 'all' or r['action'] == definition['action'])]
+            and (definition['action'] == 'all' or r['action'] == definition['action'])
+            and (definition.get('variant') is None or r['subcase']==definition['variant'])]
     target = 'network_reachable' if definition['signal'] == 'network' else definition['signal']
     if metric_id == 'prediction.adaptation-delay':
         if member['family'] != 'B' or member['protocol'] != 'PREQUENTIAL':

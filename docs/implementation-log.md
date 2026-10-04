@@ -344,3 +344,7 @@ The owner authorized R1–R10 only under the merged storage amendment. [Remediat
 ## B10 protocols I09–I13 closure — 2026-10-04
 
 [Closure record](reviews/2026-10-04-b10-protocols-closure.md) preserves exact task/repair commits, initial negative review and fresh zero-finding acceptance, G1–G4, local 1140/257/101/seven regression evidence, PR #24/exact PR-head CI and normal master merge/separate push CI. Separate documentation PR/head CI/normal merge/exact master CI remain mandatory closure gates; final successful statuses and STOP are conditional on them. I14–I30/I31 and empirical execution remain NOT STARTED / NOT AUTHORIZED; no B10 experiments, deployment or installed-home access.
+
+### 2026-10-05 — B10 science infrastructure I14–I20 engineering checkpoint
+
+I14–I19 were implemented in separate preserved commits; I20 adds preregistered complete inventory, applicability, fixed-rule findings, failed/incomplete member accounting and bounded source/report detail. [Science infrastructure gates](evaluation/science-infrastructure-gates.md) record task commits, literal/adversarial evidence and the required publication ladder. Current branch remains I14–I20 only; final G5/review/PR/master/closure gates are pending. I21–I30 owner authorized but not started pending predecessor gates; I31 and empirical evaluation not authorized. No empirical experiments or installed SEED access.
