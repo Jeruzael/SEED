@@ -11,7 +11,7 @@ Branch `seed-0.2-b10-impl-03-science` starts at verified clean local/remote mast
 | I18 | Literal prediction, paired intersection/coverage/action strata, fixed windows and actual rest-exposure adaptation v2; 33 registered metric IDs; `4f70808f3d078d2c7898dffe679eccc5d7b5de51` |
 | C transport correction | Declared read_time reaches the actual frozen WorkerHandle; no producer timestamp edit; `e6ffc3f86f0cca9ea39821f84d793ec5c83bb1e0` |
 | I19 | Actual B4–B8 sources: lifetime facts, curiosity/B3/prior linkage, semantic fingerprint/opportunity, B7 unsupported/capped claims, original decision digest/eligibility/Q; `59967a6941cefd7ea78adaaffbfba60d6fb46b63` |
-| I20 | Default immutable plan, complete registered/exploratory inventory, applicability, fixed-rule findings, output reconciliation and failed-member/pair accounting; task commit identified by this record's containing commit |
+| I20 | Default immutable plan, complete registered/exploratory inventory, applicability, fixed-rule findings, output reconciliation and failed-member/pair accounting; `b4923414c2d44bbb0876ad661d3a7a4c645c844d` |
 
 ## Inventory and reporting contract
 
@@ -30,3 +30,20 @@ I20 initial and resource/pair RED evidence and all task RED/green logs are retai
 Full evaluation, repository and focused science verification, fresh independent full-branch review, G5 determination, exact-head PR CI, normal merge and separate exact-master push CI remain required. They will be recorded after completion; no unperformed gate is PASS here. Existing G1–G4 are preserved subject to that regression/review verification. Science closure uses its own documentation PR and CI.
 
 Protected scope: `seed/**`, schema v7, dependencies/lock, workflows and historical baseline bytes unchanged. Installed SEED untouched; no deployment/live device or empirical experiments. I21–I30 OWNER AUTHORIZED / NOT STARTED / WAITING ON REQUIRED PREDECESSOR GATES. I31 and empirical evaluation NOT STARTED / NOT AUTHORIZED. Stop this branch after its verified closure.
+
+## Initial independent review and preserved repairs
+
+[Fresh full-branch initial review](../reviews/2026-10-05-b10-science-review.md) at `b4923414c2d44bbb0876ad661d3a7a4c645c844d`: **0 BLOCKER /5 MAJOR /0 MINOR /5 unresolved; G5 FAIL**. Independently reran334 evaluation tests and reproduced all five defects. The negative record is retained unchanged; author repairs do not alone turn it into acceptance.
+
+| Finding / repair | Separate commit | RED / green evidence |
+| --- | --- | --- |
+| R1 natural mix retains sparse paired actions, standardized C unchanged | `bcff886f7853c20c0f30590f275293d3e98a35f5` | Intended RED;42 adjacent PASS |
+| R2 every candidate guard independently checked; mismatch preserved and report fails mandatory zero contract | `09d47a6674710a8196c5874cf336879eadab1051` | Intended RED;41 evaluation/39 decision PASS separately; combined explicit mixed-path command had fixture discovery error, retained |
+| R3 false missing/error claims stay in denominator; clocks/cutoffs checked; freshness explicitly producer-claim projection/source fidelity | `d86f19ac3a20dd05a0d0212f22b7a2171fbc3eeb` | Three intended REDs;40 adjacent PASS |
+| R4 captured world publication phase/window/action/signal scope, actual B8 selected-action filtering; unproved scopes unavailable | `17af2142ab224b4a8ce562db16d4b4c7895ea437` | Disjoint-window/action/scope and training-phase REDs;65 adjacent PASS |
+| R5 every suite primary group initialized from immutable expected inventory, missing reasons/planned/valid/status denominators retained | `845d48ffb955395b98ed54890cf45ca4936c1e47` | Two intended REDs;67 adjacent PASS |
+| R4 source uniqueness follow-up: same completed phase/subcase/ordinal cannot count twice under different capture stages | `8e5e60fd75c3f501eb7e162b7b506a22cbe18601` | Intended RED;47 producer/reporting PASS |
+
+All-input checks remain independent of diagnostic samples. B7 observation envelope audit invokes existing pure source/age helpers over separately captured rows, without new SQL, whole-snapshot reconstruction or producer updates. Missing independent publication-session metadata is explicitly unavailable; B7 v1 makes no PID claim. B4 current-source audits disclose published lifetime-at-capture semantics; history window metrics filter captured phase/ordinal and belief scope. If a custom partial/action/signal scope cannot be proved from supplied source facts, it returns MISSING_REGISTERED_SCOPE_EVIDENCE rather than a whole-history value with a partial-window label.
+
+All repair logs and historical/final counts are retained in `.superpowers/b10-science/`. Fresh repaired-head full verification and a second fresh independent full-branch review remain pending. G5 remains pending; PR/merge/master/science-closure publication gates not yet performed.
