@@ -255,3 +255,35 @@ def test_actual_q_update_and_curiosity_b3_link(tmp_path,plan_body,foundation_mod
         audited={m.metric:m for m in measure_producers((changed,),{'member-0':source},frozen_plan)}
         assert audited['decision.q-compatibility'].value['mismatched']==1
     finally:worker.stop();journal.close()
+
+
+def test_unselected_false_guard_is_audited_and_fails_report(tmp_path,plan_body):
+    from seed.memory import Memory
+    from seed.predictor import Predictor
+    from seed.learner import Learner
+    from seed.decision import DecisionSystem
+    from seed.decision_record import validate_record
+    from tests.test_decision import RNG,STATE
+    from development.evaluation.metrics.findings import reconcile_output,classify_questions
+    from .test_reporting import fixture_measurements
+    memory=Memory(tmp_path/'memory.sqlite3')
+    try:
+        selector=DecisionSystem(memory,Predictor(memory),Learner(memory,epsilon=1),rng=RNG(draw=0,index=1))
+        selection=selector.select(selector.prepare(STATE,selected_at=100))
+        record=copy.deepcopy(selection.record)
+        assert record['selected_action']=='reflect'
+        record['candidates']['consolidate'].update(eligible=False,constraint_reasons=['high_load'])
+        record['eligible_actions'].remove('consolidate');record['selection_candidates'].remove('consolidate')
+        record['choice_index']=record['selection_candidates'].index(record['selected_action'])
+        validate_record(record,prediction=selection.prediction,state_before=STATE,draft=True)
+        point=CompletedEvidence(('measured','default',1,'update'),json.dumps(dict(selection=record,prediction=selection.prediction,state_before=STATE)).encode())
+        root=tmp_path/'plan';root.mkdir();frozen_plan=plan(root,plan_body)
+        out={m.metric:m for m in measure_producers((point,),{'member-0':{}},frozen_plan)}
+        audited=out['decision.eligibility']
+        assert audited.value['mismatched']==1 and audited.value['checked_candidates']==4
+        assert audited.value['facts'][0]['guard_checks']['consolidate']['matches'] is False
+        output=tuple(audited if m.metric=='decision.eligibility' else m for m in fixture_measurements(frozen_plan))
+        report=reconcile_output(frozen_plan,output,classify_questions(frozen_plan,output,'COMPLETED'))
+        assert not report.passed
+        assert record['candidates']['consolidate']['eligible'] is False
+    finally:memory.close()

@@ -310,7 +310,14 @@ def _decisions(evidence,source,metric,family):
             raise ContractError()  # mandatory zero hard-constraint violations
         try:validate_record(record,prediction=prediction,state_before=before,draft=record['transition_id'] is None)
         except (ValueError,TypeError,KeyError,OverflowError,RecursionError):raise ContractError() from None
-        facts.append(dict(ordinal=item.key[2],decision_id=record['decision_id'],selection_mode=record['selection_mode'],
+        guard_checks={}
+        for candidate_action in ACTIONS:
+            expected_reasons=constraints(before,candidate_action)
+            candidate=record['candidates'][candidate_action]
+            guard_checks[candidate_action]=dict(expected_reasons=expected_reasons,
+                actual_reasons=candidate['constraint_reasons'],actual_eligible=candidate['eligible'],
+                matches=candidate['constraint_reasons']==expected_reasons and candidate['eligible']==(not expected_reasons))
+        facts.append(dict(ordinal=item.key[2],decision_id=record['decision_id'],selection_mode=record['selection_mode'],guard_checks=guard_checks,
             completed_evidence_sha256=hashlib.sha256(item.body).hexdigest(),
             selected_prediction_sha256=record['selected_prediction_sha256'],
             action=action,prediction_link_matches=record['selected_prediction_sha256']==prediction_digest(prediction),
@@ -340,6 +347,11 @@ def _decisions(evidence,source,metric,family):
     if metric=='decision.q-compatibility':
         if not q_facts:return None,'MISSING_Q_UPDATE_SOURCE',dict(denominator=None)
         return dict(matched=sum(f['matches'] for f in q_facts),mismatched=sum(not f['matches'] for f in q_facts),**_bounded_facts(q_facts)),None,dict(denominator=len(q_facts))
+    if metric=='decision.eligibility':
+        return dict(structurally_valid=len(facts),checked_candidates=4*len(facts),
+            matched=sum(c['matches'] for f in facts for c in f['guard_checks'].values()),
+            mismatched=sum(not c['matches'] for f in facts for c in f['guard_checks'].values()),
+            **_bounded_facts(facts)),None,dict(denominator=4*len(facts))
     if metric=='decision.constraints':return dict(violations=0,checked=len(facts)),None,dict(denominator=len(facts))
     if metric=='decision.prediction-link':return dict(matched=sum(f['prediction_link_matches'] for f in facts),checked=len(facts)),None,dict(denominator=len(facts))
     return dict(structurally_valid=len(facts),**_bounded_facts(facts)),None,dict(denominator=len(facts))

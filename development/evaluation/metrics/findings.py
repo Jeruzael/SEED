@@ -25,6 +25,9 @@ def _valid_row(plan,row):
             return False
         if not expected['applicable'] and (row.state!='NOT_EVALUATED' or row.reason!=expected['reason']):
             return False
+        if row.state=='MEASURED' and row.metric in ('decision.constraints','decision.eligibility'):
+            key='violations' if row.metric=='decision.constraints' else 'mismatched'
+            if type(row.value) is not dict or row.value.get(key)!=0:return False
         if expected['applicable'] and row.state=='NOT_EVALUATED':
             return False
     except (ValueError,TypeError,KeyError,OverflowError,RecursionError):
