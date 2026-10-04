@@ -175,11 +175,16 @@ class OwnedState:
             result[name]=content
         return result
 
-    def complete_fixture(self):
+    def complete_fixture(self, *, close_owner=None):
         _worker_only()
         if self._closed or self.monitor.stopped: raise ContractError()
         self.memory.db.validate_storage()
-        self.close()
+        if close_owner is None:self.close()
+        else:
+            # Worker core owns both this Memory and its instance lock. Delegate
+            # its original close once, instead of closing the shared DB first.
+            try:close_owner()
+            finally:self._closed=True
         self.capability.sync()
         return CompletedFixture(self.capability,*_fixture_facts(self.capability))
 

@@ -7,7 +7,7 @@ import pytest
 from contextlib import closing
 
 
-def _make_fixture(pipe, cap, slot, invalid_schema=None):
+def _make_fixture(pipe, cap, slot, invalid_schema=None, count=12, selected_action=None):
     try:
         from development.evaluation.bootstrap import install_worker_adapters
         from development.evaluation.contracts import WorkerLaunch
@@ -19,12 +19,19 @@ def _make_fixture(pipe, cap, slot, invalid_schema=None):
         class PublicBody:
             def perceive(self): return dict(battery_pct=80,charging=True,load_ratio=.2,disk_free_pct=75,network=True,local_hour=12)
         core.body=PublicBody()
-        for ordinal in range(1,13):
+        for ordinal in range(1,count+1):
             session.clock.stage('measured',ordinal,0); assert core.cycle().status=='completed'
         core.consolidate(core.body.perceive(),provenance='owner_requested')
         state=OwnedState(cap,core.memory,state.monitor)
         clone=state.clone(slot)
         clone.memory.set_meta('fixture-marker',{'preserve':'exact'})
+        if selected_action is not None:
+            from seed.learner import state_key
+            key=state_key(core.body.perceive())
+            with clone.memory.db:
+                clone.memory.db.execute('UPDATE q_values SET value=0')
+                clone.memory.db.execute('INSERT INTO q_values VALUES(?,?,?,?) ON CONFLICT(state_key,action) DO UPDATE SET value=excluded.value',
+                                       (key,selected_action,100,1))
         if invalid_schema:
             # Deliberately construct an invalid technical fixture, bypassing FK
             # rejection so this test reaches the completion manifest boundary.
@@ -48,16 +55,22 @@ def _make_fixture(pipe, cap, slot, invalid_schema=None):
     finally: pipe.close()
 
 
-def make_fixture(foundation_module,tmp_path):
+def make_fixture(foundation_module,tmp_path,*,count=12,selected_action=None):
     s=foundation_module('state')
     assert hasattr(s.OwnedState,'complete_fixture'), 'completed owned fixture admission missing'
     root=foundation_module('paths').EvaluationRoot.create(tmp_path.resolve())
     cap=root.assign_learner('run',0); slot=root.assign_learner('run',1)
     ctx=multiprocessing.get_context('spawn'); parent,child=ctx.Pipe()
-    worker=ctx.Process(target=_make_fixture,args=(child,cap,slot),name='seed-evaluation-worker')
+    worker=ctx.Process(target=_make_fixture,args=(child,cap,slot,None,count,selected_action),name='seed-evaluation-worker')
     worker.start(); child.close()
-    assert parent.poll(15)
-    result=parent.recv(); worker.join(5); parent.close()
+    try:
+        # A 200-row technical training fixture is intentionally larger than
+        # the original 12-row foundation fixture; retain a bounded deadline.
+        assert parent.poll(90 if count>12 else 15)
+        result=parent.recv(); worker.join(5)
+    finally:
+        if worker.is_alive():worker.terminate();worker.join(5)
+        parent.close()
     assert result[0]=='ok',result
     return result[1]
 

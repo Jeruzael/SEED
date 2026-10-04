@@ -1,7 +1,7 @@
 """Closed byte channel. Private scenario capabilities stay in the parent."""
 import json
 import threading
-from .contracts import ContractError, fields, strict_json, validate_event_key, validate_observation, MESSAGE_BYTES
+from .contracts import ContractError, PreUpdateEvidence, decode_message, fields, strict_json, validate_event_key, validate_observation, MESSAGE_BYTES
 from .registry import ACTIONS
 
 
@@ -17,7 +17,7 @@ def wire_bytes(value):
 def validate_request(request):
     # Validate detached bytes too, to impose depth/entry/nonfinite limits before dispatch.
     value=strict_json(wire_bytes(request))
-    fields(value,('operation',),('key','action'))
+    fields(value,('operation',),('key','action','evidence'))
     op=value['operation']
     if op=='action_catalog':
         fields(value,('operation',))
@@ -29,20 +29,30 @@ def validate_request(request):
         fields(value,('operation','key','action'))
         if validate_event_key(value['key'])[3]!='action' or value['action'] not in ACTIONS:
             raise ContractError()
+    elif op=='checkpoint':
+        fields(value,('operation','evidence'))
+        decode_message(wire_bytes(value['evidence']), 'checkpoint')
     else:
-        # Journaling/ACK and cycle execution are separately gated future work.
         raise ContractError()
     return value
 
 
 class ChannelRouter:
     """Parent endpoint with an explicit fixed operation table, no reflection."""
-    def __init__(self, scenario):
+    def __init__(self, scenario, *, journal=None):
         self._scenario=scenario
+        self._journal=journal
+        self._checkpoint_pending=None
+        self._before=None
         self._last={}
         self._pending=None
         self._lock=threading.Lock()
         self.failed=False
+
+    def discard_skipped(self, key):
+        if self.failed or self._pending!=tuple(key[:3]) or self._checkpoint_pending is not None:
+            raise ContractError()
+        self._pending=None
 
     def dispatch(self, request):
         value=validate_request(request)
@@ -55,23 +65,43 @@ class ChannelRouter:
             op=value['operation']
             if op=='action_catalog':
                 return {'actions':list(ACTIONS)}
+            if op=='checkpoint':
+                if self._journal is None or self._checkpoint_pending is None:
+                    raise ContractError()
+                evidence=value['evidence']
+                key=(evidence['phase'],evidence['subcase'],evidence['transition_ordinal'])
+                expected,action,before,after=self._checkpoint_pending
+                if key!=expected or evidence['selected_action']!=action or evidence['state_before']!=before or evidence['state_after']!=after:
+                    raise ContractError()
+                # Private scores remain parent-side; the response is closed constant only.
+                token=self._journal.ack(PreUpdateEvidence(wire_bytes(evidence)))
+                if token!='SCORE_ACK':
+                    raise ContractError()
+                self._checkpoint_pending=None
+                return {'token':'SCORE_ACK'}
             key=validate_event_key(value['key'])
             identity=key[:2]
             if op=='observation':
-                if self._pending is not None or key[2]!=self._last.get(identity,0)+1:
+                if self._pending is not None or (self._journal is not None and self._checkpoint_pending is not None) or key[2]!=self._last.get(identity,0)+1:
                     raise ContractError()
                 result=validate_observation(self._scenario.initial_observation(key))
+                self._before=dict(result)
                 self._pending=key[:3]
             else:
                 if self._pending!=key[:3]:
                     raise ContractError()
                 applied=True
                 result=validate_observation(self._scenario.apply_action(value['action'],key))
+                self._checkpoint_pending=(key[:3],value['action'],self._before,dict(result))
                 self._last[identity]=key[2]
                 self._pending=None
             return strict_json(wire_bytes(result))
         except BaseException:
-            if locals().get('applied',False): self.failed=True
+            if locals().get('applied',False) or locals().get('op')=='checkpoint': self.failed=True
+            if locals().get('op')=='checkpoint':
+                # Parent preserves protocol/storage classification. No scoring
+                # import is reachable from this shared worker transport module.
+                raise
             # Fixed errors never disclose exception messages, truth, or root names.
             raise ContractError() from None
         finally:
@@ -93,6 +123,8 @@ class LearnerClient:
         self._busy=True
         try:
             self._connection.send_bytes(wire_bytes({'kind':'request','request':request}))
+            if request['operation']=='checkpoint' and not self._connection.poll(10):
+                raise ContractError()
             reply=strict_json(self._connection.recv_bytes(MESSAGE_BYTES))
             fields(reply,('kind','value'))
             if reply['kind']!='response':
@@ -140,5 +172,19 @@ class LearnerClient:
         return value
 
     def send_checkpoint(self, evidence):
-        # I08 declares the transport; I09 must add durable scoring before it can ACK.
-        raise ContractError()
+        try:
+            if type(evidence) is not PreUpdateEvidence:
+                raise ContractError()
+            value=decode_message(evidence.body,'checkpoint')
+            reply=self._rpc({'operation':'checkpoint','evidence':value})
+            decode_message(wire_bytes(reply),'acknowledgment')
+            if self._clock:
+                self._clock.stage(value['phase'],value['transition_ordinal'],3)
+            return 'SCORE_ACK'
+        except BaseException:
+            self.failed=True
+            raise ContractError() from None
+
+    def discard_skipped(self, key):
+        if self.failed or self._pending!=list(key[:3]):raise ContractError()
+        self._pending=None
