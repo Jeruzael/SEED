@@ -1,5 +1,6 @@
 """Parent-only admission scaffold. Scientific dispatch remains unauthorized."""
 import time
+import hashlib
 from .analysis import require_frozen
 from .contracts import ContractError, RunRequest
 from .dependency import audit_dependencies
@@ -30,3 +31,36 @@ class Coordinator:
     def dispatch(self, *args, **kwargs):
         # G3–G7 and I09+ are intentionally locked, even with a frozen plan.
         raise RuntimeError('FOUNDATION_ONLY_DISPATCH_DISABLED')
+
+
+def prepare_policy_pair(owned, slot, *, seed, identity, close_owner=None):
+    """Worker-owned equal-start clone preparation; no scientific dispatch."""
+    from .state import OwnedState, _worker_only
+    from .baselines import configure_policy
+    from .canonical import canonical_bytes
+    from .determinism import _seed
+    from .specs import digest, integer
+    from .contracts import WorkerLaunch
+    _worker_only()
+    digest(identity); integer(seed, 0, 2**63-1)
+    if type(owned) is not OwnedState or owned._closed:
+        raise ContractError()
+    before = owned.raw_tables()
+    clone = owned.clone(slot)
+    try:
+        if clone.raw_tables() != before:
+            raise ContractError()
+        result = dict(initial_digest=hashlib.sha256(canonical_bytes(before)).hexdigest(),
+                      prediction_pairing='not_paired_divergent_policy_trajectories')
+        for role, state in (('seed', owned), ('random-eligible', clone)):
+            settings = configure_policy(state, role)
+            fixture = state.complete_fixture(close_owner=close_owner if role == 'seed' else None)
+            role_identity = [identity, 'constrained-v1', seed, role]
+            rng_seed = _seed('SEED_B10_POLICY_ROLE_V1', role_identity)
+            uuid_identity = format(_seed('SEED_B10_POLICY_UUID_V1', role_identity), '064x')
+            result[role] = WorkerLaunch(fixture.learner, settings, rng_seed, uuid_identity,
+                launch_mode='COMPLETED_OWNED_FIXTURE', fixture=fixture)
+        return result
+    except BaseException:
+        clone.close()
+        raise
