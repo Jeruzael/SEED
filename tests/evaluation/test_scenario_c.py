@@ -45,7 +45,7 @@ def _fixture_child(pipe, cap, variant):
             from seed.self_model import project_snapshot
             projection = project_snapshot(json.loads(row[0]), provenance['read_time'])
         frozen.assert_unchanged()
-        pipe.send(('ok', raw, before_variant == raw, provenance, fixture.sha256, statuses, projection))
+        pipe.send(('ok', raw, before_variant == raw, provenance, fixture.sha256, statuses, projection, fixture))
     except BaseException:
         import traceback
         traceback.print_exc()
@@ -134,3 +134,24 @@ def test_c_missing_inputs_and_workspace_bounds():
         admit_c_workspace((32*1024**2,)*4, generating_bytes=1)
     with pytest.raises(ContractError):
         admit_c_workspace((33*1024**2, 1, 1, 1), generating_bytes=0)
+
+
+def test_stale_read_time_crosses_closed_worker_control(variants, foundation_module):
+    from development.evaluation.contracts import WorkerLaunch
+    from development.evaluation.channel import ChannelRouter
+    from dataclasses import replace
+    stale = variants['stale']; fixture = stale[7]
+    launch = WorkerLaunch(fixture.learner, b'{"epsilon":0.15}', 3, 'c'*64,
+        protocol='FROZEN_SELECTION_ASSAY', launch_mode='COMPLETED_OWNED_FIXTURE', fixture=fixture,
+        read_time=stale[3]['read_time'])
+    worker = foundation_module('worker').WorkerHandle.start(launch, channel=ChannelRouter(EvidenceScenario('stale')))
+    before = (fixture.learner.home/'memory.sqlite3').read_bytes()
+    try:
+        result = worker.request({'operation':'probe','key':['probe','stale',1,'pre']})
+        assert result['read_time'] == stale[3]['last_evidence_time'] + 301
+        assert all(s['status']=='stale' for c in result['selection']['candidates'].values() for s in c['resource_forecasts'].values())
+    finally: worker.stop()
+    assert (fixture.learner.home/'memory.sqlite3').read_bytes() == before
+    for value in (True,float('nan'),-1):
+        with pytest.raises(ValueError): foundation_module('worker').WorkerHandle.start(replace(launch,read_time=value))
+    with pytest.raises(ValueError): foundation_module('worker').WorkerHandle.start(replace(launch,protocol='PREQUENTIAL'))

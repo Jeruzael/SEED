@@ -182,6 +182,7 @@ class WorkerLaunch:
     protocol: str = 'PREQUENTIAL'
     launch_mode: str = 'FRESH'
     fixture: object = None
+    read_time: float | None = None
 
 
 @dataclass(frozen=True)

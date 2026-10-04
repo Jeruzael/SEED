@@ -1,6 +1,7 @@
 """Adapters are installed only in a fresh, named disposable spawn worker."""
 from dataclasses import dataclass
 import multiprocessing
+import math
 import os
 import random
 import sys
@@ -58,6 +59,9 @@ def validate_launch(launch):
     integer(launch.rng_seed,0,2**256-1)
     integer(launch.training_count,0,512)
     if launch.protocol not in ('PREQUENTIAL','FROZEN_SELECTION_ASSAY'):
+        raise ContractError()
+    if launch.read_time is not None and (launch.protocol != 'FROZEN_SELECTION_ASSAY'
+            or type(launch.read_time) not in (int,float) or not math.isfinite(launch.read_time) or launch.read_time<0):
         raise ContractError()
     settings = strict_json(launch.settings)
     if type(settings) is not dict or settings.keys() - {'epsilon','alpha','observe_interval','reflect_interval','rest_interval','memory_budget','prediction_error_curiosity','advanced_concept_inference'}:
