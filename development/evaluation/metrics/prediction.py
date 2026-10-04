@@ -153,6 +153,7 @@ def _window_change(rows, definition, target, family):
         return None, dict(qualifying_actions=[], reason='NOT_APPLICABLE_TO_REGISTERED_PROTOCOL_OR_FAMILY')
     early, late = windows[0], windows[-1]
     per_action, natural, qualifying, excluded = {}, {}, [], {}
+    natural_counts={}
     for action in ACTIONS:
         scores = []
         for start, end in (early, late):
@@ -167,13 +168,14 @@ def _window_change(rows, definition, target, family):
             excluded[action] = dict(reason='INSUFFICIENT_EVIDENCE', early_count=len(scores[0]), late_count=len(scores[1]))
     qualifying.sort()
     for name, (start, end) in (('early', early), ('late', late)):
-        group = [r for r in rows if start <= r['ordinal'] <= end and r['action'] in qualifying]
+        group = [r for r in rows if start <= r['ordinal'] <= end]
         values, _, _ = _paired(group, definition, target, 'prediction.numeric-mae')
         natural[name] = math.fsum(values)/len(values) if values else None
+        natural_counts[name]=len(values)
     standardized = {name: math.fsum(per_action[a][name] for a in qualifying)/len(qualifying) if qualifying else None for name in ('early','late')}
     return (standardized['early']-standardized['late'] if qualifying else None), dict(
         qualifying_actions=qualifying, excluded_actions=excluded, per_action=per_action,
-        standardized=standardized, natural_action_mix=natural, windows=[list(early),list(late)],
+        standardized=standardized, natural_action_mix=natural, natural_paired_counts=natural_counts, windows=[list(early),list(late)],
         reason=None if qualifying else 'INSUFFICIENT_EVIDENCE')
 
 

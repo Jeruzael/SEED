@@ -154,3 +154,18 @@ def test_actual_worker_capture_is_measured_without_recomputing_prediction(tmp_pa
         assert measurement_data(result)['source_ordinals'] == [1]
     finally:
         worker.stop(); journal.close()
+
+
+def test_natural_mix_keeps_sparse_paired_actions(tmp_path,plan_body):
+    plan=frozen(tmp_path,plan_body,comparison='persistence')
+    rows=[]
+    for start,late in ((1,False),(361,True)):
+        rows.extend(evidence(start+i,'rest',prediction=.1,actual=0) for i in range(5))
+        rows.extend(evidence(start+5+i,'reflect',prediction=0 if late else 1,actual=0) for i in range(4))
+    result=measure_prediction('prediction.window-change',tuple(rows),Population('all',('member-0',)),plan)
+    detail=measurement_data(result)
+    assert detail['qualifying_actions']==['rest'] and result.value==0
+    assert detail['standardized']=={'early':.1,'late':.1}
+    assert detail['natural_action_mix']['early']==pytest.approx(.5)
+    assert detail['natural_action_mix']['late']==pytest.approx(.5/9)
+    assert detail['natural_paired_counts']=={'early':9,'late':9}
