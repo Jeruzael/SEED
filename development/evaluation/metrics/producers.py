@@ -5,7 +5,7 @@ import json
 import math
 
 from ..analysis import expand_inventory
-from ..contracts import CompletedEvidence, ContractError, Population, strict_json
+from ..contracts import CompletedEvidence, ContractError, Population, strict_json, validate_event_key
 from ..registry import ACTIONS
 from .registry import measured, plan_data
 
@@ -371,6 +371,67 @@ def _decisions(evidence,source,metric,family):
     return dict(structurally_valid=len(facts),**_bounded_facts(facts)),None,dict(denominator=len(facts))
 
 
+def _scoped_source(source,metric,definition,window,member,evidence):
+    """Admit captured scope; missing event proof is never inferred from row IDs."""
+    source=dict(source)
+    tables=dict(source.get('tables',{}));source['tables']=tables
+    end=16 if member['family']=='C' and definition.get('variant') else member['measured']
+    whole=window['start']==1 and window['end']==end
+    action,signal=definition['action'],definition['signal']
+    target='network_reachable' if signal=='network' else signal
+    def belief_matches(row):
+        return (signal=='all' or row.get('signal')==target) and (action=='all' or row.get('scope')=='action' and row.get('scope_value')==action)
+    if metric.startswith('world.'):
+        history=source.get('world_revisions')
+        if not whole and (not history or metric in ('world.first-belief','world.revision-latency')):
+            return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
+        if history is not None:
+            if type(history) is not list or len(history)>1024:raise ContractError()
+            default_phase=source.get('phase','measured' if member['training']==0 else None)
+            if any(type(r.get('ordinal')) is not int or r.get('phase',default_phase) is None for r in history):
+                return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
+            history=[r for r in history if r.get('phase',default_phase)==definition['phase'] and window['start']<=r['ordinal']<=window['end']]
+            source['world_revisions']=[dict(r,beliefs=[b for b in r['beliefs'] if belief_matches(b)]) for r in history]
+            if not whole:
+                if not history:return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
+                last=max(history,key=lambda r:r['ordinal'])
+                tables['world_beliefs']=last['beliefs']
+                tables['world_pending']=last.get('pending')
+        for name in ('world_beliefs','world_pending'):
+            if tables.get(name) is not None:tables[name]=[r for r in _table(source,name) if belief_matches(r)]
+        return source,'published_lifetime_at_capture' if whole else 'registered_publication_window'
+    if metric.startswith('semantic.'):
+        if not whole:return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
+        if action!='all' or signal!='all':
+            rows=_table(source,'semantic_memories')
+            if rows is None:return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
+            rows=[r for r in rows if belief_matches(r)];tables['semantic_memories']=rows
+            ids={r['id'] for r in rows};belief_ids={r['source_belief_id'] for r in rows}
+            if tables.get('semantic_memory_history') is not None:tables['semantic_memory_history']=[r for r in _table(source,'semantic_memory_history') if r['semantic_memory_id'] in ids]
+            if source.get('semantic_eligibility_history') is not None:source['semantic_eligibility_history']=[r for r in source['semantic_eligibility_history'] if r['source_belief_id'] in belief_ids]
+        return source,'published_lifetime_at_capture'
+    if signal!='all':return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
+    if whole and action=='all':return source,'published_lifetime_at_capture'
+    events={}
+    for item in evidence:
+        raw=strict_json(item.body);capture=raw.get('capture',raw)
+        tid=raw.get('updates',capture.get('updates',{})).get('b1',{}).get('transition_id')
+        if tid is not None:
+            events[tid]=(item.key,capture.get('selection',{}).get('selected_action',capture.get('selected_action')))
+    def event_matches(tid):
+        if tid not in events:return None
+        key,selected=events[tid]
+        return key[0]==definition['phase'] and window['start']<=key[2]<=window['end'] and (action=='all' or selected==action) and (definition.get('variant') is None or key[1]==definition['variant'])
+    if metric.startswith('curiosity.'):
+        rows=_table(source,'curiosity_assessments')
+        if not rows or any(event_matches(r['transition_id']) is None for r in rows):return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
+        tables['curiosity_assessments']=[r for r in rows if event_matches(r['transition_id'])]
+    elif metric.startswith('self.'):
+        snapshot=source.get('self_snapshot')
+        if snapshot is None or event_matches(snapshot['source_transition_id']) is not True:return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
+    return source,'registered_completed_event_scope'
+
+
 def measure_producers(evidence, sources, plan):
     if type(evidence) is not tuple or len(evidence)>1024 or type(sources) is not dict:
         raise ContractError()
@@ -393,19 +454,31 @@ def measure_producers(evidence, sources, plan):
         definition=next(p for p in body['populations'] if p['id']==population_id)
         if definition.get('variant') is not None:
             source=source.get('variants',{}).get(definition['variant'],{})
-        if metric.startswith('world.'):value,reason,facts=_world(source,metric)
+        window_definition=next(w for w in body['windows'] if w['id']==window)
+        selected=evidence if len(members)==1 else tuple(CompletedEvidence(tuple(e['key']),e['body'].encode()) for e in source.get('completed_evidence',[]))
+        if len(selected)>1024 or any(type(e) is not CompletedEvidence for e in selected):raise ContractError()
+        keys=[validate_event_key(list(e.key)) for e in selected]
+        if len(set(keys))!=len(keys):raise ContractError()
+        source_scope='registered_completed_event_scope'
+        if not metric.startswith('decision.'):
+            source,source_scope=_scoped_source(source,metric,definition,window_definition,member,selected)
+        if source is None:
+            value,reason,facts=None,'MISSING_REGISTERED_SCOPE_EVIDENCE',{}
+            source={}
+        elif metric.startswith('world.'):value,reason,facts=_world(source,metric)
         elif metric.startswith('curiosity.'):value,reason,facts=_curiosity(source,metric)
         elif metric.startswith('semantic.'):value,reason,facts=_semantic(source,metric,member['protocol'])
         elif metric.startswith('self.'):value,reason,facts=_self(source,metric)
         else:
             # A flat tuple belongs to a single-member assay. A multi-member
             # input must provide each actual member's completed source evidence.
-            selected=evidence if len(members)==1 else tuple(CompletedEvidence(tuple(e['key']),e['body'].encode()) for e in source.get('completed_evidence',[]))
-            window_definition=next(w for w in body['windows'] if w['id']==window)
             selected=tuple(e for e in selected if e.key[0]==definition['phase'] and window_definition['start']<=e.key[2]<=window_definition['end']
                            and (definition.get('variant') is None or e.key[1]==definition['variant']))
-            value,reason,facts=_decisions(selected,source,metric,member['family'])
+            if definition['action']!='all':
+                selected=tuple(e for e in selected if strict_json(e.body).get('capture',strict_json(e.body)).get('selection',{}).get('selected_action')==definition['action'])
+            if definition['signal']!='all':value,reason,facts=None,'MISSING_REGISTERED_SCOPE_EVIDENCE',{}
+            else:value,reason,facts=_decisions(selected,source,metric,member['family'])
         result.append(measured(metric,population,plan,value=value,reason=reason,
-            source_digest=hashlib.sha256(b'SEED_B10_PRODUCER_SOURCES_V1\0'+raw).hexdigest(),
+            source_scope=source_scope,source_digest=hashlib.sha256(b'SEED_B10_PRODUCER_SOURCES_V1\0'+raw).hexdigest(),
             source_cutoff=source.get('cutoff'),source_limits=source.get('limits'),**facts))
     return tuple(result)

@@ -317,3 +317,79 @@ def test_self_false_missing_and_source_clock_remain_in_denominator(tmp_path,plan
         if defect=='timestamp':assert out['self.freshness'].value['source_faithful'] is False
         else:assert any(c['path']=='observations.load_ratio.status' for c in out['self.unsupported-claims'].value['claims'])
     finally:memory.close()
+
+
+def test_world_stability_honors_disjoint_windows_and_belief_scope(tmp_path,plan_body):
+    from seed.memory import Memory
+    from seed.world_model import WorldModel
+    from development.evaluation.analysis import freeze_plan,validate_plan
+    memory=Memory(tmp_path/'memory.sqlite3')
+    try:
+        model=WorldModel(memory)
+        for n in range(2):
+            _,tid=memory.record_transition_experience(state_before={'load_ratio':.5},action='rest',state_after={'load_ratio':.6},outcome={},legacy_reward=0,started_at=n,completed_at=n+1,world_model_eligible=True)
+            model.observe_transition(tid)
+        original=dict(memory.db.execute("SELECT * FROM world_beliefs WHERE scope='action'").fetchone())
+        history=[]
+        for ordinal,mean in ((1,0.),(2,.1),(361,.1),(362,1.)):
+            belief=copy.deepcopy(original);value=json.loads(belief['value_json']);value['mean_delta']=mean
+            belief.update(value_json=json.dumps(value),source_last_transition_id=ordinal)
+            history.append(dict(ordinal=ordinal,phase='measured',beliefs=[belief]))
+        body=copy.deepcopy(plan_body)
+        body['metrics']=[dict(id='world.stability',version=1)];body['questions'][0]['metrics']=['world.stability']
+        body['members'][0]['measured']=400
+        body['populations'][0].update(action='rest',signal='load_ratio')
+        body['windows']=[dict(id='early',start=1,end=40,unit='ordinal'),dict(id='late',start=361,end=400,unit='ordinal')]
+        root=tmp_path/'plan';root.mkdir();frozen_plan=freeze_plan(validate_plan(body),ClosedRoot(root))
+        source={'tables':{'world_beliefs':[original]},'world_revisions':history}
+        out=measure_producers((),{'member-0':source},frozen_plan)
+        expected={'early':.1,'late':.9}
+        for row in out:
+            detail=measurement_data(row);window=detail['dimensions']['window']
+            facts=row.value['beliefs'][original['belief_key']]
+            assert facts['mean_absolute_change']==pytest.approx(expected[window]) and facts['revisions']==1
+            assert detail['source_scope']=='registered_publication_window'
+        assert source['world_revisions']==history
+    finally:memory.close()
+
+
+def test_scoped_sources_without_event_proof_are_unavailable(tmp_path,plan_body):
+    from development.evaluation.analysis import freeze_plan,validate_plan
+    body=copy.deepcopy(plan_body)
+    body['members'][0]['measured']=400
+    body['metrics']=[dict(id='curiosity.components',version=1),dict(id='semantic.revisions',version=1),dict(id='self.factual-fidelity',version=1)]
+    body['questions'][0]['metrics']=[m['id'] for m in body['metrics']]
+    body['populations'][0]['signal']='all'
+    body['windows']=[dict(id='early',start=1,end=40,unit='ordinal')]
+    frozen_plan=freeze_plan(validate_plan(body),ClosedRoot(tmp_path))
+    out=measure_producers((),{'member-0':{}},frozen_plan)
+    assert all(r.state=='UNAVAILABLE' and r.reason=='MISSING_REGISTERED_SCOPE_EVIDENCE' for r in out)
+
+
+def test_decision_action_population_does_not_include_other_selections(tmp_path,plan_body,foundation_module):
+    from .test_cycle_adapter import run_cycle
+    from development.evaluation.analysis import freeze_plan,validate_plan
+    body=copy.deepcopy(plan_body);body['metrics']=[dict(id='decision.constraints',version=1)]
+    body['questions'][0]['metrics']=['decision.constraints'];body['populations'][0].update(action='rest',signal='all')
+    frozen_plan=freeze_plan(validate_plan(body),ClosedRoot(tmp_path))
+    root=tmp_path/'worker';root.mkdir();raw,_,_=run_cycle(root,foundation_module)
+    assert raw['record']['selection']['selected_action']!='rest'
+    point=CompletedEvidence(('measured','default',1,'update'),json.dumps(raw['record']).encode())
+    row=measure_producers((point,),{'member-0':{}},frozen_plan)[0]
+    assert row.state=='UNAVAILABLE' and row.value is None
+
+
+def test_world_publication_history_never_mixes_training_ordinals(tmp_path,plan_body):
+    from development.evaluation.analysis import freeze_plan,validate_plan
+    body=copy.deepcopy(plan_body)
+    body['members'][0].update(training=2,measured=2)
+    body['metrics']=[dict(id='world.stability',version=1)];body['questions'][0]['metrics']=['world.stability']
+    body['windows'][0]['end']=2
+    row={'signal':'load_ratio','belief_key':'literal:load:rest','evidence_count':2,'source_last_transition_id':1,'value_json':'{"mean_delta":0}'}
+    history=[]
+    for phase,ordinal,mean,tid in (('training',1,100,1),('training',2,101,2),('measured',1,0,3),('measured',2,.1,4)):
+        history.append(dict(phase=phase,ordinal=ordinal,beliefs=[dict(row,source_last_transition_id=tid,value_json=json.dumps({'mean_delta':mean}))]))
+    frozen_plan=freeze_plan(validate_plan(body),ClosedRoot(tmp_path))
+    source={'tables':{'world_beliefs':[row]},'world_revisions':history}
+    result=measure_producers((),{'member-0':source},frozen_plan)[0]
+    assert result.value['beliefs'][row['belief_key']]['mean_absolute_change']==.1
