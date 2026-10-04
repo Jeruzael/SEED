@@ -393,3 +393,13 @@ def test_world_publication_history_never_mixes_training_ordinals(tmp_path,plan_b
     source={'tables':{'world_beliefs':[row]},'world_revisions':history}
     result=measure_producers((),{'member-0':source},frozen_plan)[0]
     assert result.value['beliefs'][row['belief_key']]['mean_absolute_change']==.1
+
+
+def test_completed_producer_sample_cannot_be_counted_at_two_stages(tmp_path,plan_body,foundation_module):
+    from .test_cycle_adapter import run_cycle
+    from development.evaluation.contracts import ContractError
+    root=tmp_path/'worker';root.mkdir();raw,_,_=run_cycle(root,foundation_module)
+    point=CompletedEvidence(('measured','default',1,'update'),json.dumps(raw['record']).encode())
+    duplicate=CompletedEvidence(('measured','default',1,'checkpoint'),point.body)
+    root=tmp_path/'plan';root.mkdir();frozen_plan=plan(root,plan_body)
+    with pytest.raises(ContractError):measure_producers((point,duplicate),{'member-0':{}},frozen_plan)

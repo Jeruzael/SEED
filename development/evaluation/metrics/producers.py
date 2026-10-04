@@ -458,7 +458,7 @@ def measure_producers(evidence, sources, plan):
         selected=evidence if len(members)==1 else tuple(CompletedEvidence(tuple(e['key']),e['body'].encode()) for e in source.get('completed_evidence',[]))
         if len(selected)>1024 or any(type(e) is not CompletedEvidence for e in selected):raise ContractError()
         keys=[validate_event_key(list(e.key)) for e in selected]
-        if len(set(keys))!=len(keys):raise ContractError()
+        if len({key[:3] for key in keys})!=len(keys):raise ContractError()
         source_scope='registered_completed_event_scope'
         if not metric.startswith('decision.'):
             source,source_scope=_scoped_source(source,metric,definition,window_definition,member,selected)
