@@ -244,7 +244,7 @@ def test_actual_q_update_and_curiosity_b3_link(tmp_path,plan_body,foundation_mod
                 'prior_world_by_transition':{str(tid):response['capture']['prior_b4']}}
         point=CompletedEvidence(('measured','default',1,'update'),json.dumps(response).encode())
         out={m.metric:m for m in measure_producers((point,),{'member-0':source},frozen_plan)}
-        assert out['decision.q-compatibility'].value['matched']==1
+        assert out['decision.q-compatibility'].value['matched']==1, json.dumps(out['decision.q-compatibility'].value)
         assert out['decision.q-compatibility'].value['mismatched']==0
         assert out['curiosity.components'].value['facts'][0]['b3_source_matches'] is True
         assert out['curiosity.components'].value['facts'][0]['prior_source_status'] == 'captured'
@@ -448,3 +448,42 @@ def test_self_all_source_envelopes_match_original_rows(tmp_path,plan_body,defect
         assert out['self.freshness'].value['source_faithful'] is False
         assert (wrong,source)==before
     finally:memory.close()
+
+
+@pytest.mark.parametrize('defect',['candidate','before','state_link','action_link','missing_snapshot','missing_update_before'])
+def test_decision_q_provenance_matches_captured_original_state(tmp_path,plan_body,foundation_module,defect):
+    from development.evaluation.contracts import WorkerLaunch
+    from development.evaluation.channel import ChannelRouter
+    from development.evaluation.scenarios.stationary import StationaryScenario
+    root=tmp_path/'plan';root.mkdir();frozen_plan=plan(root,plan_body)
+    workspace=foundation_module('paths').EvaluationRoot.create(tmp_path.resolve())
+    cap=workspace.assign_learner('9'*32,0)
+    journal=foundation_module('checkpoint').ScoreJournal.create(workspace,'9'*32)
+    worker=foundation_module('worker').WorkerHandle.start(WorkerLaunch(cap,b'{"epsilon":1,"alpha":0.18}',3,'9'*64),
+        channel=ChannelRouter(StationaryScenario(),journal=journal))
+    try:
+        original=worker.request({'operation':'cycle','key':['measured','default',1,'pre']})
+        assert original['status']=='completed' and original['acked']
+        changed=copy.deepcopy(original);capture=changed['capture'];updates=changed['updates']
+        action=capture['selection']['selected_action']
+        assert capture['q_snapshot'][action]==updates['q']['before']
+        if defect=='candidate':
+            unselected=next(a for a in capture['selection']['candidates'] if a!=action)
+            capture['selection']['candidates'][unselected].update(q_value=42.,visits=99,q_missing=False)
+        elif defect=='before':updates['q']['before']['q_value']=42.
+        elif defect=='state_link':updates['b1']['transition']['state_before_json']='{}'
+        elif defect=='action_link':updates['b1']['transition']['action']=next(a for a in capture['selection']['candidates'] if a!=action)
+        elif defect=='missing_snapshot':capture.pop('q_snapshot')
+        elif defect=='missing_update_before':updates['q'].pop('before')
+        point=CompletedEvidence(('measured','default',1,'update'),json.dumps(changed).encode())
+        out={m.metric:m for m in measure_producers((point,),{'member-0':{}},frozen_plan)}
+        if defect=='candidate':
+            assert out['decision.provenance'].value['q_source_mismatched_candidates']==1
+            assert out['decision.provenance'].value['q_source_checked_candidates']==4
+        elif defect.startswith('missing'):
+            assert out['decision.q-compatibility'].state=='UNAVAILABLE'
+            assert measurement_data(out['decision.q-compatibility'])['missing_source_updates']==1
+            if defect=='missing_snapshot':assert out['decision.provenance'].value['q_source_unavailable_candidates']==4
+        else:assert out['decision.q-compatibility'].value['mismatched']==1
+        assert changed!=original and original['capture']['q_snapshot'][action]==original['updates']['q']['before']
+    finally:worker.stop();journal.close()

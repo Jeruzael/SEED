@@ -327,7 +327,8 @@ def _self(source,metric):
 
 def _decisions(evidence,source,metric,family):
     from seed.decision import constraints
-    from seed.decision_record import validate_record,prediction_digest
+    from seed.learner import state_key
+    from seed.decision_record import validate_record,prediction_digest,number,integer
     facts=[]; q_facts=[]; utilities=[]
     for item in evidence:
         if type(item) is not CompletedEvidence:raise ContractError()
@@ -348,7 +349,17 @@ def _decisions(evidence,source,metric,family):
             guard_checks[candidate_action]=dict(expected_reasons=expected_reasons,
                 actual_reasons=candidate['constraint_reasons'],actual_eligible=candidate['eligible'],
                 matches=candidate['constraint_reasons']==expected_reasons and candidate['eligible']==(not expected_reasons))
-        facts.append(dict(ordinal=item.key[2],decision_id=record['decision_id'],selection_mode=record['selection_mode'],guard_checks=guard_checks,
+        q_source=capture.get('q_snapshot')
+        q_source_checks={}
+        for candidate_action in ACTIONS:
+            original=q_source.get(candidate_action) if type(q_source) is dict else None
+            available=(type(original) is dict and number(original.get('q_value'))
+                and integer(original.get('visits'),0) and type(original.get('q_missing')) is bool)
+            actual={k:record['candidates'][candidate_action][k] for k in ('q_value','visits','q_missing')}
+            q_source_checks[candidate_action]=dict(status='MEASURED' if available else 'UNAVAILABLE',
+                reason=None if available else 'MISSING_OR_INVALID_PRESELECTION_Q_SOURCE',actual=actual,
+                expected=original if available else None,matches=actual==original if available else None)
+        facts.append(dict(ordinal=item.key[2],decision_id=record['decision_id'],selection_mode=record['selection_mode'],guard_checks=guard_checks,q_source_checks=q_source_checks,
             completed_evidence_sha256=hashlib.sha256(item.body).hexdigest(),
             selected_prediction_sha256=record['selected_prediction_sha256'],
             action=action,prediction_link_matches=record['selected_prediction_sha256']==prediction_digest(prediction),
@@ -357,12 +368,36 @@ def _decisions(evidence,source,metric,family):
             resource_status_counts=dict(Counter(s['status'] for c in record['candidates'].values() for s in c['resource_forecasts'].values()))))
         updates=raw.get('updates',capture.get('updates',{}))
         q=updates.get('q'); transition=updates.get('b1',{}).get('transition')
-        if q and transition:
-            old=record['candidates'][action]['q_value']; visits=record['candidates'][action]['visits']
-            reward=transition['legacy_reward']; expected=old+record['alpha']*(reward-old)
+        source_available=(q_source_checks[action]['status']=='MEASURED' and type(q) is dict
+            and type(q.get('before')) is dict and type(q.get('after')) is dict
+            and type(transition) is dict and number(transition.get('legacy_reward'))
+            and 'state_before_json' in transition and 'action' in transition and 'id' in transition)
+        if source_available:
+            original=q_source_checks[action]['expected']
+            old,visits=original['q_value'],original['visits']
+            reward=transition['legacy_reward'];expected=old+record['alpha']*(reward-old)
+            try:transition_before=_json(transition['state_before_json'])
+            except (ValueError,TypeError,AttributeError):transition_before=None
+            links=dict(candidate=q_source_checks[action]['matches'],update_before=q['before']==original,
+                state_key=record['state_key']==state_key(before),
+                # SyntheticBody adds wall_time locally after recording the wire observation.
+                # Compare the actual B1 state to that exact capture boundary; no defaults.
+                state_before=(type(transition_before) is dict and
+                    {k:v for k,v in transition_before.items() if k!='wall_time' or 'wall_time' in before}==before),
+                selected_action=capture.get('selected_action')==action and transition['action']==action,
+                transition_id=updates['b1'].get('transition_id')==transition['id']
+                    and record['transition_id'] in (None,transition['id']),
+                confirmed=q.get('status')=='confirmed' and updates['b1'].get('status')=='confirmed')
+            update_matches=(number(q['after'].get('value')) and integer(q['after'].get('visits'),0)
+                and math.isclose(q['after']['value'],expected,rel_tol=0,abs_tol=1e-12)
+                and q['after']['visits']==visits+1)
             q_facts.append(dict(decision_id=record['decision_id'],transition_id=transition['id'],
-                expected_value=expected,actual_value=q['after']['value'],actual_visits=q['after']['visits'],
-                matches=math.isclose(q['after']['value'],expected,rel_tol=0,abs_tol=1e-12) and q['after']['visits']==visits+1))
+                source_status='MEASURED',source_links=links,expected_value=expected,
+                actual_value=q['after'].get('value'),actual_visits=q['after'].get('visits'),
+                matches=all(links.values()) and update_matches))
+        else:
+            q_facts.append(dict(decision_id=record['decision_id'],source_status='UNAVAILABLE',
+                reason='MISSING_OR_INVALID_Q_UPDATE_SOURCE',matches=None))
         if family=='D':
             from ..scenarios.constrained import task_utility
             utilities.append(task_utility(before,action))
@@ -376,8 +411,12 @@ def _decisions(evidence,source,metric,family):
                     completed_decisions=len(facts),skipped_reasons=None if skipped is None else dict(Counter(s['reason'] for s in skipped))),None,dict(denominator=len(facts))
     if not facts:return None,'MISSING_DECISION_SOURCE',dict(denominator=None)
     if metric=='decision.q-compatibility':
-        if not q_facts:return None,'MISSING_Q_UPDATE_SOURCE',dict(denominator=None)
-        return dict(matched=sum(f['matches'] for f in q_facts),mismatched=sum(not f['matches'] for f in q_facts),**_bounded_facts(q_facts)),None,dict(denominator=len(q_facts))
+        available=[f for f in q_facts if f['source_status']=='MEASURED']
+        missing=len(q_facts)-len(available)
+        if not available:return None,'MISSING_Q_UPDATE_SOURCE',dict(denominator=None,missing_source_updates=missing)
+        return dict(matched=sum(f['matches'] is True for f in available),
+            mismatched=sum(f['matches'] is False for f in available),missing_source_updates=missing,
+            **_bounded_facts(q_facts)),None,dict(denominator=len(available))
     if metric=='decision.eligibility':
         return dict(structurally_valid=len(facts),checked_candidates=4*len(facts),
             matched=sum(c['matches'] for f in facts for c in f['guard_checks'].values()),
@@ -385,7 +424,13 @@ def _decisions(evidence,source,metric,family):
             **_bounded_facts(facts)),None,dict(denominator=4*len(facts))
     if metric=='decision.constraints':return dict(violations=0,checked=len(facts)),None,dict(denominator=len(facts))
     if metric=='decision.prediction-link':return dict(matched=sum(f['prediction_link_matches'] for f in facts),checked=len(facts)),None,dict(denominator=len(facts))
-    return dict(structurally_valid=len(facts),**_bounded_facts(facts)),None,dict(denominator=len(facts))
+    checks=[c for f in facts for c in f['q_source_checks'].values()]
+    return dict(structurally_valid=len(facts),
+        q_source_checked_candidates=sum(c['status']=='MEASURED' for c in checks),
+        q_source_matched_candidates=sum(c['matches'] is True for c in checks),
+        q_source_mismatched_candidates=sum(c['matches'] is False for c in checks),
+        q_source_unavailable_candidates=sum(c['status']=='UNAVAILABLE' for c in checks),
+        **_bounded_facts(facts)),None,dict(denominator=len(facts))
 
 
 def _scoped_source(source,metric,definition,window,member,evidence):
