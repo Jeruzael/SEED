@@ -298,3 +298,27 @@ def test_oversized_member_cannot_enter_complete_suite_aggregate(tmp_path,plan_bo
     result=summarize_suite(frozen_plan,runs,tuple(rows))
     assert result['completed_valid_count']==0 and result['invalid_count']==1
     assert all(a['complete_run_count']==0 for a in result['aggregates'])
+
+
+def test_absent_registered_suite_groups_and_reasons_remain_visible(tmp_path,plan_body):
+    plan=admitted(tmp_path,plan_body)
+    runs=(RunSummary('member-0',RunResult('FAILED','literal-before-output')),)
+    result=summarize_suite(plan,runs,())
+    assert result['failed_count']==1 and result['completed_valid_count']==0
+    group=result['aggregates'][0]
+    assert group['metric']=='prediction.numeric-mae'
+    assert group['planned_run_count']==1 and group['failed_run_count']==1
+    assert group['valid_run_count']==0 and group['complete_run_count']==0
+    assert group['aggregation_state']=='UNAVAILABLE' and group['aggregation_reason']=='NO_COMPLETE_VALID_MEASUREMENT'
+    assert group['sample_weighted_mean'] is None and group['per_run_mean'] is None
+    assert len(group['missing_measurements'])==1
+    assert result['members'][0]['missing_reasons'][group['missing_measurements'][0]]=='FAILED_MEMBER_MISSING_REGISTERED_MEASUREMENT'
+
+
+def test_default_absent_suite_accounts_for_every_primary_group(tmp_path):
+    plan=freeze_plan(default_plan(),ClosedRoot(tmp_path))
+    result=summarize_suite(plan,(),())
+    assert result['planned_count']==30 and result['planned_not_started_count']==30
+    assert {g['metric'] for g in result['aggregates']}==set(METRICS)
+    assert sum(g['planned_run_count'] for g in result['aggregates'])==sum(r.role=='PRIMARY' for r in expand_inventory(plan.plan))
+    assert all(g['aggregation_state']=='UNAVAILABLE' for g in result['aggregates'])

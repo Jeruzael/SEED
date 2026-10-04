@@ -122,7 +122,7 @@ def _statistics(rows):
     return dict(sample_weighted_mean=math.fsum(numerators)/denominator if denominator else None,
         sample_denominator=denominator if denominator else None,per_run_mean=math.fsum(values)/len(values) if values else None,
         median=statistics.median(values) if values else None,min=min(values) if values else None,max=max(values) if values else None,
-        measured_run_count=len(values))
+        measured_run_count=sum(r.state=='MEASURED' for r in rows),numeric_run_count=len(values))
 
 
 def summarize_suite(plan,runs,measurements):
@@ -150,13 +150,20 @@ def summarize_suite(plan,runs,measurements):
             execution_reason=run.execution.reason if run else None,report_valid=inventory_valid,completed_valid=valid,
             completed_prefix=data.get('completed_prefix'),checkpoints=data.get('checkpoints',[]),
             missing_measurements=sorted(expected_ids-{m.identity for m in actual}),
-            missing_reasons={m.identity:m.reason for m in actual if m.state!='MEASURED'},initial_digest=data.get('initial_digest')))
+            missing_reasons={**{i:status+'_MEMBER_MISSING_REGISTERED_MEASUREMENT' for i in expected_ids-{m.identity for m in actual}},**{m.identity:m.reason for m in actual if m.state!='MEASURED'}},initial_digest=data.get('initial_digest')))
     groups={}
+    def group_key(row):
+        dim=expected_metadata(plan,row)['dimensions']
+        return (row.metric,row.version,dim['family'],dim['protocol'],dim['variant'],dim['population'],dim['window'])
+    for row in expected:
+        if row.role!='PRIMARY':continue
+        group=groups.setdefault(group_key(row),dict(expected=[],complete=[],prefix=[],qualifying_sets=set()))
+        group['expected'].append(row)
+    produced={row.identity:row for row in measurements}
     for row in measurements:
         if not _valid_row(plan,row) or row.role!='PRIMARY':continue
-        data=measurement_data(row);dim=data['dimensions']
-        key=(row.metric,row.version,dim['family'],dim['protocol'],dim['variant'],dim['population'],dim['window'])
-        group=groups.setdefault(key,dict(complete=[],prefix=[],qualifying_sets=set()))
+        data=measurement_data(row)
+        group=groups[group_key(row)]
         status,valid=states[row.member]
         if valid:
             group['complete'].append(row)
@@ -166,9 +173,19 @@ def summarize_suite(plan,runs,measurements):
     aggregates=[]
     for key,group in sorted(groups.items()):
         incompatible=len(group['qualifying_sets'])>1
-        stats=_statistics(group['complete']) if not incompatible else {k:None for k in ('sample_weighted_mean','sample_denominator','per_run_mean','median','min','max','measured_run_count')}
+        stats=_statistics(group['complete']) if not incompatible else {k:None for k in ('sample_weighted_mean','sample_denominator','per_run_mean','median','min','max','measured_run_count','numeric_run_count')}
+        execution_counts=Counter(states[row.member][0] for row in group['expected'])
+        measured_count=sum(row.state=='MEASURED' for row in group['complete'])
+        numeric_count=sum(type(row.value) in (int,float) for row in group['complete'])
+        aggregation_state='UNAVAILABLE' if incompatible or not measured_count else 'MEASURED' if numeric_count else 'NOT_EVALUATED'
+        aggregation_reason='CHANGED_QUALIFYING_ACTION_SET' if incompatible else 'NO_COMPLETE_VALID_MEASUREMENT' if not measured_count else 'STRUCTURED_METRIC_HAS_NO_SCALAR_AGGREGATE' if not numeric_count else None
         aggregates.append(dict(metric=key[0],version=key[1],family=key[2],protocol=key[3],variant=key[4],population=key[5],window=key[6],
-            **stats,complete_run_count=len(group['complete']),incomplete_prefix_count=len(group['prefix']),
+            **stats,planned_run_count=len(group['expected']),valid_run_count=measured_count,
+            failed_run_count=execution_counts['FAILED'],incomplete_run_count=execution_counts['INCOMPLETE'],
+            invalid_run_count=sum(states[row.member][0]=='INVALID' or states[row.member][0]=='COMPLETED' and not states[row.member][1] for row in group['expected']),
+            aggregation_state=aggregation_state,aggregation_reason=aggregation_reason,
+            missing_measurements=[row.identity for row in group['expected'] if row.identity not in produced],
+            complete_run_count=len(group['complete']),incomplete_prefix_count=len(group['prefix']),
             incomplete_prefix_descriptive=_statistics(group['prefix']),population_compatible=not incompatible,
             incompatible_reason='CHANGED_QUALIFYING_ACTION_SET' if incompatible else None))
     paired=[]
