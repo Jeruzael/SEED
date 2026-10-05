@@ -101,7 +101,7 @@ def _valid_paired(row,data,numerator,denominator):
         if not math.isclose(math.fsum(r[key] for r in strata.values()),total,rel_tol=1e-12,abs_tol=1e-12):return False
         mean='value' if key=='numerator' else 'baseline_value'
         for r in strata.values():
-            if r['paired']<5:
+            if r['paired']<5 or key=='baseline_numerator' and comparison is None:
                 if r.get(mean) is not None:return False
             elif not _finite(r.get(mean)) or r[mean]<0 or not math.isclose(r[mean],r[key]/r['paired'],rel_tol=1e-12,abs_tol=1e-12):return False
     if comparison is None and any(not math.isclose(r['numerator'],r['baseline_numerator'],rel_tol=1e-12,abs_tol=1e-12) for r in strata.values()):return False

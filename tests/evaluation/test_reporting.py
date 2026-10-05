@@ -225,7 +225,7 @@ def test_sample_weighting_and_per_run_statistics_are_distinct(tmp_path,plan_body
     body['members'].append({**body['members'][0],'id':'member-1'})
     plan=admitted(tmp_path,body)
     output=list(fixture_measurements(plan,{'member-0':.2,'member-1':.8}))
-    data=json.loads(output[0].body);data.update(numerator=2,baseline_numerator=2,action_strata={'rest':dict(opportunities=10,paired=10,numerator=2,baseline_numerator=2,value=.2,baseline_value=.2)},denominator=10,opportunities=10,eligibility_cross_tab=dict(both=10,seed_only=0,baseline_only=0,neither=0),reason_cross_tab={'eligible|eligible':10})
+    data=json.loads(output[0].body);data.update(numerator=2,baseline_numerator=2,action_strata={'rest':dict(opportunities=10,paired=10,numerator=2,baseline_numerator=2,value=.2,baseline_value=None)},denominator=10,opportunities=10,eligibility_cross_tab=dict(both=10,seed_only=0,baseline_only=0,neither=0),reason_cross_tab={'eligible|eligible':10})
     output[0]=replace(output[0],body=json.dumps(data).encode())
     runs=tuple(RunSummary('member-'+str(n),RunResult('COMPLETED',None)) for n in range(2))
     aggregate=summarize_suite(plan,runs,tuple(output))['aggregates'][0]
@@ -522,3 +522,19 @@ def test_absent_paired_structured_evidence_is_null_and_accounted(tmp_path,plan_b
     assert not reconcile_output(plan,(bad,),classify_questions(plan,(bad,),'COMPLETED')).passed
     data.pop('opportunities');incomplete=replace(row,body=json.dumps(data).encode())
     assert not reconcile_output(plan,(incomplete,),classify_questions(plan,(incomplete,),'COMPLETED')).passed
+
+
+def test_absent_comparison_has_no_action_counterpart_mean(tmp_path,plan_body):
+    from development.evaluation.contracts import Population
+    from development.evaluation.metrics.prediction import measure_prediction
+    from .test_prediction_metrics import evidence
+    body=copy.deepcopy(plan_body);body['members'][0]['measured']=5;body['windows'][0]['end']=5
+    body['populations'][0]['comparison']=None;plan=admitted(tmp_path,body)
+    row=measure_prediction('prediction.numeric-mae',tuple(evidence(i) for i in range(1,6)),Population('all',('member-0',)),plan)
+    data=json.loads(row.body)
+    assert row.state=='MEASURED' and data['baseline_value'] is None
+    assert data['action_strata']['rest']['baseline_value'] is None
+    assert reconcile_output(plan,(row,),classify_questions(plan,(row,),'COMPLETED')).passed
+    data['action_strata']['rest']['baseline_value']=data['action_strata']['rest']['value']
+    bad=replace(row,body=json.dumps(data).encode())
+    assert not reconcile_output(plan,(bad,),classify_questions(plan,(bad,),'COMPLETED')).passed
