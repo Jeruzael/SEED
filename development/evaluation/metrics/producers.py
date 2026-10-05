@@ -107,7 +107,17 @@ def _bounded_facts(facts):
         diagnostic_sample_rule='first_eight_in_source_order')
 
 
-def _curiosity(source, metric):
+def _source_equal(actual,expected):
+    """Source JSON equality preserves Boolean types and complete membership."""
+    if type(expected) is dict:
+        return type(actual) is dict and actual.keys()==expected.keys() and all(_source_equal(actual[k],v) for k,v in expected.items())
+    if type(expected) is list:
+        return type(actual) is list and len(actual)==len(expected) and all(_source_equal(a,b) for a,b in zip(actual,expected))
+    if type(actual) is bool or type(expected) is bool:return type(actual) is type(expected) and actual==expected
+    return actual==expected
+
+
+def _curiosity(source, metric, evidence):
     rows = _table(source,'curiosity_assessments')
     if not rows:
         return None,'MISSING_CURIOSITY_SOURCE',{}
@@ -115,22 +125,49 @@ def _curiosity(source, metric):
     if metric=='curiosity.unavailable':
         return dict(unavailable=unavailable,assessments=len(rows)),None,{}
     evaluated=[r for r in rows if r['status']=='evaluated']
-    if not evaluated:
-        return None,'NO_EVALUATED_ASSESSMENT',{}
     if metric=='curiosity.bounds':
+        if not evaluated:return None,'NO_EVALUATED_ASSESSMENT',{}
         violations=sum(type(r.get('score')) not in (int,float) or not math.isfinite(r['score']) or not 0<=r['score']<=1 for r in evaluated)
         return dict(violations=violations,assessments=len(evaluated)),None,{}
+    transitions={}
+    for item in evidence:
+        joined=strict_json(item.body);capture=joined.get('capture',joined)
+        b1=joined.get('updates',capture.get('updates',{})).get('b1',{})
+        transition=b1.get('transition')
+        if b1.get('status')=='confirmed' and type(transition) is dict and transition.get('id')==b1.get('transition_id'):
+            tid=str(transition['id'])
+            if tid in transitions and transitions[tid]!=transition:raise ContractError()
+            transitions[tid]=transition
     facts=[]
-    for row in evaluated:
-        surprise, uncertainty, novelty = row['prediction_surprise'],row['uncertainty'],row['novelty']
-        if any(type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=1 for v in (surprise,uncertainty,novelty,row['coverage'])):
+    for row in rows:
+        surprise, uncertainty, novelty = row.get('prediction_surprise'),row.get('uncertainty'),row.get('novelty')
+        if row['status']=='evaluated' and any(type(v) not in (int,float) or not math.isfinite(v) or not 0<=v<=1 for v in (surprise,uncertainty,novelty,row['coverage'])):
             raise ContractError()
-        reference=surprise*(.5+.5*uncertainty)*(.5+.5*novelty)
+        reference=surprise*(.5+.5*uncertainty)*(.5+.5*novelty) if row['status']=='evaluated' else None
         components=row.get('components', _json(row['components_json']) if 'components_json' in row else {})
         # Compare recorded prior component snapshots to separately captured
         # prior facts when present. Missing prior capture never becomes a match.
         prior=source.get('prior_world_by_transition',{}).get(str(row['transition_id']))
         b3=source.get('b3_by_transition',{}).get(str(row['transition_id']))
+        transition=transitions.get(str(row['transition_id']))
+        source_reference=None;source_missing=[]
+        if prior is None:source_missing.append('prior_b4')
+        if b3 is None:source_missing.append('b3')
+        if transition is None:source_missing.append('confirmed_b1_transition')
+        if not source_missing:
+            # Original pure reference only: no learning reimplementation,
+            # producer update, additional source reads or assessment repair.
+            from seed.curiosity import assess_curiosity
+            original_prior={signal:dict(belief,value_json=_raw(belief['value_json'])) for signal,belief in prior.items()}
+            source_reference=assess_curiosity(b3,_json(transition['state_before_json']),transition['action'],
+                _json(transition['state_after_json']),original_prior)
+        source_mismatches=[]
+        if source_reference is not None:
+            for key,expected in source_reference.items():
+                actual=components if key=='components' else row.get(key)
+                # SQLite stores the producer Boolean as an INTEGER column.
+                if key=='reflection_eligible' and type(actual) is int and actual in (0,1):actual=bool(actual)
+                if not _source_equal(actual,expected):source_mismatches.append(key)
         aggregate=b3.get('aggregate',{}) if b3 else {}
         error,coverage=aggregate.get('mean_normalized_error'),aggregate.get('coverage')
         reference_surprise=error*coverage if type(error) in (int,float) and type(coverage) in (int,float) else None
@@ -152,12 +189,20 @@ def _curiosity(source, metric):
                     contradiction_reference=contradiction,
                     contradiction_matches=component.get('contradictory')==contradiction if contradiction is not None else None))
         facts.append(dict(transition_id=row['transition_id'],actual_score=row['score'],reference_score=reference,
-            matches=math.isclose(row['score'],reference,rel_tol=0,abs_tol=1e-12),
+            matches=math.isclose(row['score'],reference,rel_tol=0,abs_tol=1e-12) if reference is not None else None,
             prediction_surprise=surprise,coverage=row['coverage'],uncertainty=uncertainty,novelty=novelty,
             b3_reference_surprise=reference_surprise,
-            b3_source_matches=math.isclose(surprise,reference_surprise,rel_tol=0,abs_tol=1e-12) if reference_surprise is not None else None,
+            b3_source_matches=math.isclose(surprise,reference_surprise,rel_tol=0,abs_tol=1e-12) if type(surprise) in (int,float) and reference_surprise is not None else None,
+            source_status='UNAVAILABLE' if source_reference is None else 'MISMATCH' if source_mismatches else 'MATCH',
+            source_mismatched_fields=source_mismatches,source_missing=source_missing,
+            source_reference=source_reference,
             prior_source_checks=prior_checks,prior_source_status='captured' if prior is not None else 'unavailable'))
-    return dict(formula_matches=sum(f['matches'] for f in facts),assessments=len(facts),
+    if not evaluated and all(f['source_status']=='UNAVAILABLE' for f in facts):
+        return None,'NO_EVALUATED_ASSESSMENT',{}
+    return dict(formula_matches=sum(f['matches'] is True for f in facts),assessments=len(facts),
+        source_matches=sum(f['source_status']=='MATCH' for f in facts),
+        source_mismatches=sum(f['source_status']=='MISMATCH' for f in facts),
+        source_unavailable=sum(f['source_status']=='UNAVAILABLE' for f in facts),
         b3_source_matches=sum(f['b3_source_matches'] is True for f in facts),
         b3_source_mismatches=sum(f['b3_source_matches'] is False for f in facts),
         b3_source_unavailable=sum(f['b3_source_matches'] is None for f in facts),
@@ -575,7 +620,7 @@ def measure_producers(evidence, sources, plan):
             value,reason,facts=None,'MISSING_REGISTERED_SCOPE_EVIDENCE',{}
             source={}
         elif metric.startswith('world.'):value,reason,facts=_world(source,metric)
-        elif metric.startswith('curiosity.'):value,reason,facts=_curiosity(source,metric)
+        elif metric.startswith('curiosity.'):value,reason,facts=_curiosity(source,metric,selected)
         elif metric.startswith('semantic.'):value,reason,facts=_semantic(source,metric,member['protocol'])
         elif metric.startswith('self.'):value,reason,facts=_self(source,metric)
         else:

@@ -283,6 +283,32 @@ def test_actual_q_update_and_curiosity_b3_link(tmp_path,plan_body,foundation_mod
         assert out['curiosity.components'].value['facts'][0]['b3_source_matches'] is True
         assert out['curiosity.components'].value['facts'][0]['prior_source_status'] == 'captured'
         assert all(c['matches'] for c in out['curiosity.components'].value['facts'][0]['prior_source_checks'])
+        assert out['curiosity.components'].value['source_matches']==1, json.dumps(out['curiosity.components'].value)
+        original_source=copy.deepcopy(source)
+        # Structural arithmetic can be self-consistent while source claims lie.
+        for defect in ('uncertainty-novelty','coverage','membership','sample','component-mean','false-unavailable'):
+            forged=copy.deepcopy(source)
+            row=forged['tables']['curiosity_assessments'][0]
+            components=json.loads(row['components_json'])
+            signal=next(iter(components['signals']))
+            if defect=='uncertainty-novelty':
+                row.update(uncertainty=0.,novelty=0.)
+                for component in components['signals'].values():component.update(uncertainty=0.,novelty=0.)
+            elif defect=='coverage':row['coverage']=.5
+            elif defect=='membership':components['signals'].pop(signal)
+            elif defect=='sample':components['signals'][signal]['sample']+=.2
+            elif defect=='component-mean':row['uncertainty']=.5
+            else:row.update(status='unavailable',score=None)
+            if row['status']=='evaluated':
+                row['score']=row['prediction_surprise']*(.5+.5*row['uncertainty'])*(.5+.5*row['novelty'])
+            row['components_json']=json.dumps(components)
+            audited={m.metric:m for m in measure_producers((point,),{'member-0':forged},frozen_plan)}['curiosity.components']
+            assert audited.state=='MEASURED' and audited.value['source_mismatches']==1,defect
+            if defect!='false-unavailable':assert audited.value['formula_matches']==1
+            assert audited.value['facts'][0]['source_mismatched_fields'],defect
+        missing={m.metric:m for m in measure_producers((),{'member-0':source},frozen_plan)}['curiosity.components'].value
+        assert missing['source_unavailable']==1 and missing['source_matches']==0
+        assert source==original_source
         wrong=copy.deepcopy(response)
         wrong['updates']['q']['after']['value']+=1
         changed=CompletedEvidence(point.key,json.dumps(wrong).encode())
