@@ -82,13 +82,17 @@ def audit_sources(tmp_path_factory):
     journal=ScoreJournal.create(evaluation,'f'*32)
     worker=WorkerHandle.start(WorkerLaunch(cap,b'{"epsilon":0.15,"alpha":0.18}',3,'f'*64),channel=ChannelRouter(StationaryScenario(),journal=journal))
     try:
-        response=worker.request({'operation':'cycle','key':['measured','default',1,'pre']})
-        assert response['status']=='completed' and response['acked']
-        tid=response['updates']['b1']['transition_id']
-        source['tables']['curiosity_assessments']=[response['updates']['b5']['assessment']]
-        source.update(b3_by_transition={str(tid):response['capture']['b3_result']},
-            prior_world_by_transition={str(tid):response['capture']['prior_b4']},skipped_attempts=[])
-        return source,(CompletedEvidence(('measured','default',1,'update'),json.dumps(response).encode()),)
+        points=[];assessments=[];b3={};prior={}
+        for n in range(1,11):
+            response=worker.request({'operation':'cycle','key':['measured','default',n,'pre']})
+            assert response['status']=='completed' and response['acked']
+            tid=response['updates']['b1']['transition_id']
+            assessments.append(response['updates']['b5']['assessment'])
+            b3[str(tid)]=response['capture']['b3_result'];prior[str(tid)]=response['capture']['prior_b4']
+            points.append(CompletedEvidence(('measured','default',n,'update'),json.dumps(response).encode()))
+        source['tables']['curiosity_assessments']=assessments
+        source.update(b3_by_transition=b3,prior_world_by_transition=prior,skipped_attempts=[])
+        return source,tuple(points)
     finally:worker.stop();journal.close()
 
 
@@ -151,4 +155,33 @@ def test_structured_counts_types_and_negative_facts_reconcile(tmp_path,audit_sou
 def test_semantic_report_latency_matches_original_clocks(tmp_path,audit_sources):
     plan,row=output(tmp_path,'semantic.promotion-latency',audit_sources)
     value=copy.deepcopy(row.value);value['promotions'][0]['latency']=-1.
+    rejected(plan,row,value)
+
+
+@pytest.mark.parametrize('metric',('curiosity.components','decision.provenance','decision.q-compatibility','self.freshness'))
+def test_complete_audit_totals_cannot_be_replaced_by_first_eight_sample(tmp_path,audit_sources,metric):
+    plan,row=output(tmp_path,metric,audit_sources);value=copy.deepcopy(row.value)
+    if metric=='self.freshness':
+        assert value['source_faithful'] is False
+        value['source_faithful']=True
+    else:
+        assert value['fact_count']==10 and len(value['facts'])==8
+        if metric=='curiosity.components':
+            assert value['source_matches']==10
+            value['source_matches']-=1;value['source_mismatches']+=1
+        elif metric=='decision.provenance':
+            value['q_source_matched_candidates']-=1;value['q_source_mismatched_candidates']+=1
+        else:value['matched']-=1;value['mismatched']+=1
+    rejected(plan,row,value)
+
+
+@pytest.mark.parametrize('metric',('curiosity.components','semantic.promotion-latency','semantic.source-consistency','decision.eligibility','decision.q-compatibility'))
+def test_primary_audit_fact_contract_rejects_invented_nested_claim(tmp_path,audit_sources,metric):
+    import hashlib
+    plan,row=output(tmp_path,metric,audit_sources);value=copy.deepcopy(row.value)
+    value['facts'][0]['invented_inferential_claim']='favorable'
+    # A self-consistent content digest is not a versioned field contract.
+    if value['fact_count']<=8:
+        raw=json.dumps(value['facts'],sort_keys=True,separators=(',',':'),allow_nan=False).encode()
+        value['facts_sha256']=hashlib.sha256(b'SEED_B10_AUDIT_FACTS_V1\0'+raw).hexdigest()
     rejected(plan,row,value)

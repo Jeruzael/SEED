@@ -174,6 +174,10 @@ def curiosity(metric,v):
     need(v['source_matches']+v['source_mismatches']+v['source_unavailable']==n
          and v['b3_source_matches']+v['b3_source_mismatches']+v['b3_source_unavailable']==n)
     for f in sample:
+        shape(f,('transition_id','actual_score','reference_score','matches','prediction_surprise','coverage','uncertainty','novelty','b3_reference_surprise','b3_source_matches','source_status','source_mismatched_fields','source_missing','source_reference','prior_source_checks','prior_source_status'))
+        for c in f['prior_source_checks']:
+            shape(c,('signal','matches','contradiction_reference','contradiction_matches'))
+            need(type(c['signal']) is str and (c['contradiction_reference'] is None or type(c['contradiction_reference']) is bool))
         need(positive(f['transition_id']) and f['source_status'] in ('MATCH','MISMATCH','UNAVAILABLE')
              and f['prior_source_status'] in ('captured','unavailable'))
         need(all(f[k] is None or type(f[k]) is bool for k in ('matches','b3_source_matches')))
@@ -213,6 +217,7 @@ def semantic(metric,v,d):
             identity=(p['run_id'],p['source_belief_id']);need(p['semantic_memory_id'] not in seen and p['creation_event_id'] not in events and identity not in sources)
             seen.add(p['semantic_memory_id']);events.add(p['creation_event_id']);sources.add(identity)
         for f in sample:
+            shape(f,('run_id','source_belief_id','eligible_at','actual_run_eligible_beliefs','claimed_support','claimed_confidence','reference_support','reference_confidence','source_fingerprint','source_status'))
             need(positive(f['run_id']) and positive(f['source_belief_id']) and number(f['eligible_at']) and count(f['actual_run_eligible_beliefs']) and f['source_status'] in ('MATCH','MISMATCH','UNAVAILABLE'))
             if f['source_status']!='UNAVAILABLE':
                 need(count(f['reference_support']) and number(f['reference_confidence']) and 0<=f['reference_confidence']<=1);digest(f['source_fingerprint'])
@@ -223,12 +228,14 @@ def semantic(metric,v,d):
         keys=('current_status_counts','historical_status_counts','revision_edges','status_changes','unchanged_status_revisions','reactivations','status_transition_counts','reactivation_requires_observed_prior_active')
         shape(v,(*keys,*FACT_KEYS));sample,n=facts(v,v['revision_edges']);counts(v,('revision_edges','status_changes','unchanged_status_revisions','reactivations'))
         for key in ('current_status_counts','historical_status_counts'):count_map(v[key],('active','weakened','source_unavailable'))
+        need(sum(v['historical_status_counts'].values())==n)
         need(count(d['denominator']) and d['denominator']==n and v['status_changes']+v['unchanged_status_revisions']==n
              and v['reactivations']<=v['status_changes'] and v['reactivation_requires_observed_prior_active'] is True
              and count_map(v['status_transition_counts'])==v['status_changes'])
         states=('active','weakened','source_unavailable')
         need(all(k in {a+'->'+b for a in states for b in states if a!=b} for k in v['status_transition_counts']))
         for f in sample:
+            shape(f,('semantic_id','from_revision','to_revision','from_status','to_status','reactivation','from_source_belief_id','to_source_belief_id','from_source_fingerprint','to_source_fingerprint'))
             need(positive(f['semantic_id']) and positive(f['from_revision']) and positive(f['to_revision']) and f['to_revision']==f['from_revision']+1
                  and f['from_status'] in states and f['to_status'] in states and type(f['reactivation']) is bool)
             if f['reactivation']:need(f['from_status']!='active' and f['to_status']=='active')
@@ -242,6 +249,7 @@ def semantic(metric,v,d):
     need(v['cursor'] is None or type(v['cursor']) is list and all(type(r) is dict for r in v['cursor']))
     need(v['content_matched']+v['content_mismatched']+v['content_unavailable']==n)
     for f in sample:
+        shape(f,('semantic_id','source_belief_id','source_available','fingerprint_matches','status','source_unavailable_consistent','source_link_valid','actual_support','actual_confidence','claimed_eligible','eligible_at_capture','content_source_version','content_status','content_mismatched_fields','reference_support','reference_confidence','claimed_source_updated_at','captured_source_updated_at'))
         need(positive(f['semantic_id']) and positive(f['source_belief_id']) and f['status'] in ('active','weakened','source_unavailable') and f['content_status'] in ('MATCH','MISMATCH','UNAVAILABLE'))
         need(all(type(f[k]) is bool for k in ('source_available','fingerprint_matches','source_unavailable_consistent','source_link_valid','claimed_eligible')))
         need(type(f['content_mismatched_fields']) is list)
@@ -304,6 +312,10 @@ def decision(metric,v,d):
         shape(v,('matched','mismatched','missing_source_updates',*FACT_KEYS));counts(v,('matched','mismatched','missing_source_updates'));sample,n=facts(v)
         need(v['matched']+v['mismatched']==denominator>0 and denominator+v['missing_source_updates']==n)
         for f in sample:
+            shape(f,('decision_id','source_status','matches'),('reason',) if f.get('source_status')=='UNAVAILABLE' else ('transition_id','source_links','expected_value','actual_value','actual_visits'))
+            if f.get('source_status')=='MEASURED':
+                shape(f,('decision_id','source_status','matches','transition_id','source_links','expected_value','actual_value','actual_visits'))
+                shape(f['source_links'],('candidate','update_before','state_key','state_before','selected_action','transition_id','confirmed'))
             need(decision_id(f['decision_id']) and f['source_status'] in ('MEASURED','UNAVAILABLE'))
             if f['source_status']=='MEASURED':
                 need(type(f['matches']) is bool and positive(f['transition_id']) and type(f['source_links']) is dict and all(type(x) is bool for x in f['source_links'].values()) and number(f['expected_value']) and number(f['actual_value']) and count(f['actual_visits']))
@@ -317,6 +329,12 @@ def decision(metric,v,d):
     shape(v,(*keys,*FACT_KEYS));counts(v,keys);sample,n=facts(v,v['structurally_valid']);need(n>0)
     checks=[]
     for f in sample:
+        shape(f,('ordinal','decision_id','selection_mode','guard_checks','q_source_checks','completed_evidence_sha256','selected_prediction_sha256','action','prediction_link_matches','eligible_actions','selection_candidates','choice_index','history','resource_status_counts'))
+        for key in ('eligible_actions','selection_candidates'):
+            need(type(f[key]) is list and f[key] and all(a in ACTIONS for a in f[key]) and len(set(f[key]))==len(f[key]))
+        need(set(f['selection_candidates'])<=set(f['eligible_actions']) and f['action'] in f['selection_candidates'])
+        need(f['choice_index'] is None if len(f['selection_candidates'])==1 else count(f['choice_index']) and f['choice_index']<len(f['selection_candidates']) and f['selection_candidates'][f['choice_index']]==f['action'])
+        need(type(f['history']) is dict);count_map(f['resource_status_counts'])
         need(decision_id(f['decision_id']) and positive(f['ordinal']) and f['action'] in ACTIONS and f['selection_mode'] in ('exploit','explore','fallback'))
         digest(f['completed_evidence_sha256']);digest(f['selected_prediction_sha256'])
         need(type(f['prediction_link_matches']) is bool and type(f['guard_checks']) is dict and set(f['guard_checks'])==set(ACTIONS)
@@ -325,9 +343,14 @@ def decision(metric,v,d):
         for c in (f['guard_checks'] if guard else f['q_source_checks']).values():
             need(type(c['matches']) is bool if guard else c['matches'] is None or type(c['matches']) is bool)
             if guard:
+                shape(c,('expected_reasons','actual_reasons','actual_eligible','matches'))
                 need(type(c['actual_eligible']) is bool and type(c['actual_reasons']) is list and type(c['expected_reasons']) is list)
                 need(c['matches']==(same(c['actual_reasons'],c['expected_reasons']) and c['actual_eligible']==(not c['expected_reasons'])))
             else:
+                shape(c,('status','reason','actual','expected','matches'))
+                for q in (c['actual'],c['expected']):
+                    if q is not None:
+                        shape(q,('q_value','visits','q_missing'));need(number(q['q_value']) and count(q['visits']) and type(q['q_missing']) is bool)
                 need(c['status'] in ('MEASURED','UNAVAILABLE'))
                 need(c['matches'] is None and c['expected'] is None if c['status']=='UNAVAILABLE' else type(c['matches']) is bool and c['matches']==same(c['actual'],c['expected']))
             checks.append(c)
@@ -341,9 +364,21 @@ def decision(metric,v,d):
             summary(v,'q_source_'+key+'_candidates',checks,4*n,predicate)
 
 
+def audit_counts(value):
+    """Complete producer-audit totals captured independently of report value.
+
+    This is supplemental accounting, not a checksum or substitute for the
+    versioned payload contract. Never infer these totals from sampled facts.
+    """
+    return {k:dict(v) if type(v) is dict else v for k,v in value.items()
+            if type(v) in (int,bool) or k.endswith('_counts') and type(v) is dict}
+
+
 def valid_structured(row,d):
     v=row.value;need(type(v) is dict)
     metric=row.metric
+    if not metric.startswith('prediction.'):
+        need(type(d.get('audit_counts')) is dict and same(d['audit_counts'],audit_counts(v)))
     if metric=='prediction.coverage':need(same(v,d['coverage']))
     elif metric=='prediction.support-counts':
         shape(v,('methods','support'));need(same(v['methods'],d['methods']) and same(v['support'],d['method_support']))

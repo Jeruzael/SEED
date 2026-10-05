@@ -42,6 +42,8 @@ def fixture_measurements(plan,values=None):
         if state=='MEASURED' and row.metric=='prediction.window-change':
             data.update(qualifying_actions=['rest'],standardized=dict(early=value+1.,late=1.),
                 per_action={'rest':dict(early=value+1.,late=1.,early_count=5,late_count=5)})
+        if state=='MEASURED' and row.metric=='curiosity.bounds':
+            data['audit_counts']=copy.deepcopy(value)
         data.update(value=value,plan_digest=plan.digest,numerator=None if value is None or not numeric else value,
                     denominator=None if value is None or not numeric else 1,unit='literal_report_fixture')
         output.append(replace(row,state=state,body=json.dumps(data).encode()))

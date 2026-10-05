@@ -7,6 +7,7 @@ import math
 from ..analysis import expand_inventory
 from ..contracts import CompletedEvidence, ContractError, Population, strict_json, validate_event_key
 from ..registry import ACTIONS
+from .payloads import audit_counts
 from .registry import measured, plan_data
 
 
@@ -932,6 +933,8 @@ def measure_producers(evidence, sources, plan):
                 source_scope='registered_completed_event_and_skipped_attempt_scope'
             if definition['signal']!='all':value,reason,facts=None,'MISSING_REGISTERED_SCOPE_EVIDENCE',{}
             else:value,reason,facts=_decisions(selected,source,metric,member['family'])
+        if type(value) is dict:
+            facts=dict(facts,audit_counts=audit_counts(value))
         result.append(measured(metric,population,plan,value=value,reason=reason,
             source_scope=source_scope,source_digest=hashlib.sha256(b'SEED_B10_PRODUCER_SOURCES_V1\0'+raw).hexdigest(),
             source_cutoff=source.get('cutoff'),source_limits=source.get('limits'),**facts))
