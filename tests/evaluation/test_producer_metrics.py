@@ -151,6 +151,35 @@ def test_semantic_opportunities_and_provenance(tmp_path, plan_body, monkeypatch)
         assert out['semantic.source-consistency'].value['matched'] == 2
         assert out['semantic.source-consistency'].value['content_matched'] == 2
         assert out['semantic.provenance'].value['valid_source_links'] == 2
+        # Identical unordered counts conceal different actual reactivations.
+        base=copy.deepcopy(tables['semantic_memories'][0])
+        for statuses,reactivations,changes in [
+            (['active','weakened','active','weakened'],2,4),
+            (['active','active','weakened','weakened'],1,2),
+        ]:
+            history=[dict(semantic_memory_id=base['id'],revision=n,revised_at=10.+n,
+                data_json=json.dumps({**base,'revision':n,'status':status}))
+                for n,status in enumerate(statuses,1)]
+            current={**base,'revision':5,'status':'active'}
+            sequence={'semantic_memories':[current],'semantic_memory_history':history}
+            metric=results(frozen_plan,sequence)['semantic.status-transitions']
+            assert metric.value['reactivations']==reactivations
+            assert metric.value['status_changes']==changes
+            assert metric.value['historical_status_counts']=={'active':2,'weakened':2}
+            assert metric.value['revision_edges']==4
+            assert metric.value['unchanged_status_revisions']==4-changes
+            assert all(e['semantic_id']==base['id'] and e['to_revision']==e['from_revision']+1
+                       for e in metric.value['facts'])
+            broken={**sequence,'semantic_memory_history':history[:1]+history[2:]}
+            missing=results(frozen_plan,broken)['semantic.status-transitions']
+            assert missing.state=='UNAVAILABLE' and missing.reason=='MISSING_SEMANTIC_REVISION_SEQUENCE'
+            orphan={'semantic_memories':[],'semantic_memory_history':history}
+            assert results(frozen_plan,orphan)['semantic.status-transitions'].state=='UNAVAILABLE'
+            from development.evaluation.contracts import ContractError
+            for field in ('revision','semantic_memory_id'):
+                malformed=copy.deepcopy(history);malformed[0][field]=True
+                with pytest.raises(ContractError):
+                    results(frozen_plan,{**sequence,'semantic_memory_history':malformed})
         original_dump=list(memory.db.iterdump())
         wrong=copy.deepcopy(tables)
         wrong['semantic_memories'][0].update(evidence_count=999,confidence=.95,

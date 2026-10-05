@@ -211,6 +211,50 @@ def _curiosity(source, metric, evidence):
         **_bounded_facts(facts)),None,{}
 
 
+def _semantic_status(rows,history):
+    states=('active','weakened','source_unavailable')
+    def validate(row):
+        if (type(row) is not dict or type(row.get('id')) is not int or row['id']<1
+                or type(row.get('revision')) is not int or row['revision']<1
+                or row.get('status') not in states):raise ContractError()
+    current={};groups={};historical=[]
+    for row in rows:
+        validate(row)
+        if row['id'] in current:raise ContractError()
+        current[row['id']]=row
+    for record in history:
+        row=_json(record['data_json']);validate(row)
+        if (type(record['semantic_memory_id']) is not int or type(record['revision']) is not int
+                or record['semantic_memory_id']!=row['id'] or record['revision']!=row['revision']):raise ContractError()
+        group=groups.setdefault(row['id'],{})
+        if row['revision'] in group:raise ContractError()
+        group[row['revision']]=row;historical.append(row)
+    counts=dict(current_status_counts=dict(Counter(r['status'] for r in rows)),
+        historical_status_counts=dict(Counter(r['status'] for r in historical)))
+    incomplete=[];edges=[]
+    for sid in sorted(set(current)|set(groups)):
+        row=current.get(sid);past=groups.get(sid,{})
+        # A gap cannot become a zero-transition claim, or an invented edge.
+        if row is None or len(past)!=row['revision']-1 or sorted(past)!=list(range(1,row['revision'])):
+            incomplete.append(sid);continue
+        frames=[past[n] for n in sorted(past)]+[row]
+        previously_active=frames[0]['status']=='active'
+        for before,after in zip(frames,frames[1:]):
+            reactivated=previously_active and before['status']!='active' and after['status']=='active'
+            edges.append(dict(semantic_id=sid,from_revision=before['revision'],to_revision=after['revision'],
+                from_status=before['status'],to_status=after['status'],reactivation=reactivated,
+                from_source_belief_id=before.get('source_belief_id'),to_source_belief_id=after.get('source_belief_id'),
+                from_source_fingerprint=before.get('source_fingerprint'),to_source_fingerprint=after.get('source_fingerprint')))
+            previously_active |= after['status']=='active'
+    if incomplete:
+        return None,'MISSING_SEMANTIC_REVISION_SEQUENCE',dict(**counts,incomplete_semantic_ids=incomplete,denominator=None)
+    changed=[e for e in edges if e['from_status']!=e['to_status']]
+    return dict(**counts,revision_edges=len(edges),status_changes=len(changed),
+        unchanged_status_revisions=len(edges)-len(changed),reactivations=sum(e['reactivation'] for e in edges),
+        status_transition_counts=dict(Counter(e['from_status']+'->'+e['to_status'] for e in changed)),
+        reactivation_requires_observed_prior_active=True,**_bounded_facts(edges)),None,dict(denominator=len(edges))
+
+
 def _semantic(source,metric,protocol):
     if protocol=='FROZEN_SELECTION_ASSAY' and metric in ('semantic.promotion-latency','semantic.revisions','semantic.status-transitions'):
         return None,'FROZEN_PROTOCOL_SUPPRESSES_MUTATION',dict(state='NOT_EVALUATED')
@@ -242,7 +286,7 @@ def _semantic(source,metric,protocol):
         return dict(revisions=len(history),semantic_ids=sorted({r['semantic_memory_id'] for r in history})),None,{}
     if metric=='semantic.status-transitions':
         if history is None:return None,'MISSING_SEMANTIC_HISTORY',{}
-        return dict(current_status_counts=dict(Counter(r['status'] for r in rows)),historical_status_counts=dict(Counter(_json(r['data_json'])['status'] for r in history))),None,{}
+        return _semantic_status(rows,history)
     beliefs=_table(source,'world_beliefs')
     if beliefs is None:return None,'MISSING_SEMANTIC_SOURCE_BELIEFS',{}
     by_id={b['id']:b for b in beliefs}
