@@ -12,6 +12,58 @@ EXECUTION = ('PLANNED','RUNNING','COMPLETED','INCOMPLETE','FAILED','INVALID')
 FINDINGS = ('POSITIVE','MIXED','NEGATIVE','INCONCLUSIVE','NOT_EVALUATED')
 
 
+# Registry v1 mean metrics have numeric payloads, not producer audit objects.
+_MEANS=('prediction.numeric-mae','prediction.numeric-normalized-mae',
+        'prediction.boolean-accuracy','prediction.boolean-brier','decision.task-utility')
+
+def _finite(value):
+    return type(value) in (int,float) and math.isfinite(value)
+
+
+def _count(value):
+    return type(value) is int and value>=0
+
+
+def _valid_payload(row,data):
+    value=row.value
+    if row.metric=='prediction.window-change':return _finite(value)  # signed change
+    if row.metric not in _MEANS:return type(value) is dict
+    numerator,denominator=data.get('numerator'),data.get('denominator')
+    if (not _finite(value) or value<0 or not _finite(numerator) or numerator<0
+            or not _count(denominator) or denominator<1
+            or not math.isclose(value,numerator/denominator,rel_tol=1e-12,abs_tol=1e-12)):
+        return False
+    if row.metric in ('prediction.boolean-accuracy','prediction.boolean-brier','decision.task-utility') and value>1:
+        return False
+    if row.metric=='decision.task-utility':return True
+    opportunities,exclusions=data.get('opportunities'),data.get('exclusions')
+    if not _count(opportunities) or not _count(exclusions) or denominator+exclusions!=opportunities:return False
+    minimum=5 if data['dimensions']['action']!='all' or data['dimensions']['stratum']=='action_mean' else 1
+    if denominator<minimum:return False
+    cross=data.get('eligibility_cross_tab');reasons=data.get('reason_cross_tab');coverage=data.get('coverage')
+    if (type(cross) is not dict or set(cross)!={'both','seed_only','baseline_only','neither'}
+            or any(not _count(n) for n in cross.values()) or sum(cross.values())!=opportunities
+            or cross['both']!=denominator or type(reasons) is not dict
+            or any(not _count(n) for n in reasons.values()) or sum(reasons.values())!=opportunities
+            or type(coverage) is not dict):return False
+    method,comparison=data['dimensions']['method'],data['dimensions']['comparison']
+    expected={method:(cross['both']+cross['seed_only'])/opportunities}
+    if comparison is not None:expected[comparison]=(cross['both']+cross['baseline_only'])/opportunities
+    if set(coverage)!=set(expected) or any(not _finite(coverage[k]) or not math.isclose(coverage[k],v,rel_tol=1e-12,abs_tol=1e-12) for k,v in expected.items()):return False
+    if comparison is None and (cross['seed_only'] or cross['baseline_only']):return False
+    strata=data.get('action_strata')
+    if strata is not None:
+        if type(strata) is not dict or any(type(r) is not dict or not _count(r.get('opportunities')) or not _count(r.get('paired')) or r['paired']>r['opportunities'] for r in strata.values()):return False
+        if sum(r['opportunities'] for r in strata.values())!=opportunities or sum(r['paired'] for r in strata.values())!=denominator:return False
+        if any(not _finite(r.get('numerator')) or r['numerator']<0 for r in strata.values()):return False
+        if not math.isclose(math.fsum(r['numerator'] for r in strata.values()),numerator,rel_tol=1e-12,abs_tol=1e-12):return False
+        for r in strata.values():
+            if r['paired']<5:
+                if r.get('value') is not None:return False
+            elif not _finite(r.get('value')) or not math.isclose(r['value'],r['numerator']/r['paired'],rel_tol=1e-12,abs_tol=1e-12):return False
+    return True
+
+
 def _valid_row(plan,row):
     if type(row) is not Measurement or row.state not in ('MEASURED','UNAVAILABLE','NOT_EVALUATED'):
         return False
@@ -25,6 +77,7 @@ def _valid_row(plan,row):
             return False
         if not expected['applicable'] and (row.state!='NOT_EVALUATED' or row.reason!=expected['reason']):
             return False
+        if row.state=='MEASURED' and not _valid_payload(row,data):return False
         if row.state=='MEASURED' and row.metric in ('decision.constraints','decision.eligibility','curiosity.bounds'):
             key='mismatched' if row.metric=='decision.eligibility' else 'violations'
             if type(row.value) is not dict or type(row.value.get(key)) is not int or row.value[key]!=0:return False

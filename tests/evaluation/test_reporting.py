@@ -29,8 +29,16 @@ def fixture_measurements(plan,values=None):
             value=values.get(row.member,values.get(row.metric,.5))
             state='MEASURED' if value is not None else 'UNAVAILABLE'
             data['reason']=None if value is not None else 'INSUFFICIENT_EVIDENCE'
-        data.update(value=value,plan_digest=plan.digest,numerator=None if value is None else value,
-                    denominator=None if value is None else 1,unit='literal_report_fixture')
+        numeric=row.metric in ('prediction.numeric-mae','prediction.numeric-normalized-mae',
+            'prediction.boolean-accuracy','prediction.boolean-brier','prediction.window-change','decision.task-utility')
+        if value is not None and not numeric and type(value) is not dict:
+            value={'literal_fixture':value}
+        if state=='MEASURED' and row.metric.startswith('prediction.') and numeric and row.metric!='prediction.window-change':
+            method=data['dimensions']['method'];comparison=data['dimensions']['comparison']
+            data.update(opportunities=1,exclusions=0,eligibility_cross_tab=dict(both=1,seed_only=0,baseline_only=0,neither=0),
+                reason_cross_tab={'eligible|eligible':1},coverage={m:1. for m in (method,comparison) if m is not None})
+        data.update(value=value,plan_digest=plan.digest,numerator=None if value is None or not numeric else value,
+                    denominator=None if value is None or not numeric else 1,unit='literal_report_fixture')
         output.append(replace(row,state=state,body=json.dumps(data).encode()))
     return tuple(output)
 
@@ -211,7 +219,7 @@ def test_sample_weighting_and_per_run_statistics_are_distinct(tmp_path,plan_body
     body['members'].append({**body['members'][0],'id':'member-1'})
     plan=admitted(tmp_path,body)
     output=list(fixture_measurements(plan,{'member-0':.2,'member-1':.8}))
-    data=json.loads(output[0].body);data.update(numerator=2,denominator=10)
+    data=json.loads(output[0].body);data.update(numerator=2,denominator=10,opportunities=10,eligibility_cross_tab=dict(both=10,seed_only=0,baseline_only=0,neither=0),reason_cross_tab={'eligible|eligible':10})
     output[0]=replace(output[0],body=json.dumps(data).encode())
     runs=tuple(RunSummary('member-'+str(n),RunResult('COMPLETED',None)) for n in range(2))
     aggregate=summarize_suite(plan,runs,tuple(output))['aggregates'][0]
@@ -340,3 +348,52 @@ def test_default_absent_suite_accounts_for_every_primary_group(tmp_path):
     assert {g['metric'] for g in result['aggregates']}==set(METRICS)
     assert sum(g['planned_run_count'] for g in result['aggregates'])==sum(r.role=='PRIMARY' for r in expand_inventory(plan.plan))
     assert all(g['aggregation_state']=='UNAVAILABLE' for g in result['aggregates'])
+
+
+@pytest.mark.parametrize('changes',[
+    {'value':-.1,'numerator':-.1}, {'denominator':-3}, {'denominator':0},
+    {'denominator':True}, {'denominator':1.5}, {'value':'perfect'},
+    {'value':{'loss':0}}, {'value':False}, {'numerator':-.1},
+    {'numerator':.8}, {'opportunities':0}, {'exclusions':1},
+    {'eligibility_cross_tab':{'both':2,'seed_only':0,'baseline_only':0,'neither':0}},
+    {'reason_cross_tab':{'eligible|eligible':2}}, {'coverage':{'seed':2}},
+])
+def test_genuine_numeric_report_rejects_malformed_math(tmp_path,plan_body,changes):
+    from development.evaluation.contracts import Population
+    from development.evaluation.metrics.prediction import measure_prediction
+    from .test_prediction_metrics import evidence
+    plan=admitted(tmp_path,classification_body(plan_body))
+    real=measure_prediction('prediction.numeric-mae',(evidence(1),),Population('all',('member-0',)),plan)
+    assert reconcile_output(plan,(real,),classify_questions(plan,(real,),'COMPLETED')).passed
+    data=json.loads(real.body);data.update(changes)
+    bad=replace(real,body=json.dumps(data).encode());rows=(bad,)
+    findings=classify_questions(plan,rows,'COMPLETED')
+    assert findings[0].status=='INCONCLUSIVE'
+    assert not reconcile_output(plan,rows,findings).passed
+    suite=summarize_suite(plan,(RunSummary('member-0',RunResult('COMPLETED',None)),),rows)
+    assert suite['completed_valid_count']==0 and suite['invalid_count']==1
+    assert suite['aggregates'][0]['per_run_mean'] is None
+
+
+@pytest.mark.parametrize('metric,target,prediction,actual,probability',[
+    ('prediction.numeric-mae','load_ratio',.4,.4,None),
+    ('prediction.numeric-normalized-mae','load_ratio',2.,0.,None),
+    ('prediction.boolean-accuracy','network_reachable',True,False,None),
+    ('prediction.boolean-brier','network_reachable',True,False,.75),
+])
+def test_actual_scalar_metric_contracts_preserve_zero_and_unclipped_loss(tmp_path,plan_body,metric,target,prediction,actual,probability):
+    from development.evaluation.contracts import Population
+    from development.evaluation.metrics.prediction import measure_prediction
+    from .test_prediction_metrics import evidence
+    body=copy.deepcopy(plan_body);body['metrics']=[dict(id=metric,version=1)]
+    body['questions'][0]['metrics']=[metric];body['populations'][0]['signal']='network' if target=='network_reachable' else target
+    plan=admitted(tmp_path,body)
+    row=measure_prediction(metric,(evidence(1,prediction=prediction,actual=actual,target=target,probability=probability,
+        method='action_boolean_frequency' if probability is not None else 'action_mean_delta'),),Population('all',('member-0',)),plan)
+    assert row.state=='MEASURED'
+    assert reconcile_output(plan,(row,),classify_questions(plan,(row,),'COMPLETED')).passed
+    if metric=='prediction.numeric-normalized-mae':assert row.value==2
+    for value in (-.1,False,'zero',{},1.1) if target=='network_reachable' else (-.1,False,'zero',{}):
+        data=json.loads(row.body);data.update(value=value,numerator=value)
+        bad=replace(row,body=json.dumps(data).encode())
+        assert not reconcile_output(plan,(bad,),classify_questions(plan,(bad,),'COMPLETED')).passed
