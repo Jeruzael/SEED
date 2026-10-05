@@ -159,7 +159,7 @@ def test_semantic_opportunities_and_provenance(tmp_path, plan_body, monkeypatch)
             (['active','active','weakened','weakened'],1,2),
         ]:
             history=[dict(semantic_memory_id=base['id'],revision=n,revised_at=10.+n,
-                data_json=json.dumps({**base,'revision':n,'status':status}))
+                record_json=json.dumps({**base,'revision':n,'status':status}))
                 for n,status in enumerate(statuses,1)]
             current={**base,'revision':5,'status':'active'}
             sequence={'semantic_memories':[current],'semantic_memory_history':history}
@@ -197,7 +197,7 @@ def test_semantic_opportunities_and_provenance(tmp_path, plan_body, monkeypatch)
         opportunities=[dict(run_id=run['id'],source_belief_id=b['id'],at=8.,support=b['evidence_count'],
                             confidence=b['confidence'],resource_guard=False) for b in tables['world_beliefs']]
         actual=results(frozen_plan,tables,semantic_eligibility_history=opportunities,
-            semantic_opportunity_sources={str(run['id']):dict(at=8.,beliefs=opportunity_sources)})
+            semantic_opportunity_sources={str(run['id']):dict(at=8.,beliefs=opportunity_sources)},semantic_creation_events=semantic_creation_events(memory))
         assert actual['semantic.promotion-latency'].value['eligible_opportunities']==2
         assert [e['latency'] for e in actual['semantic.promotion-latency'].value['promotions']]==[1.,1.]
         fake=copy.deepcopy(opportunities)
@@ -668,7 +668,7 @@ def test_semantic_opportunities_require_actual_source_version(tmp_path,plan_body
             ('world_beliefs','semantic_memories','semantic_memory_history','consolidation_runs','consolidation_state')}
         events=[dict(run_id=run['id'],source_belief_id=b['id'],at=8.,support=b['evidence_count'],confidence=b['confidence'],resource_guard=False) for b in before]
         captured={str(run['id']):dict(at=8.,beliefs=before)}
-        honest=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=captured)['semantic.promotion-latency']
+        honest=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=captured,semantic_creation_events=semantic_creation_events(memory))['semantic.promotion-latency']
         assert honest.value['eligible_opportunities']==2
         assert [e['latency'] for e in honest.value['promotions']]==[1.,1.]
         if defect=='claims':
@@ -679,11 +679,11 @@ def test_semantic_opportunities_require_actual_source_version(tmp_path,plan_body
         else:
             # Later current B4 versions cannot replace the original run source.
             for b in tables['world_beliefs']:b.update(evidence_count=9,source_last_transition_id=9)
-            historical=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=captured)['semantic.promotion-latency']
+            historical=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=captured,semantic_creation_events=semantic_creation_events(memory))['semantic.promotion-latency']
             assert historical.value['eligible_opportunities']==2
             assert historical.value['promotions']==honest.value['promotions']
             captured={str(run['id']):dict(at=10.,beliefs=tables['world_beliefs'])}
-        audit=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=captured)['semantic.promotion-latency']
+        audit=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=captured,semantic_creation_events=semantic_creation_events(memory))['semantic.promotion-latency']
         assert audit.state=='UNAVAILABLE'
         assert audit.value is None
     finally:memory.close()
@@ -737,12 +737,94 @@ def test_semantic_opportunity_inventory_uses_existing_source_row_bound(tmp_path,
         tables={t:[dict(r) for r in memory.db.execute('SELECT * FROM '+t)] for t in
             ('world_beliefs','semantic_memories','semantic_memory_history','consolidation_runs')}
         assert len(events)==1032 and len(tables['consolidation_runs'])==516
-        source=dict(semantic_eligibility_history=events,semantic_opportunity_sources=captured)
+        source=dict(semantic_eligibility_history=events,semantic_opportunity_sources=captured,semantic_creation_events=semantic_creation_events(memory))
         assert len(json.dumps(dict(tables=tables,**source)).encode())<32*1024**2
         audited=results(frozen,tables,**source)['semantic.promotion-latency']
         assert audited.state=='MEASURED' and audited.value['eligible_opportunities']==1032
+        assert len(audited.value['promotions'])==2
         assert audited.value['fact_count']==1032 and len(audited.value['facts'])==8
         from development.evaluation.contracts import ContractError
         with pytest.raises(ContractError):
-            results(frozen,tables,semantic_eligibility_history=events*2,semantic_opportunity_sources=captured)
+            results(frozen,tables,semantic_eligibility_history=events*2,semantic_opportunity_sources=captured,semantic_creation_events=semantic_creation_events(memory))
+    finally:memory.close()
+
+
+def semantic_creation_events(memory):
+    # Original producer events, captured independently of evaluator output.
+    return [dict(r) for r in memory.db.execute("SELECT * FROM events WHERE category='SEMANTIC_MEMORY' AND source='semantic_memory' AND message='Semantic memory consolidated' ORDER BY id")]
+
+
+@pytest.mark.parametrize('same_clock',[False,True])
+@pytest.mark.parametrize('later_revision',[False,True])
+def test_semantic_creations_bind_original_run_and_survive_revision(tmp_path,plan_body,monkeypatch,same_clock,later_revision):
+    from seed.memory import Memory
+    from seed.world_model import WorldModel
+    from seed.semantic_memory import Consolidator
+    import seed.world_model as world_module
+    from types import SimpleNamespace
+    from development.evaluation.analysis import freeze_plan,validate_plan
+    body=copy.deepcopy(plan_body);body['metrics']=[dict(id='semantic.promotion-latency',version=1)]
+    body['questions'][0]['metrics']=['semantic.promotion-latency'];body['populations'][0]['signal']='all'
+    frozen=freeze_plan(validate_plan(body),ClosedRoot(tmp_path));memory=Memory(tmp_path/'creation-runs.sqlite')
+    monkeypatch.setattr(world_module,'time',SimpleNamespace(time=lambda:8.))
+    try:
+        for n in range(1,9):
+            _,tid=memory.record_transition_experience(state_before={'load_ratio':.5},action='rest',
+                state_after={'load_ratio':.4},outcome={},legacy_reward=0,started_at=n-1,completed_at=n,world_model_eligible=True)
+            WorldModel(memory).observe_transition(tid)
+        opportunities=[];captured={};runs=[]
+        state={'load_ratio':.5,'battery_pct':80,'charging':False,'disk_free_pct':50}
+        def consolidate(at,cutoff):
+            before=[dict(r) for r in memory.db.execute('SELECT * FROM world_beliefs')]
+            run=Consolidator(memory,clock=lambda:at).run(state,provenance='owner_requested');runs.append(run)
+            captured[str(run['id'])]=dict(at=cutoff,beliefs=before)
+            opportunities.extend(dict(run_id=run['id'],source_belief_id=b['id'],at=cutoff,support=b['evidence_count'],
+                confidence=b['confidence'],resource_guard=False) for b in before)
+        consolidate(9.,8.);consolidate(9. if same_clock else 10.,9.)
+        if later_revision:
+            monkeypatch.setattr(world_module,'time',SimpleNamespace(time=lambda:10.))
+            _,tid=memory.record_transition_experience(state_before={'load_ratio':.5},action='rest',state_after={'load_ratio':.6},
+                outcome={},legacy_reward=0,started_at=9.,completed_at=10.,world_model_eligible=True)
+            WorldModel(memory).observe_transition(tid);consolidate(11.,10.)
+        tables={t:[dict(r) for r in memory.db.execute('SELECT * FROM '+t)] for t in
+            ('world_beliefs','semantic_memories','semantic_memory_history','consolidation_runs')}
+        original=list(memory.db.iterdump());proof=semantic_creation_events(memory)
+        assert [r['created_count'] for r in tables['consolidation_runs']]==([2,0,0] if later_revision else [2,0])
+        if later_revision:assert tables['consolidation_runs'][-1]['revised_count']==2
+        audited=results(frozen,tables,semantic_eligibility_history=opportunities,semantic_opportunity_sources=captured,
+            semantic_creation_events=proof)['semantic.promotion-latency']
+        assert audited.state=='MEASURED' and audited.value['eligible_opportunities']==len(opportunities)
+        promotions=audited.value['promotions']
+        assert len(promotions)==2 and len({e['semantic_memory_id'] for e in promotions})==2
+        assert {e['run_id'] for e in promotions}=={runs[0]['id']}
+        assert [e['latency'] for e in promotions]==[1.,1.]
+        assert {e['creation_event_id'] for e in promotions}=={e['id'] for e in proof}
+        missing=results(frozen,tables,semantic_eligibility_history=opportunities,semantic_opportunity_sources=captured)['semantic.promotion-latency']
+        assert missing.state=='UNAVAILABLE' and missing.reason=='MISSING_SEMANTIC_CREATION_PROOF'
+        # Original event identity, creation count, and revision-one content
+        # are independent evidence; corrupt one without repairing another.
+        for defect in ('wrong_run','duplicate','missing_event','wrong_source','wrong_clock','wrong_content','missing_original'):
+            changed=copy.deepcopy(tables);events=copy.deepcopy(proof)
+            if defect=='wrong_run':
+                data=json.loads(events[0]['data_json']);data['run_id']=runs[1]['id'];events[0]['data_json']=json.dumps(data)
+            elif defect=='duplicate':events.append(copy.deepcopy(events[0]))
+            elif defect=='missing_event':events.pop()
+            elif defect=='wrong_source':
+                data=json.loads(events[0]['data_json']);data['source_belief_id']=999999;events[0]['data_json']=json.dumps(data)
+            else:
+                if later_revision:
+                    target=json.loads(changed['semantic_memory_history'][0]['record_json'])
+                else:target=changed['semantic_memories'][0]
+                if defect=='wrong_clock':target['created_at']=10.
+                elif defect=='wrong_content':target['evidence_count']=999
+                elif later_revision:changed['semantic_memory_history'].pop(0)
+                else:changed['semantic_memories'].pop(0)
+                if later_revision and defect!='missing_original':changed['semantic_memory_history'][0]['record_json']=json.dumps(target)
+            bad=results(frozen,changed,semantic_eligibility_history=opportunities,semantic_opportunity_sources=captured,
+                semantic_creation_events=events)['semantic.promotion-latency']
+            assert bad.state=='UNAVAILABLE' and bad.reason=='INCONSISTENT_SEMANTIC_CREATION_PROOF'
+        status_root=tmp_path/'status';status_root.mkdir()
+        status=results(plan(status_root,plan_body),tables)['semantic.status-transitions']
+        assert status.state=='MEASURED' and status.value['revision_edges']==(2 if later_revision else 0)
+        assert list(memory.db.iterdump())==original
     finally:memory.close()

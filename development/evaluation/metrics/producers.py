@@ -223,7 +223,7 @@ def _semantic_status(rows,history):
         if row['id'] in current:raise ContractError()
         current[row['id']]=row
     for record in history:
-        row=_json(record['data_json']);validate(row)
+        row=_json(record['record_json']);validate(row)
         if (type(record['semantic_memory_id']) is not int or type(record['revision']) is not int
                 or record['semantic_memory_id']!=row['id'] or record['revision']!=row['revision']):raise ContractError()
         group=groups.setdefault(row['id'],{})
@@ -255,6 +255,64 @@ def _semantic_status(rows,history):
         reactivation_requires_observed_prior_active=True,**_bounded_facts(edges)),None,dict(denominator=len(edges))
 
 
+
+def _semantic_creation_proof(source,runs):
+    """Original creation telemetry binds a semantic ID to exactly one run."""
+    proof=source.get('semantic_creation_events')
+    if proof is None:return {},'MISSING_SEMANTIC_CREATION_PROOF'
+    if type(proof) is not list or len(proof)>2048:raise ContractError()
+    run_by_id={r['id']:r for r in runs};events={};ids=set();semantic_ids=set();counts=Counter()
+    if len(run_by_id)!=len(runs):raise ContractError()
+    for record in proof:
+        if (type(record) is not dict or type(record.get('id')) is not int or record['id']<1
+                or type(record.get('ts')) not in (int,float) or not math.isfinite(record['ts'])
+                or (record.get('category'),record.get('source'),record.get('message'))!=
+                   ('SEMANTIC_MEMORY','semantic_memory','Semantic memory consolidated')):raise ContractError()
+        data=_json(record['data_json'])
+        if (type(data) is not dict or any(type(data.get(k)) is not int or data[k]<1 for k in ('run_id','semantic_memory_id','source_belief_id'))
+                or type(data.get('revision')) is not int or data['revision']!=1 or data.get('status')!='active'):raise ContractError()
+        if record['id'] in ids or data['semantic_memory_id'] in semantic_ids:
+            return {},'INCONSISTENT_SEMANTIC_CREATION_PROOF'
+        ids.add(record['id']);semantic_ids.add(data['semantic_memory_id'])
+        run=run_by_id.get(data['run_id'])
+        if run is None or data['source_belief_id'] not in _json(run['result_json']).get('examined_ids',[]):return {},'INCONSISTENT_SEMANTIC_CREATION_PROOF'
+        identity=(data['run_id'],data['source_belief_id'])
+        if identity in events:return {},'INCONSISTENT_SEMANTIC_CREATION_PROOF'
+        events[identity]=dict(data,creation_event_id=record['id']);counts[data['run_id']]+=1
+    for run in runs:
+        if type(run.get('created_count')) is not int or run['created_count']<0:raise ContractError()
+        if counts[run['id']]!=run['created_count']:return {},'INCONSISTENT_SEMANTIC_CREATION_PROOF'
+    return events,None
+
+
+def _semantic_original_creation(source,sid):
+    candidates=[r for r in _table(source,'semantic_memories') or [] if type(r.get('id')) is int and r['id']==sid and type(r.get('revision')) is int and r['revision']==1]
+    for record in _table(source,'semantic_memory_history') or []:
+        if record.get('semantic_memory_id')==sid and type(record.get('revision')) is int and record['revision']==1:
+            row=_json(record['record_json'])
+            if type(row) is not dict or type(row.get('id')) is not int or row['id']!=sid or type(row.get('revision')) is not int or row['revision']!=1:raise ContractError()
+            candidates.append(row)
+    return candidates[0] if len(candidates)==1 else None
+
+
+def _semantic_creation_matches(publication,reference,run):
+    from seed.semantic_memory import MODEL,MODEL_VERSION
+    if publication is None:return False
+    if (any(type(run.get(k)) not in (int,float) or not math.isfinite(run[k]) for k in ('started_at','completed_at'))
+            or run['completed_at']<run['started_at'] or run.get('model')!=MODEL
+            or type(run.get('model_version')) is not int or run['model_version']!=MODEL_VERSION
+            or type(publication.get('created_at')) not in (int,float) or not math.isfinite(publication['created_at'])
+            or publication['created_at']!=run['started_at'] or type(publication.get('updated_at')) not in (int,float)
+            or publication['updated_at']!=publication['created_at'] or publication.get('status')!='active'
+            or publication.get('model')!=MODEL or type(publication.get('model_version')) is not int
+            or publication['model_version']!=MODEL_VERSION):return False
+    for key,value in reference.items():
+        if key=='payload_json':
+            if not _source_equal(_json(publication[key]),_json(value)):return False
+        elif not _source_equal(publication.get(key),value):return False
+    return True
+
+
 def _semantic(source,metric,protocol):
     if protocol=='FROZEN_SELECTION_ASSAY' and metric in ('semantic.promotion-latency','semantic.revisions','semantic.status-transitions'):
         return None,'FROZEN_PROTOCOL_SUPPRESSES_MUTATION',dict(state='NOT_EVALUATED')
@@ -269,6 +327,8 @@ def _semantic(source,metric,protocol):
         if type(captured) is not dict or len(captured)>2048:raise ContractError()
         latencies=[]; eligible_count=0; exclusions=Counter();facts=[];seen=set();by_run=Counter()
         run_by_id={r['id']:r for r in runs}
+        creation_events,creation_error=_semantic_creation_proof(source,runs)
+        promoted_ids=set()
         for event in opportunities:
             if (type(event) is not dict or type(event.get('run_id')) is not int
                     or type(event.get('source_belief_id')) is not int
@@ -319,9 +379,23 @@ def _semantic(source,metric,protocol):
             if reference['evidence_count']<MIN_EVIDENCE or reference['confidence']<MIN_CONFIDENCE:
                 exclusions['source_below_promotion_threshold']+=1;continue
             by_run[event['run_id']]+=1;eligible_count+=1
-            publication=next((r for r in rows or [] if r['source_belief_id']==event['source_belief_id']
-                and r['source_fingerprint']==reference['source_fingerprint'] and r['created_at']>=event['at']),None)
-            if publication:latencies.append(dict(source_belief_id=event['source_belief_id'],run_id=event['run_id'],
+            created=run.get('created_count')
+            if type(created) is not int or created<0:raise ContractError()
+            if created==0:
+                exclusions['actual_run_created_none']+=1;continue
+            if creation_error:continue
+            creation=creation_events.get(identity)
+            if creation is None:
+                # A run may revise or leave other eligible sources unchanged.
+                exclusions['eligible_source_not_created_in_run']+=1;continue
+            publication=_semantic_original_creation(source,creation['semantic_memory_id'])
+            if not _semantic_creation_matches(publication,reference,run):
+                exclusions['missing_or_mismatched_original_creation']+=1;continue
+            if creation['semantic_memory_id'] in promoted_ids:
+                exclusions['duplicate_creation']+=1;continue
+            promoted_ids.add(creation['semantic_memory_id'])
+            latencies.append(dict(source_belief_id=event['source_belief_id'],run_id=event['run_id'],
+                semantic_memory_id=creation['semantic_memory_id'],creation_event_id=creation['creation_event_id'],revision=1,
                 source_fingerprint=reference['source_fingerprint'],eligible_at=event['at'],published_at=publication['created_at'],
                 latency=publication['created_at']-event['at']))
         metadata=dict(exclusions=dict(exclusions),**_bounded_facts(facts))
@@ -330,6 +404,10 @@ def _semantic(source,metric,protocol):
         if not eligible_count:
             reason='MISSING_OPPORTUNITY_SOURCE_VERSION' if exclusions['missing_opportunity_source_version'] else 'NO_ELIGIBLE_CONSOLIDATION_OPPORTUNITY'
             return None,reason,metadata
+        if creation_error and (creation_error!='MISSING_SEMANTIC_CREATION_PROOF' or any(r.get('created_count',0)>0 for r in runs)):
+            return None,creation_error,dict(eligible_opportunities=eligible_count,**metadata)
+        if exclusions['missing_or_mismatched_original_creation'] or exclusions['duplicate_creation']:
+            return None,'INCONSISTENT_SEMANTIC_CREATION_PROOF',dict(eligible_opportunities=eligible_count,**metadata)
         return dict(promotions=latencies,eligible_opportunities=eligible_count,**metadata),None,{}
     if rows is None:return None,'MISSING_SEMANTIC_SOURCE',{}
     history=_table(source,'semantic_memory_history')
