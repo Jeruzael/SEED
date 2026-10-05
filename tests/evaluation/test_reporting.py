@@ -139,6 +139,24 @@ def test_arbitrary_classification_expression_rejected(plan_body):
     with pytest.raises(ValueError):validate_plan(body)
 
 
+@pytest.mark.parametrize('value,passed',[
+    ({'violations':0,'assessments':1},True),
+    ({'violations':1,'assessments':1},False),
+    ({'assessments':1},False),
+    ({'violations':False,'assessments':1},False),
+    (None,True),
+])
+def test_curiosity_mandatory_zero_bounds_reconciliation(tmp_path,plan_body,value,passed):
+    body=copy.deepcopy(plan_body)
+    body['metrics']=[{'id':'curiosity.bounds','version':1}]
+    body['questions'][0]['metrics']=['curiosity.bounds']
+    plan=admitted(tmp_path,body)
+    output=fixture_measurements(plan,{'curiosity.bounds':value})
+    report=reconcile_output(plan,output,classify_questions(plan,output,'COMPLETED'))
+    assert report.passed is passed
+    assert output[0].value==value  # rejection never repairs the measurement
+
+
 def test_forged_finding_disagrees_with_frozen_rule(tmp_path,plan_body):
     plan=admitted(tmp_path,classification_body(plan_body))
     output=fixture_measurements(plan,{'prediction.numeric-mae':.3})
