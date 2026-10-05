@@ -228,10 +228,19 @@ def _self(source,metric):
     try:validate_snapshot(snapshot)
     except (ValueError,TypeError,KeyError,OverflowError,RecursionError):
         return dict(unsupported=1,claims=[dict(path='snapshot',reason='invalid_producer_contract')]),None,dict(denominator=1)
-    checks=[]
+    checks=[];claims_by_path={}
     def check(path,actual,expected):
         supported=actual==expected and (type(actual) is type(expected) if type(actual) is bool or type(expected) is bool else True)
-        checks.append(dict(path=path,supported=supported,actual=actual,expected=expected))
+        if path not in claims_by_path:
+            claim=dict(path=path,supported=supported,actual=actual,expected=expected,reference_checks=1)
+            claims_by_path[path]=claim;checks.append(claim)
+        else:
+            claim=claims_by_path[path];claim['reference_checks']+=1
+            # Independent references can disagree: retain that evidence on the
+            # one claim, never multiply its denominator or silently discard it.
+            if actual!=claim['actual'] or expected!=claim['expected']:
+                claim.setdefault('reference_conflicts',[]).append(dict(actual=actual,expected=expected,supported=supported))
+            claim['supported'] &= supported
     transition=evidence.get('transition')
     if transition is None:return None,'MISSING_SELF_TRANSITION_SOURCE',dict(denominator=None)
     check('source_transition_id',snapshot['source_transition_id'],transition['id'])

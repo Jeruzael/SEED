@@ -307,6 +307,8 @@ def test_self_false_missing_and_source_clock_remain_in_denominator(tmp_path,plan
         snapshot=json.loads(memory.db.execute('SELECT data_json FROM self_model_current').fetchone()[0])
         root=tmp_path/'plan';root.mkdir();frozen_plan=plan(root,plan_body)
         original=results(frozen_plan,self_snapshot=snapshot,self_evidence=source)
+        paths=[c['path'] for c in original['self.factual-fidelity'].value['claims']]
+        assert len(paths)==len(set(paths))
         wrong=copy.deepcopy(snapshot)
         if defect=='timestamp':wrong['sources']['observation']['source_observed_at']=1001
         else:wrong['observations']['load_ratio'].update(value=None,status=defect,reason='not_recorded' if defect=='unavailable' else 'invalid_value')
@@ -314,7 +316,9 @@ def test_self_false_missing_and_source_clock_remain_in_denominator(tmp_path,plan
         out=results(frozen_plan,self_snapshot=wrong,self_evidence=source)
         assert out['self.unsupported-claims'].value['unsupported']>=1
         assert measurement_data(out['self.factual-fidelity'])['denominator']==measurement_data(original['self.factual-fidelity'])['denominator']
-        if defect=='timestamp':assert out['self.freshness'].value['source_faithful'] is False
+        if defect=='timestamp':
+            assert out['self.freshness'].value['source_faithful'] is False
+            assert out['self.unsupported-claims'].value['unsupported']==1
         else:assert any(c['path']=='observations.load_ratio.status' for c in out['self.unsupported-claims'].value['claims'])
     finally:memory.close()
 
