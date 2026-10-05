@@ -26,7 +26,16 @@ def _count(value):
 
 def _valid_payload(row,data):
     value=row.value
-    if row.metric=='prediction.window-change':return _finite(value)  # signed change
+    if row.metric=='prediction.window-change':
+        if not _finite(value):return False  # signed change, not a nonnegative loss
+        means=data.get('standardized');actions=data.get('qualifying_actions');strata=data.get('per_action')
+        if (type(means) is not dict or any(not _finite(means.get(k)) or means[k]<0 for k in ('early','late'))
+                or not math.isclose(value,means['early']-means['late'],rel_tol=1e-12,abs_tol=1e-12)
+                or type(actions) is not list or not actions or len(set(actions))!=len(actions)
+                or type(strata) is not dict or set(strata)!=set(actions)):return False
+        for r in strata.values():
+            if type(r) is not dict or any(not _count(r.get(k+'_count')) or r[k+'_count']<5 or not _finite(r.get(k)) or r[k]<0 for k in ('early','late')):return False
+        return all(math.isclose(means[k],math.fsum(r[k] for r in strata.values())/len(actions),rel_tol=1e-12,abs_tol=1e-12) for k in ('early','late'))
     if row.metric not in _MEANS:return type(value) is dict
     numerator,denominator=data.get('numerator'),data.get('denominator')
     if (not _finite(value) or value<0 or not _finite(numerator) or numerator<0
@@ -51,6 +60,17 @@ def _valid_payload(row,data):
     if comparison is not None:expected[comparison]=(cross['both']+cross['baseline_only'])/opportunities
     if set(coverage)!=set(expected) or any(not _finite(coverage[k]) or not math.isclose(coverage[k],v,rel_tol=1e-12,abs_tol=1e-12) for k,v in expected.items()):return False
     if comparison is None and (cross['seed_only'] or cross['baseline_only']):return False
+    ordinals=data.get('source_ordinals')
+    if ordinals is not None:
+        if type(ordinals) is list:
+            if len(ordinals)!=denominator or any(type(n) is not int or n<1 for n in ordinals):return False
+        elif type(ordinals) is dict and ordinals.get('encoding')=='inclusive_ranges':
+            ranges=ordinals.get('ranges')
+            if type(ranges) is not list or any(type(r) is not list or len(r)!=2 or any(type(n) is not int for n in r) or r[0]<1 or r[1]<r[0] for r in ranges):return False
+            if ordinals.get('count')!=denominator or sum(r[1]-r[0]+1 for r in ranges)!=denominator:return False
+        else:return False
+    methods=data.get('methods')
+    if methods is not None and (type(methods) is not dict or any(not _count(n) for n in methods.values()) or sum(methods.values())!=opportunities):return False
     strata=data.get('action_strata')
     if strata is not None:
         if type(strata) is not dict or any(type(r) is not dict or not _count(r.get('opportunities')) or not _count(r.get('paired')) or r['paired']>r['opportunities'] for r in strata.values()):return False
@@ -69,6 +89,7 @@ def _valid_row(plan,row):
         return False
     try:
         expected=expected_metadata(plan,row);data=measurement_data(row)
+        if type(data) is not dict:return False
         if data.get('plan_digest')!=plan.digest or data.get('dimensions')!=expected['dimensions']:
             return False
         if data.get('non_inferential',False)!=(row.role=='EXPLORATORY_DIAGNOSTIC'):

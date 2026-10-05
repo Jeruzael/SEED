@@ -37,6 +37,9 @@ def fixture_measurements(plan,values=None):
             method=data['dimensions']['method'];comparison=data['dimensions']['comparison']
             data.update(opportunities=1,exclusions=0,eligibility_cross_tab=dict(both=1,seed_only=0,baseline_only=0,neither=0),
                 reason_cross_tab={'eligible|eligible':1},coverage={m:1. for m in (method,comparison) if m is not None})
+        if state=='MEASURED' and row.metric=='prediction.window-change':
+            data.update(qualifying_actions=['rest'],standardized=dict(early=value+1.,late=1.),
+                per_action={'rest':dict(early=value+1.,late=1.,early_count=5,late_count=5)})
         data.update(value=value,plan_digest=plan.digest,numerator=None if value is None or not numeric else value,
                     denominator=None if value is None or not numeric else 1,unit='literal_report_fixture')
         output.append(replace(row,state=state,body=json.dumps(data).encode()))
@@ -207,6 +210,7 @@ def test_changed_standardized_population_is_not_pooled(tmp_path,plan_body):
     output=list(fixture_measurements(plan,{'prediction.window-change':.1}))
     for n,row in enumerate(output):
         data=json.loads(row.body);data['qualifying_actions']=['rest'] if n==0 else ['rest','reflect']
+        if n==1:data['per_action']['reflect']=dict(data['per_action']['rest'])
         output[n]=replace(row,body=json.dumps(data).encode())
     runs=tuple(RunSummary('member-'+str(n),RunResult('COMPLETED',None)) for n in range(2))
     result=summarize_suite(plan,runs,tuple(output))
@@ -357,6 +361,7 @@ def test_default_absent_suite_accounts_for_every_primary_group(tmp_path):
     {'numerator':.8}, {'opportunities':0}, {'exclusions':1},
     {'eligibility_cross_tab':{'both':2,'seed_only':0,'baseline_only':0,'neither':0}},
     {'reason_cross_tab':{'eligible|eligible':2}}, {'coverage':{'seed':2}},
+    {'source_ordinals':[1,2]}, {'methods':{'action_mean_delta':2}},
 ])
 def test_genuine_numeric_report_rejects_malformed_math(tmp_path,plan_body,changes):
     from development.evaluation.contracts import Population
@@ -397,3 +402,19 @@ def test_actual_scalar_metric_contracts_preserve_zero_and_unclipped_loss(tmp_pat
         data=json.loads(row.body);data.update(value=value,numerator=value)
         bad=replace(row,body=json.dumps(data).encode())
         assert not reconcile_output(plan,(bad,),classify_questions(plan,(bad,),'COMPLETED')).passed
+
+
+@pytest.mark.parametrize('change',[{'value':.7},{'value':False},{'value':{}},{'standardized':{'early':-1.,'late':.5}}])
+def test_actual_signed_window_change_requires_registered_math(tmp_path,plan_body,change):
+    from development.evaluation.contracts import Population
+    from development.evaluation.metrics.prediction import measure_prediction
+    from .test_prediction_metrics import evidence
+    body=copy.deepcopy(plan_body);body['metrics']=[dict(id='prediction.window-change',version=1)]
+    body['questions'][0]['metrics']=['prediction.window-change'];body['members'][0]['measured']=400
+    body['windows'][0]['end']=400
+    plan=admitted(tmp_path,body)
+    samples=tuple(evidence(n,prediction=.5 if n<100 else .9) for n in [1,2,3,4,5,361,362,363,364,365])
+    row=measure_prediction('prediction.window-change',samples,Population('all',('member-0',)),plan)
+    assert row.value<0 and reconcile_output(plan,(row,),classify_questions(plan,(row,),'COMPLETED')).passed
+    data=json.loads(row.body);data.update(change);bad=replace(row,body=json.dumps(data).encode())
+    assert not reconcile_output(plan,(bad,),classify_questions(plan,(bad,),'COMPLETED')).passed
