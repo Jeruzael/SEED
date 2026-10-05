@@ -35,7 +35,9 @@ def fixture_measurements(plan,values=None):
             value={'literal_fixture':value}
         if state=='MEASURED' and row.metric.startswith('prediction.') and numeric and row.metric!='prediction.window-change':
             method=data['dimensions']['method'];comparison=data['dimensions']['comparison']
-            data.update(opportunities=1,exclusions=0,eligibility_cross_tab=dict(both=1,seed_only=0,baseline_only=0,neither=0),
+            data.update(baseline_numerator=value,baseline_value=value if comparison is not None else None,
+                summary_minimum_paired=1,action_strata={'rest':dict(opportunities=1,paired=1,numerator=value,baseline_numerator=value,value=None,baseline_value=None)},
+                opportunities=1,exclusions=0,eligibility_cross_tab=dict(both=1,seed_only=0,baseline_only=0,neither=0),
                 reason_cross_tab={'eligible|eligible':1},coverage={m:1. for m in (method,comparison) if m is not None})
         if state=='MEASURED' and row.metric=='prediction.window-change':
             data.update(qualifying_actions=['rest'],standardized=dict(early=value+1.,late=1.),
@@ -223,7 +225,7 @@ def test_sample_weighting_and_per_run_statistics_are_distinct(tmp_path,plan_body
     body['members'].append({**body['members'][0],'id':'member-1'})
     plan=admitted(tmp_path,body)
     output=list(fixture_measurements(plan,{'member-0':.2,'member-1':.8}))
-    data=json.loads(output[0].body);data.update(numerator=2,denominator=10,opportunities=10,eligibility_cross_tab=dict(both=10,seed_only=0,baseline_only=0,neither=0),reason_cross_tab={'eligible|eligible':10})
+    data=json.loads(output[0].body);data.update(numerator=2,baseline_numerator=2,action_strata={'rest':dict(opportunities=10,paired=10,numerator=2,baseline_numerator=2,value=.2,baseline_value=.2)},denominator=10,opportunities=10,eligibility_cross_tab=dict(both=10,seed_only=0,baseline_only=0,neither=0),reason_cross_tab={'eligible|eligible':10})
     output[0]=replace(output[0],body=json.dumps(data).encode())
     runs=tuple(RunSummary('member-'+str(n),RunResult('COMPLETED',None)) for n in range(2))
     aggregate=summarize_suite(plan,runs,tuple(output))['aggregates'][0]
@@ -418,3 +420,68 @@ def test_actual_signed_window_change_requires_registered_math(tmp_path,plan_body
     assert row.value<0 and reconcile_output(plan,(row,),classify_questions(plan,(row,),'COMPLETED')).passed
     data=json.loads(row.body);data.update(change);bad=replace(row,body=json.dumps(data).encode())
     assert not reconcile_output(plan,(bad,),classify_questions(plan,(bad,),'COMPLETED')).passed
+
+
+@pytest.mark.parametrize('n',[1,5])
+@pytest.mark.parametrize('defect',['top_negative','top_bool','top_string','top_object','top_math',
+    'total_missing','total_negative','total_math','stratum_negative','stratum_bool','stratum_string','stratum_math','stratum_null_rule'])
+def test_genuine_paired_counterpart_rejects_malformed_loss(tmp_path,plan_body,n,defect):
+    from development.evaluation.contracts import Population
+    from development.evaluation.metrics.prediction import measure_prediction
+    from .test_prediction_metrics import evidence
+    body=classification_body(plan_body);body['populations'][0]['comparison']='persistence'
+    body['members'][0]['measured']=n;body['windows'][0]['end']=n
+    plan=admitted(tmp_path,body)
+    row=measure_prediction('prediction.numeric-mae',tuple(evidence(i,baseline=.6) for i in range(1,n+1)),Population('all',('member-0',)),plan)
+    assert reconcile_output(plan,(row,),classify_questions(plan,(row,),'COMPLETED')).passed
+    data=json.loads(row.body);stratum=data['action_strata']['rest']
+    if defect.startswith('top_'):data['baseline_value']={'top_negative':-.2,'top_bool':False,'top_string':'perfect','top_object':{},'top_math':.8}[defect]
+    elif defect=='total_missing':data.pop('baseline_numerator',None)
+    elif defect.startswith('total_'):data['baseline_numerator']=-1. if defect=='total_negative' else 42.
+    elif defect=='stratum_negative':stratum['baseline_numerator']=-1.
+    elif defect=='stratum_bool':stratum['baseline_value']=False
+    elif defect=='stratum_string':stratum['baseline_value']='perfect'
+    elif defect=='stratum_math':stratum['baseline_value']=42.
+    else:stratum['baseline_value']=.2 if n<5 else None
+    bad=replace(row,body=json.dumps(data).encode());rows=(bad,)
+    findings=classify_questions(plan,rows,'COMPLETED')
+    assert findings[0].status=='INCONCLUSIVE'
+    assert not reconcile_output(plan,rows,findings).passed
+    summary=summarize_suite(plan,(RunSummary('member-0',RunResult('COMPLETED',None)),),rows)
+    assert summary['completed_valid_count']==0 and summary['invalid_count']==1
+
+
+@pytest.mark.parametrize('metric',['prediction.coverage','prediction.support-counts'])
+def test_structured_prediction_supplemental_counterpart_is_validated(tmp_path,plan_body,metric):
+    from development.evaluation.contracts import Population
+    from development.evaluation.metrics.prediction import measure_prediction
+    from .test_prediction_metrics import evidence
+    body=copy.deepcopy(plan_body);body['metrics']=[dict(id=metric,version=1)]
+    body['questions'][0]['metrics']=[metric];body['populations'][0]['comparison']='persistence'
+    plan=admitted(tmp_path,body)
+    row=measure_prediction(metric,(evidence(1,baseline=.6),),Population('all',('member-0',)),plan)
+    assert reconcile_output(plan,(row,),classify_questions(plan,(row,),'COMPLETED')).passed
+    data=json.loads(row.body);data['baseline_value']=-.2;bad=replace(row,body=json.dumps(data).encode())
+    assert not reconcile_output(plan,(bad,),classify_questions(plan,(bad,),'COMPLETED')).passed
+
+
+@pytest.mark.parametrize('n',[1,5])
+def test_paired_counterpart_zero_unclipped_and_absent_comparison(tmp_path,plan_body,n):
+    from development.evaluation.contracts import Population
+    from development.evaluation.metrics.prediction import measure_prediction
+    from .test_prediction_metrics import evidence
+    body=copy.deepcopy(plan_body);body['metrics']=[dict(id='prediction.numeric-normalized-mae',version=1)]
+    body['questions'][0]['metrics']=['prediction.numeric-normalized-mae'];body['populations'][0]['comparison']='persistence'
+    body['members'][0]['measured']=n;body['windows'][0]['end']=n
+    plan=admitted(tmp_path,body)
+    for baseline in (0.,2.):
+        row=measure_prediction('prediction.numeric-normalized-mae',tuple(evidence(i,prediction=0.,actual=0.,baseline=baseline) for i in range(1,n+1)),Population('all',('member-0',)),plan)
+        data=json.loads(row.body)
+        assert data['baseline_numerator']==n*baseline and data['baseline_value']==baseline
+        assert reconcile_output(plan,(row,),classify_questions(plan,(row,),'COMPLETED')).passed
+    other=tmp_path/'absent';other.mkdir();body['populations'][0]['comparison']=None
+    without=admitted(other,body)
+    row=measure_prediction('prediction.numeric-normalized-mae',(evidence(1),),Population('all',('member-0',)),without)
+    assert json.loads(row.body)['baseline_value'] is None
+    data=json.loads(row.body);data['baseline_value']=.1;bad=replace(row,body=json.dumps(data).encode())
+    assert not reconcile_output(without,(bad,),classify_questions(without,(bad,),'COMPLETED')).passed

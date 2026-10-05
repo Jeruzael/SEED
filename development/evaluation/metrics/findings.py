@@ -36,6 +36,8 @@ def _valid_payload(row,data):
         for r in strata.values():
             if type(r) is not dict or any(not _count(r.get(k+'_count')) or r[k+'_count']<5 or not _finite(r.get(k)) or r[k]<0 for k in ('early','late')):return False
         return all(math.isclose(means[k],math.fsum(r[k] for r in strata.values())/len(actions),rel_tol=1e-12,abs_tol=1e-12) for k in ('early','late'))
+    if row.metric in ('prediction.coverage','prediction.support-counts'):
+        return type(value) is dict and _valid_paired(row,data,data.get('numerator'),data.get('denominator'))
     if row.metric not in _MEANS:return type(value) is dict
     numerator,denominator=data.get('numerator'),data.get('denominator')
     if (not _finite(value) or value<0 or not _finite(numerator) or numerator<0
@@ -45,10 +47,27 @@ def _valid_payload(row,data):
     if row.metric in ('prediction.boolean-accuracy','prediction.boolean-brier','decision.task-utility') and value>1:
         return False
     if row.metric=='decision.task-utility':return True
+    return _valid_paired(row,data,numerator,denominator)
+
+
+def _valid_paired(row,data,numerator,denominator):
+    if not _finite(numerator) or numerator<0 or not _count(denominator):return False
     opportunities,exclusions=data.get('opportunities'),data.get('exclusions')
-    if not _count(opportunities) or not _count(exclusions) or denominator+exclusions!=opportunities:return False
+    if not _count(opportunities) or opportunities<1 or not _count(exclusions) or denominator+exclusions!=opportunities:return False
     minimum=5 if data['dimensions']['action']!='all' or data['dimensions']['stratum']=='action_mean' else 1
-    if denominator<minimum:return False
+    if row.metric in _MEANS and denominator<minimum:return False
+    if data.get('summary_minimum_paired')!=minimum:return False
+    bounded=row.metric in ('prediction.boolean-accuracy','prediction.boolean-brier') or data['dimensions']['signal']=='network'
+    counterpart=data.get('baseline_numerator')
+    if not _finite(counterpart) or counterpart<0:return False
+    if denominator==0 and (numerator!=0 or counterpart!=0):return False
+    if bounded and (numerator>denominator or counterpart>denominator):return False
+    baseline=data.get('baseline_value')
+    comparison=data['dimensions']['comparison']
+    if comparison is None or denominator<minimum:
+        if baseline is not None:return False
+    elif not _finite(baseline) or baseline<0 or not math.isclose(baseline,counterpart/denominator,rel_tol=1e-12,abs_tol=1e-12):return False
+    if comparison is None and not math.isclose(counterpart,numerator,rel_tol=1e-12,abs_tol=1e-12):return False
     cross=data.get('eligibility_cross_tab');reasons=data.get('reason_cross_tab');coverage=data.get('coverage')
     if (type(cross) is not dict or set(cross)!={'both','seed_only','baseline_only','neither'}
             or any(not _count(n) for n in cross.values()) or sum(cross.values())!=opportunities
@@ -72,15 +91,18 @@ def _valid_payload(row,data):
     methods=data.get('methods')
     if methods is not None and (type(methods) is not dict or any(not _count(n) for n in methods.values()) or sum(methods.values())!=opportunities):return False
     strata=data.get('action_strata')
-    if strata is not None:
-        if type(strata) is not dict or any(type(r) is not dict or not _count(r.get('opportunities')) or not _count(r.get('paired')) or r['paired']>r['opportunities'] for r in strata.values()):return False
-        if sum(r['opportunities'] for r in strata.values())!=opportunities or sum(r['paired'] for r in strata.values())!=denominator:return False
-        if any(not _finite(r.get('numerator')) or r['numerator']<0 for r in strata.values()):return False
-        if not math.isclose(math.fsum(r['numerator'] for r in strata.values()),numerator,rel_tol=1e-12,abs_tol=1e-12):return False
+    if type(strata) is not dict or not strata:return False
+    if any(type(r) is not dict or not _count(r.get('opportunities')) or not _count(r.get('paired')) or r['paired']>r['opportunities'] for r in strata.values()):return False
+    if sum(r['opportunities'] for r in strata.values())!=opportunities or sum(r['paired'] for r in strata.values())!=denominator:return False
+    for key,total in (('numerator',numerator),('baseline_numerator',counterpart)):
+        if any(not _finite(r.get(key)) or r[key]<0 or r['paired']==0 and r[key]!=0 or bounded and r[key]>r['paired'] for r in strata.values()):return False
+        if not math.isclose(math.fsum(r[key] for r in strata.values()),total,rel_tol=1e-12,abs_tol=1e-12):return False
+        mean='value' if key=='numerator' else 'baseline_value'
         for r in strata.values():
             if r['paired']<5:
-                if r.get('value') is not None:return False
-            elif not _finite(r.get('value')) or not math.isclose(r['value'],r['numerator']/r['paired'],rel_tol=1e-12,abs_tol=1e-12):return False
+                if r.get(mean) is not None:return False
+            elif not _finite(r.get(mean)) or r[mean]<0 or not math.isclose(r[mean],r[key]/r['paired'],rel_tol=1e-12,abs_tol=1e-12):return False
+    if comparison is None and any(not math.isclose(r['numerator'],r['baseline_numerator'],rel_tol=1e-12,abs_tol=1e-12) for r in strata.values()):return False
     return True
 
 

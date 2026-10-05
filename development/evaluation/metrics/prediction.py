@@ -143,7 +143,7 @@ def _paired(rows, definition, target, metric):
         stratum['value']=stratum.get('numerator',0.)/stratum['paired'] if stratum['paired'] >= 5 else None
         stratum['baseline_value']=stratum.get('baseline_numerator',0.)/stratum['paired'] if stratum['paired'] >= 5 else None
         stratum['reason']=None if stratum['paired']>=5 else 'INSUFFICIENT_EVIDENCE'
-    return values, counterpart, dict(opportunities=n, numerator=math.fsum(values), denominator=len(values),
+    return values, counterpart, dict(opportunities=n, numerator=math.fsum(values), baseline_numerator=math.fsum(counterpart), denominator=len(values),
         source_ordinals=_ordinal_detail(sources), coverage=coverage, eligibility_cross_tab=dict(counts),
         reason_cross_tab=dict(reasons), action_strata=strata, methods=dict(methods),
         method_support=_support_detail(support), exclusions=n-len(values))
