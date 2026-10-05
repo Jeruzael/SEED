@@ -53,10 +53,12 @@ def _valid_payload(row,data):
 def _valid_paired(row,data,numerator,denominator):
     if not _finite(numerator) or numerator<0 or not _count(denominator):return False
     opportunities,exclusions=data.get('opportunities'),data.get('exclusions')
-    if not _count(opportunities) or opportunities<1 or not _count(exclusions) or denominator+exclusions!=opportunities:return False
+    if not _count(opportunities) or opportunities==0 and row.state=='MEASURED' or not _count(exclusions) or denominator+exclusions!=opportunities:return False
     minimum=5 if data['dimensions']['action']!='all' or data['dimensions']['stratum']=='action_mean' else 1
-    if row.metric in _MEANS and denominator<minimum:return False
-    if data.get('summary_minimum_paired')!=minimum:return False
+    if row.metric in _MEANS and ((row.state=='MEASURED')!=(denominator>=minimum)):return False
+    if row.metric not in _MEANS and row.state=='UNAVAILABLE' and opportunities>0:return False
+    if type(data.get('summary_minimum_paired')) is not int or data['summary_minimum_paired']!=minimum:return False
+    if 'baseline_value' not in data:return False
     bounded=row.metric in ('prediction.boolean-accuracy','prediction.boolean-brier') or data['dimensions']['signal']=='network'
     counterpart=data.get('baseline_numerator')
     if not _finite(counterpart) or counterpart<0:return False
@@ -75,9 +77,9 @@ def _valid_paired(row,data,numerator,denominator):
             or any(not _count(n) for n in reasons.values()) or sum(reasons.values())!=opportunities
             or type(coverage) is not dict):return False
     method,comparison=data['dimensions']['method'],data['dimensions']['comparison']
-    expected={method:(cross['both']+cross['seed_only'])/opportunities}
-    if comparison is not None:expected[comparison]=(cross['both']+cross['baseline_only'])/opportunities
-    if set(coverage)!=set(expected) or any(not _finite(coverage[k]) or not math.isclose(coverage[k],v,rel_tol=1e-12,abs_tol=1e-12) for k,v in expected.items()):return False
+    expected={method:(cross['both']+cross['seed_only'])/opportunities if opportunities else None}
+    if comparison is not None:expected[comparison]=(cross['both']+cross['baseline_only'])/opportunities if opportunities else None
+    if set(coverage)!=set(expected) or any(coverage[k] is not None if v is None else not _finite(coverage[k]) or not math.isclose(coverage[k],v,rel_tol=1e-12,abs_tol=1e-12) for k,v in expected.items()):return False
     if comparison is None and (cross['seed_only'] or cross['baseline_only']):return False
     ordinals=data.get('source_ordinals')
     if ordinals is not None:
@@ -91,8 +93,8 @@ def _valid_paired(row,data,numerator,denominator):
     methods=data.get('methods')
     if methods is not None and (type(methods) is not dict or any(not _count(n) for n in methods.values()) or sum(methods.values())!=opportunities):return False
     strata=data.get('action_strata')
-    if type(strata) is not dict or not strata:return False
-    if any(type(r) is not dict or not _count(r.get('opportunities')) or not _count(r.get('paired')) or r['paired']>r['opportunities'] for r in strata.values()):return False
+    if type(strata) is not dict or not strata and opportunities>0:return False
+    if any(type(r) is not dict or not {'opportunities','paired','numerator','baseline_numerator','value','baseline_value'}<=set(r) or not _count(r.get('opportunities')) or not _count(r.get('paired')) or r['paired']>r['opportunities'] for r in strata.values()):return False
     if sum(r['opportunities'] for r in strata.values())!=opportunities or sum(r['paired'] for r in strata.values())!=denominator:return False
     for key,total in (('numerator',numerator),('baseline_numerator',counterpart)):
         if any(not _finite(r.get(key)) or r[key]<0 or r['paired']==0 and r[key]!=0 or bounded and r[key]>r['paired'] for r in strata.values()):return False
@@ -121,6 +123,9 @@ def _valid_row(plan,row):
         if not expected['applicable'] and (row.state!='NOT_EVALUATED' or row.reason!=expected['reason']):
             return False
         if row.state=='MEASURED' and not _valid_payload(row,data):return False
+        if (row.state=='UNAVAILABLE' and row.metric in (*_MEANS[:-1],'prediction.coverage','prediction.support-counts')
+                and any(k in data for k in ('opportunities','baseline_numerator','baseline_value','action_strata','coverage','eligibility_cross_tab'))
+                and not _valid_paired(row,data,data.get('numerator'),data.get('denominator'))):return False
         if row.state=='MEASURED' and row.metric in ('decision.constraints','decision.eligibility','curiosity.bounds'):
             key='mismatched' if row.metric=='decision.eligibility' else 'violations'
             if type(row.value) is not dict or type(row.value.get(key)) is not int or row.value[key]!=0:return False

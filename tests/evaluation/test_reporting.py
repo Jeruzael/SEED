@@ -485,3 +485,40 @@ def test_paired_counterpart_zero_unclipped_and_absent_comparison(tmp_path,plan_b
     assert json.loads(row.body)['baseline_value'] is None
     data=json.loads(row.body);data['baseline_value']=.1;bad=replace(row,body=json.dumps(data).encode())
     assert not reconcile_output(without,(bad,),classify_questions(without,(bad,),'COMPLETED')).passed
+
+
+@pytest.mark.parametrize('n',[0,1])
+@pytest.mark.parametrize('defect',['negative','boolean','non_null_below_minimum','wrong_total','wrong_count'])
+def test_unavailable_paired_loss_retains_validated_null_summary(tmp_path,plan_body,n,defect):
+    from development.evaluation.contracts import Population
+    from development.evaluation.metrics.prediction import measure_prediction
+    from .test_prediction_metrics import evidence
+    body=copy.deepcopy(plan_body);body['populations'][0].update(action='rest',comparison='persistence')
+    plan=admitted(tmp_path,body)
+    row=measure_prediction('prediction.numeric-mae',tuple(evidence(i,baseline=.6) for i in range(1,n+1)),Population('all',('member-0',)),plan)
+    assert row.state=='UNAVAILABLE' and row.value is None
+    assert reconcile_output(plan,(row,),classify_questions(plan,(row,),'COMPLETED')).passed
+    data=json.loads(row.body)
+    if defect in ('negative','boolean','non_null_below_minimum'):data['baseline_value']={'negative':-.2,'boolean':False,'non_null_below_minimum':.2}[defect]
+    elif defect=='wrong_total':data['baseline_numerator']=42.
+    else:data['denominator']=5
+    bad=replace(row,body=json.dumps(data).encode())
+    assert not reconcile_output(plan,(bad,),classify_questions(plan,(bad,),'COMPLETED')).passed
+    data.pop('opportunities');incomplete=replace(row,body=json.dumps(data).encode())
+    assert not reconcile_output(plan,(incomplete,),classify_questions(plan,(incomplete,),'COMPLETED')).passed
+    summary=summarize_suite(plan,(RunSummary('member-0',RunResult('COMPLETED',None)),),(bad,))
+    assert summary['completed_valid_count']==0 and summary['invalid_count']==1
+
+
+@pytest.mark.parametrize('metric',['prediction.coverage','prediction.support-counts'])
+def test_absent_paired_structured_evidence_is_null_and_accounted(tmp_path,plan_body,metric):
+    from development.evaluation.contracts import Population
+    from development.evaluation.metrics.prediction import measure_prediction
+    body=copy.deepcopy(plan_body);body['metrics']=[dict(id=metric,version=1)];body['questions'][0]['metrics']=[metric]
+    body['populations'][0]['comparison']='persistence';plan=admitted(tmp_path,body)
+    row=measure_prediction(metric,(),Population('all',('member-0',)),plan)
+    assert row.state=='UNAVAILABLE' and reconcile_output(plan,(row,),classify_questions(plan,(row,),'COMPLETED')).passed
+    data=json.loads(row.body);data['baseline_numerator']=1.;bad=replace(row,body=json.dumps(data).encode())
+    assert not reconcile_output(plan,(bad,),classify_questions(plan,(bad,),'COMPLETED')).passed
+    data.pop('opportunities');incomplete=replace(row,body=json.dumps(data).encode())
+    assert not reconcile_output(plan,(incomplete,),classify_questions(plan,(incomplete,),'COMPLETED')).passed
