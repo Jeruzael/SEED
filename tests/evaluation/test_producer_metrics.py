@@ -713,3 +713,36 @@ def test_actual_zero_eligible_run_cannot_be_overridden_by_auxiliary_claims(tmp_p
         assert json.loads(audited.body)['exclusions']['source_claim_mismatch']==2
         assert list(memory.db.iterdump())==original
     finally:memory.close()
+
+
+def test_semantic_opportunity_inventory_uses_existing_source_row_bound(tmp_path,plan_body):
+    from seed.memory import Memory
+    from seed.world_model import WorldModel
+    from seed.semantic_memory import Consolidator
+    frozen=plan(tmp_path,plan_body)
+    memory=Memory(tmp_path/'bounded-opportunities.sqlite')
+    try:
+        for n in range(1,9):
+            _,tid=memory.record_transition_experience(state_before={'load_ratio':.5},action='rest',
+                state_after={'load_ratio':.4},outcome={},legacy_reward=0,started_at=n-1,completed_at=n,world_model_eligible=True)
+            WorldModel(memory).observe_transition(tid)
+        beliefs=[dict(r) for r in memory.db.execute('SELECT * FROM world_beliefs')]
+        events=[];captured={}
+        for i in range(516):
+            at=8.+i;run=Consolidator(memory,clock=lambda:at+1).run(
+                {'load_ratio':.5,'battery_pct':80,'charging':False,'disk_free_pct':50},provenance='owner_requested')
+            captured[str(run['id'])]=dict(at=at,beliefs=beliefs)
+            events.extend(dict(run_id=run['id'],source_belief_id=b['id'],at=at,support=b['evidence_count'],
+                confidence=b['confidence'],resource_guard=False) for b in beliefs)
+        tables={t:[dict(r) for r in memory.db.execute('SELECT * FROM '+t)] for t in
+            ('world_beliefs','semantic_memories','semantic_memory_history','consolidation_runs')}
+        assert len(events)==1032 and len(tables['consolidation_runs'])==516
+        source=dict(semantic_eligibility_history=events,semantic_opportunity_sources=captured)
+        assert len(json.dumps(dict(tables=tables,**source)).encode())<32*1024**2
+        audited=results(frozen,tables,**source)['semantic.promotion-latency']
+        assert audited.state=='MEASURED' and audited.value['eligible_opportunities']==1032
+        assert audited.value['fact_count']==1032 and len(audited.value['facts'])==8
+        from development.evaluation.contracts import ContractError
+        with pytest.raises(ContractError):
+            results(frozen,tables,semantic_eligibility_history=events*2,semantic_opportunity_sources=captured)
+    finally:memory.close()

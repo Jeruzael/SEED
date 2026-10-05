@@ -264,9 +264,9 @@ def _semantic(source,metric,protocol):
         opportunities=source.get('semantic_eligibility_history')
         if not opportunities:return None,'MISSING_ELIGIBILITY_HISTORY',{}
         from seed.semantic_memory import normalized_source, MIN_EVIDENCE, MIN_CONFIDENCE
-        if type(opportunities) is not list or len(opportunities)>1024:raise ContractError()
+        if type(opportunities) is not list or len(opportunities)>2048:raise ContractError()
         captured=source.get('semantic_opportunity_sources',{})
-        if type(captured) is not dict or len(captured)>1024:raise ContractError()
+        if type(captured) is not dict or len(captured)>2048:raise ContractError()
         latencies=[]; eligible_count=0; exclusions=Counter();facts=[];seen=set();by_run=Counter()
         run_by_id={r['id']:r for r in runs}
         for event in opportunities:
