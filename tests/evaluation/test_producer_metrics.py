@@ -232,6 +232,30 @@ def test_semantic_opportunities_and_provenance(tmp_path, plan_body, monkeypatch)
     finally: memory.close()
 
 
+def test_semantic_numeric_payload_does_not_accept_boolean_zero(tmp_path,plan_body):
+    from seed.memory import Memory
+    from seed.world_model import WorldModel
+    from seed.semantic_memory import Consolidator
+    root=tmp_path/'plan';root.mkdir();frozen=plan(root,plan_body)
+    memory=Memory(tmp_path/'memory.sqlite3')
+    try:
+        for ordinal in range(1,9):
+            _,tid=memory.record_transition_experience(state_before={'load_ratio':.5},action='observe',
+                state_after={'load_ratio':.5},outcome={},legacy_reward=0,started_at=ordinal-1,completed_at=ordinal,world_model_eligible=True)
+            WorldModel(memory).observe_transition(tid)
+        Consolidator(memory,clock=lambda:9).run({'load_ratio':.5,'battery_pct':80,'charging':False,'disk_free_pct':50},provenance='owner_requested')
+        tables={t:[dict(r) for r in memory.db.execute('SELECT * FROM '+t)] for t in ('world_beliefs','semantic_memories')}
+        assert results(frozen,tables)['semantic.source-consistency'].value['content_matched']==2
+        payload=json.loads(tables['semantic_memories'][0]['payload_json'])
+        assert payload['mean_delta']==0.
+        payload['mean_delta']=False
+        tables['semantic_memories'][0]['payload_json']=json.dumps(payload)
+        out=results(frozen,tables)['semantic.source-consistency'].value
+        assert out['content_mismatched']==1
+        assert out['facts'][0]['content_mismatched_fields']==['payload_json']
+    finally:memory.close()
+
+
 def test_self_claims_are_source_checked(tmp_path,plan_body):
     from seed.memory import Memory
     from seed.self_model import SelfModel, _read_evidence

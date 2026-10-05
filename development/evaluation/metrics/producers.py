@@ -322,8 +322,8 @@ def _semantic(source,metric,protocol):
                 # false content; source clocks remain visible below.
                 if key in ('source_belief_updated_at','payload_json'):continue
                 actual=row.get(key)
-                if actual!=value or (type(value) is int and type(actual) is not int):mismatches.append(key)
-            try:payload_matches=_json(row['payload_json'])==_json(reference['payload_json'])
+                if not _source_equal(actual,value) or (type(value) is int and type(actual) is not int):mismatches.append(key)
+            try:payload_matches=_source_equal(_json(row['payload_json']),_json(reference['payload_json']))
             except (ValueError,TypeError,KeyError,OverflowError,RecursionError):payload_matches=False
             if not payload_matches:mismatches.append('payload_json')
             for key,value in (('model',MODEL),('model_version',MODEL_VERSION)):
