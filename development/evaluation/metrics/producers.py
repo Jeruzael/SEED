@@ -263,22 +263,74 @@ def _semantic(source,metric,protocol):
         if not runs:return None,'NO_CONSOLIDATION_OPPORTUNITY',{}
         opportunities=source.get('semantic_eligibility_history')
         if not opportunities:return None,'MISSING_ELIGIBILITY_HISTORY',{}
-        latencies=[]; eligible_count=0; exclusions=Counter()
+        from seed.semantic_memory import normalized_source, MIN_EVIDENCE, MIN_CONFIDENCE
+        if type(opportunities) is not list or len(opportunities)>1024:raise ContractError()
+        captured=source.get('semantic_opportunity_sources',{})
+        if type(captured) is not dict or len(captured)>1024:raise ContractError()
+        latencies=[]; eligible_count=0; exclusions=Counter();facts=[];seen=set();by_run=Counter()
         run_by_id={r['id']:r for r in runs}
         for event in opportunities:
-            run=run_by_id.get(event.get('run_id'))
+            if (type(event) is not dict or type(event.get('run_id')) is not int
+                    or type(event.get('source_belief_id')) is not int
+                    or type(event.get('at')) not in (int,float) or not math.isfinite(event['at'])
+                    or type(event.get('resource_guard')) is not bool):raise ContractError()
+            identity=(event['run_id'],event['source_belief_id'])
+            if identity in seen:
+                exclusions['duplicate_opportunity']+=1;continue
+            seen.add(identity)
+            run=run_by_id.get(event['run_id'])
             if run is None:
                 exclusions['missing_actual_run']+=1;continue
             result=_json(run['result_json'])
             if (run['status'] not in ('completed','completed_with_errors') or result.get('reason') is not None
                     or event['source_belief_id'] not in result.get('examined_ids',[])):
                 exclusions['not_an_actual_eligible_opportunity']+=1;continue
-            if event['support']>=8 and event['confidence']>=.30 and not event['resource_guard']:
-                eligible_count+=1
-                publication=next((r for r in rows or [] if r['source_belief_id']==event['source_belief_id'] and r['created_at']>=event['at']),None)
-                if publication:latencies.append(dict(source_belief_id=event['source_belief_id'],eligible_at=event['at'],published_at=publication['created_at'],latency=publication['created_at']-event['at']))
-        if not eligible_count:return None,'NO_ELIGIBLE_CONSOLIDATION_OPPORTUNITY',dict(exclusions=dict(exclusions))
-        return dict(promotions=latencies,eligible_opportunities=eligible_count,exclusions=dict(exclusions)),None,{}
+            recorded=run.get('eligible_beliefs')
+            if type(recorded) is not int or recorded<0:raise ContractError()
+            version=captured.get(str(event['run_id']));reference=None
+            # Original pre-run capture, explicitly bound to its logical cutoff.
+            # Later current beliefs and auxiliary eligibility claims are not proof.
+            if (type(version) is dict and type(version.get('at')) in (int,float)
+                    and math.isfinite(version['at']) and version['at']==event['at']
+                    and version['at']<=run['started_at']):
+                beliefs=version.get('beliefs')
+                if type(beliefs) is not list or len(beliefs)>2048:raise ContractError()
+                matching=[b for b in beliefs if b.get('id')==event['source_belief_id']]
+                if len(matching)>1:raise ContractError()
+                if matching:
+                    try:reference=normalized_source(dict(matching[0],value_json=_raw(matching[0]['value_json'])))
+                    except (ValueError,TypeError,KeyError,OverflowError,RecursionError):pass
+            matches=(reference is not None and type(event.get('support')) is int
+                and event['support']==reference['evidence_count']
+                and type(event.get('confidence')) in (int,float)
+                and event['confidence']==reference['confidence'] and event['resource_guard'] is False)
+            facts.append(dict(run_id=event['run_id'],source_belief_id=event['source_belief_id'],eligible_at=event['at'],
+                actual_run_eligible_beliefs=recorded,claimed_support=event.get('support'),claimed_confidence=event.get('confidence'),
+                reference_support=reference['evidence_count'] if reference else None,
+                reference_confidence=reference['confidence'] if reference else None,
+                source_fingerprint=reference['source_fingerprint'] if reference else None,
+                source_status='UNAVAILABLE' if reference is None else 'MATCH' if matches else 'MISMATCH'))
+            if reference is not None and not matches:exclusions['source_claim_mismatch']+=1
+            if recorded==0:
+                exclusions['actual_run_has_no_eligible_beliefs']+=1;continue
+            if reference is None:
+                exclusions['missing_opportunity_source_version']+=1;continue
+            if not matches:continue
+            if reference['evidence_count']<MIN_EVIDENCE or reference['confidence']<MIN_CONFIDENCE:
+                exclusions['source_below_promotion_threshold']+=1;continue
+            by_run[event['run_id']]+=1;eligible_count+=1
+            publication=next((r for r in rows or [] if r['source_belief_id']==event['source_belief_id']
+                and r['source_fingerprint']==reference['source_fingerprint'] and r['created_at']>=event['at']),None)
+            if publication:latencies.append(dict(source_belief_id=event['source_belief_id'],run_id=event['run_id'],
+                source_fingerprint=reference['source_fingerprint'],eligible_at=event['at'],published_at=publication['created_at'],
+                latency=publication['created_at']-event['at']))
+        metadata=dict(exclusions=dict(exclusions),**_bounded_facts(facts))
+        if exclusions['duplicate_opportunity'] or any(n>run_by_id[r]['eligible_beliefs'] for r,n in by_run.items()):
+            return None,'INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY',metadata
+        if not eligible_count:
+            reason='MISSING_OPPORTUNITY_SOURCE_VERSION' if exclusions['missing_opportunity_source_version'] else 'NO_ELIGIBLE_CONSOLIDATION_OPPORTUNITY'
+            return None,reason,metadata
+        return dict(promotions=latencies,eligible_opportunities=eligible_count,**metadata),None,{}
     if rows is None:return None,'MISSING_SEMANTIC_SOURCE',{}
     history=_table(source,'semantic_memory_history')
     if metric=='semantic.revisions':

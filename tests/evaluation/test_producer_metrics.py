@@ -144,6 +144,7 @@ def test_semantic_opportunities_and_provenance(tmp_path, plan_body, monkeypatch)
             _,tid=memory.record_transition_experience(state_before={'load_ratio':.5}, action='rest',
                 state_after={'load_ratio':.4},outcome={},legacy_reward=0,started_at=ordinal-1,completed_at=ordinal,world_model_eligible=True)
             WorldModel(memory).observe_transition(tid)
+        opportunity_sources=[dict(r) for r in memory.db.execute('SELECT * FROM world_beliefs')]
         run = Consolidator(memory,clock=lambda:9).run({'load_ratio':.5,'battery_pct':80,'charging':False,'disk_free_pct':50},provenance='owner_requested')
         tables = {t:[dict(r) for r in memory.db.execute('SELECT * FROM '+t)] for t in
             ('world_beliefs','semantic_memories','semantic_memory_history','consolidation_runs','consolidation_state')}
@@ -195,7 +196,8 @@ def test_semantic_opportunities_and_provenance(tmp_path, plan_body, monkeypatch)
         assert out['semantic.promotion-latency'].state == 'UNAVAILABLE'  # no captured eligibility history
         opportunities=[dict(run_id=run['id'],source_belief_id=b['id'],at=8.,support=b['evidence_count'],
                             confidence=b['confidence'],resource_guard=False) for b in tables['world_beliefs']]
-        actual=results(frozen_plan,tables,semantic_eligibility_history=opportunities)
+        actual=results(frozen_plan,tables,semantic_eligibility_history=opportunities,
+            semantic_opportunity_sources={str(run['id']):dict(at=8.,beliefs=opportunity_sources)})
         assert actual['semantic.promotion-latency'].value['eligible_opportunities']==2
         assert [e['latency'] for e in actual['semantic.promotion-latency'].value['promotions']]==[1.,1.]
         fake=copy.deepcopy(opportunities)
@@ -646,3 +648,68 @@ def test_decision_q_provenance_matches_captured_original_state(tmp_path,plan_bod
         else:assert out['decision.q-compatibility'].value['mismatched']==1
         assert changed!=original and original['capture']['q_snapshot'][action]==original['updates']['q']['before']
     finally:worker.stop();journal.close()
+
+
+@pytest.mark.parametrize('defect',['claims','missing','duplicate','late_capture','source_changed'])
+def test_semantic_opportunities_require_actual_source_version(tmp_path,plan_body,defect):
+    from seed.memory import Memory
+    from seed.world_model import WorldModel
+    from seed.semantic_memory import Consolidator
+    frozen=plan(tmp_path,plan_body)
+    memory=Memory(tmp_path/'opportunities.sqlite')
+    try:
+        for n in range(1,9):
+            _,tid=memory.record_transition_experience(state_before={'load_ratio':.5},action='rest',
+                state_after={'load_ratio':.4},outcome={},legacy_reward=0,started_at=n-1,completed_at=n,world_model_eligible=True)
+            WorldModel(memory).observe_transition(tid)
+        before=[dict(r) for r in memory.db.execute('SELECT * FROM world_beliefs')]
+        run=Consolidator(memory,clock=lambda:9).run({'load_ratio':.5,'battery_pct':80,'charging':False,'disk_free_pct':50},provenance='owner_requested')
+        tables={t:[dict(r) for r in memory.db.execute('SELECT * FROM '+t)] for t in
+            ('world_beliefs','semantic_memories','semantic_memory_history','consolidation_runs','consolidation_state')}
+        events=[dict(run_id=run['id'],source_belief_id=b['id'],at=8.,support=b['evidence_count'],confidence=b['confidence'],resource_guard=False) for b in before]
+        captured={str(run['id']):dict(at=8.,beliefs=before)}
+        honest=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=captured)['semantic.promotion-latency']
+        assert honest.value['eligible_opportunities']==2
+        assert [e['latency'] for e in honest.value['promotions']]==[1.,1.]
+        if defect=='claims':
+            for event in events:event.update(support=999,confidence=.95)
+        elif defect=='missing':captured={}
+        elif defect=='duplicate':events*=2
+        elif defect=='late_capture':captured[str(run['id'])]['at']=10.
+        else:
+            # Later current B4 versions cannot replace the original run source.
+            for b in tables['world_beliefs']:b.update(evidence_count=9,source_last_transition_id=9)
+            historical=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=captured)['semantic.promotion-latency']
+            assert historical.value['eligible_opportunities']==2
+            assert historical.value['promotions']==honest.value['promotions']
+            captured={str(run['id']):dict(at=10.,beliefs=tables['world_beliefs'])}
+        audit=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=captured)['semantic.promotion-latency']
+        assert audit.state=='UNAVAILABLE'
+        assert audit.value is None
+    finally:memory.close()
+
+
+def test_actual_zero_eligible_run_cannot_be_overridden_by_auxiliary_claims(tmp_path,plan_body):
+    from seed.memory import Memory
+    from seed.world_model import WorldModel
+    from seed.semantic_memory import Consolidator
+    frozen=plan(tmp_path,plan_body)
+    memory=Memory(tmp_path/'ineligible.sqlite')
+    try:
+        for n in (1,2):
+            _,tid=memory.record_transition_experience(state_before={'load_ratio':.5},action='rest',
+                state_after={'load_ratio':.4},outcome={},legacy_reward=0,started_at=n-1,completed_at=n,world_model_eligible=True)
+            WorldModel(memory).observe_transition(tid)
+        before=[dict(r) for r in memory.db.execute('SELECT * FROM world_beliefs')]
+        run=Consolidator(memory,clock=lambda:3).run({'load_ratio':.5,'battery_pct':80,'charging':False,'disk_free_pct':50},provenance='owner_requested')
+        tables={t:[dict(r) for r in memory.db.execute('SELECT * FROM '+t)] for t in
+            ('world_beliefs','semantic_memories','semantic_memory_history','consolidation_runs')}
+        assert tables['world_beliefs']==before and tables['consolidation_runs'][0]['eligible_beliefs']==0
+        events=[dict(run_id=run['id'],source_belief_id=b['id'],at=2.,support=8,confidence=.4,resource_guard=False) for b in before]
+        sources={str(run['id']):dict(at=2.,beliefs=before)}
+        original=list(memory.db.iterdump())
+        audited=results(frozen,tables,semantic_eligibility_history=events,semantic_opportunity_sources=sources)['semantic.promotion-latency']
+        assert audited.state=='UNAVAILABLE' and audited.reason=='NO_ELIGIBLE_CONSOLIDATION_OPPORTUNITY'
+        assert json.loads(audited.body)['exclusions']['source_claim_mismatch']==2
+        assert list(memory.db.iterdump())==original
+    finally:memory.close()
