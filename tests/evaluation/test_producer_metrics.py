@@ -203,7 +203,7 @@ def test_semantic_opportunities_and_provenance(tmp_path, plan_body, monkeypatch)
         fake=copy.deepcopy(opportunities)
         for event in fake:event['run_id']=999999
         rejected=results(frozen_plan,tables,semantic_eligibility_history=fake)
-        assert rejected['semantic.promotion-latency'].reason=='NO_ELIGIBLE_CONSOLIDATION_OPPORTUNITY'
+        assert rejected['semantic.promotion-latency'].reason=='INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY'
         absent = results(frozen_plan,{'semantic_memories':[],'consolidation_runs':[]})
         assert absent['semantic.promotion-latency'].reason == 'NO_CONSOLIDATION_OPPORTUNITY'
         frozen_path = tmp_path/'frozen'; frozen_path.mkdir()

@@ -197,7 +197,13 @@ def semantic(metric,v,d):
         shape(v,('revisions','semantic_ids'));counts(v,('revisions',))
         ids=v['semantic_ids'];need(type(ids) is list and all(positive(i) for i in ids) and ids==sorted(set(ids)) and len(ids)<=v['revisions'] and bool(ids)==bool(v['revisions']));return
     if metric=='semantic.promotion-latency':
-        shape(v,('promotions','eligible_opportunities','exclusions',*FACT_KEYS));counts(v,('eligible_opportunities',));count_map(v['exclusions'])
+        inventory_keys=('expected_examined_opportunities','validated_actual_eligible_opportunities','opportunity_inventory_count','scoped_opportunity_count','scope_exclusion_count','validated_scoped_eligible_opportunities','scope_exclusion_counts')
+        shape(v,('promotions','eligible_opportunities','exclusions',*FACT_KEYS,*inventory_keys));counts(v,('eligible_opportunities',*inventory_keys[:-1]));count_map(v['exclusions'])
+        need(v['scoped_opportunity_count']+v['scope_exclusion_count']==v['opportunity_inventory_count']
+             and count_map(v['scope_exclusion_counts'],('action','signal'))==v['scope_exclusion_count']
+             and v['validated_actual_eligible_opportunities']<=v['expected_examined_opportunities']
+             and v['eligible_opportunities']==v['validated_scoped_eligible_opportunities']<=v['validated_actual_eligible_opportunities']
+             and v['eligible_opportunities']<=v['scoped_opportunity_count'])
         sample,n=facts(v);promotions=v['promotions'];need(type(promotions) is list and len(promotions)<=v['eligible_opportunities']<=n)
         seen=set();events=set();sources=set()
         for p in promotions:

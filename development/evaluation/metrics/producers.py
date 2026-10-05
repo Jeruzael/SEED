@@ -313,23 +313,106 @@ def _semantic_creation_matches(publication,reference,run):
     return True
 
 
-def _semantic(source,metric,protocol):
+def _semantic_inventory(runs,opportunities,captured,definition):
+    """Validate the complete global capture before any source population filter."""
+    from seed.semantic_memory import normalized_source,MIN_EVIDENCE,MIN_CONFIDENCE
+    events={};expected=0;eligible=0;scoped_eligible=0;run_ids=set()
+    for event in opportunities:
+        if (type(event) is not dict or type(event.get('run_id')) is not int or event['run_id']<1
+                or type(event.get('source_belief_id')) is not int or event['source_belief_id']<1
+                or type(event.get('at')) not in (int,float) or not math.isfinite(event['at'])
+                or type(event.get('resource_guard')) is not bool):raise ContractError()
+        identity=(event['run_id'],event['source_belief_id'])
+        if identity in events:return 'INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY',{}
+        events[identity]=event
+    if any(rid not in {r['id'] for r in runs} for rid,_ in events):
+        return 'INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY',{}
+    for run in runs:
+        rid=run['id']
+        if type(rid) is not int or rid<1 or rid in run_ids:raise ContractError()
+        run_ids.add(rid);result=_json(run['result_json']);examined=result.get('examined_ids')
+        if (type(examined) is not list or len(examined)>2048
+                or any(type(i) is not int or i<1 for i in examined)
+                or len(set(examined))!=len(examined)
+                or type(run.get('source_beliefs_examined')) is not int
+                or run['source_beliefs_examined']!=len(examined)
+                or type(run.get('eligible_beliefs')) is not int or not 0<=run['eligible_beliefs']<=len(examined)):
+            return 'INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY',{}
+        expected+=len(examined);eligible+=run['eligible_beliefs']
+        version=captured.get(str(rid))
+        if not examined and version is None:continue
+        if (type(version) is not dict or type(version.get('at')) not in (int,float)
+                or not math.isfinite(version['at']) or type(run.get('started_at')) not in (int,float)
+                or not math.isfinite(run['started_at']) or version['at']>run['started_at']):
+            return 'MISSING_OPPORTUNITY_SOURCE_VERSION',{}
+        beliefs=version.get('beliefs')
+        if type(beliefs) is not list or len(beliefs)>2048:raise ContractError()
+        by_id={}
+        for b in beliefs:
+            if type(b) is not dict or type(b.get('id')) is not int or b['id']<1 or b['id'] in by_id:raise ContractError()
+            by_id[b['id']]=b
+        # Suppressed calls still have captured source/resource exclusions. Their
+        # source inventory cannot depend on a semantic publication existing.
+        required=examined if run['status'] in ('completed','completed_with_errors') else list(by_id)
+        if any(i not in by_id for i in examined):return 'MISSING_OPPORTUNITY_SOURCE_VERSION',{}
+        if any((rid,i) not in events for i in required):return 'INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY',{}
+        actual_eligible=0
+        for sid in examined:
+            event=events[(rid,sid)]
+            if event['at']!=version['at']:return 'MISSING_OPPORTUNITY_SOURCE_VERSION',{}
+            try:reference=normalized_source(dict(by_id[sid],value_json=_raw(by_id[sid]['value_json'])))
+            except (ValueError,TypeError,KeyError,OverflowError,RecursionError):continue
+            qualifies=reference['evidence_count']>=MIN_EVIDENCE and reference['confidence']>=MIN_CONFIDENCE
+            actual_eligible+=qualifies
+            scoped_eligible+=qualifies and _semantic_source_scope(event,captured,definition)=='included'
+            if qualifies and (type(event.get('support')) is not int or event['support']!=reference['evidence_count']
+                    or type(event.get('confidence')) not in (int,float) or event['confidence']!=reference['confidence']
+                    or event['resource_guard']):return 'INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY',{}
+        if actual_eligible!=run['eligible_beliefs']:return 'INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY',{}
+    if any(rid not in run_ids for rid,_ in events):return 'INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY',{}
+    return None,dict(expected_examined_opportunities=expected,validated_actual_eligible_opportunities=eligible,
+        validated_scoped_eligible_opportunities=scoped_eligible)
+
+
+def _semantic_source_scope(event,captured,definition):
+    version=captured.get(str(event['run_id']))
+    if type(version) is not dict or type(version.get('beliefs')) is not list:return None
+    matching=[b for b in version['beliefs'] if b.get('id')==event['source_belief_id']]
+    if len(matching)!=1:return None
+    belief=matching[0];action,signal=definition['action'],definition['signal']
+    if action!='all' and (belief.get('scope')!='action' or belief.get('scope_value')!=action):return 'action'
+    target='network_reachable' if signal=='network' else signal
+    if signal!='all' and belief.get('signal')!=target:return 'signal'
+    return 'included'
+
+
+def _semantic(source,metric,protocol,definition):
     if protocol=='FROZEN_SELECTION_ASSAY' and metric in ('semantic.promotion-latency','semantic.revisions','semantic.status-transitions'):
         return None,'FROZEN_PROTOCOL_SUPPRESSES_MUTATION',dict(state='NOT_EVALUATED')
     rows=_table(source,'semantic_memories'); runs=_table(source,'consolidation_runs')
     if metric=='semantic.promotion-latency':
         if not runs:return None,'NO_CONSOLIDATION_OPPORTUNITY',{}
         opportunities=source.get('semantic_eligibility_history')
-        if not opportunities:return None,'MISSING_ELIGIBILITY_HISTORY',{}
+        if opportunities is None:return None,'MISSING_ELIGIBILITY_HISTORY',{}
         from seed.semantic_memory import normalized_source, MIN_EVIDENCE, MIN_CONFIDENCE
         if type(opportunities) is not list or len(opportunities)>2048:raise ContractError()
         captured=source.get('semantic_opportunity_sources',{})
         if type(captured) is not dict or len(captured)>2048:raise ContractError()
+        inventory_error,inventory=_semantic_inventory(runs,opportunities,captured,definition)
+        if inventory_error:return None,inventory_error,dict(opportunity_inventory_count=len(opportunities),**inventory)
+        scoped=[];scope_exclusions=Counter()
+        for event in opportunities:
+            reason=_semantic_source_scope(event,captured,definition)
+            if reason is None:return None,'MISSING_OPPORTUNITY_SOURCE_VERSION',dict(opportunity_inventory_count=len(opportunities),**inventory)
+            if reason=='included':scoped.append(event)
+            else:scope_exclusions[reason]+=1
+        inventory.update(opportunity_inventory_count=len(opportunities),scoped_opportunity_count=len(scoped),
+            scope_exclusion_count=sum(scope_exclusions.values()),scope_exclusion_counts=dict(scope_exclusions))
         latencies=[]; eligible_count=0; exclusions=Counter();facts=[];seen=set();by_run=Counter()
         run_by_id={r['id']:r for r in runs}
         creation_events,creation_error=_semantic_creation_proof(source,runs)
         promoted_ids=set()
-        for event in opportunities:
+        for event in scoped:
             if (type(event) is not dict or type(event.get('run_id')) is not int
                     or type(event.get('source_belief_id')) is not int
                     or type(event.get('at')) not in (int,float) or not math.isfinite(event['at'])
@@ -398,7 +481,7 @@ def _semantic(source,metric,protocol):
                 semantic_memory_id=creation['semantic_memory_id'],creation_event_id=creation['creation_event_id'],revision=1,
                 source_fingerprint=reference['source_fingerprint'],eligible_at=event['at'],published_at=publication['created_at'],
                 latency=publication['created_at']-event['at']))
-        metadata=dict(exclusions=dict(exclusions),**_bounded_facts(facts))
+        metadata=dict(exclusions=dict(exclusions),**inventory,**_bounded_facts(facts))
         if exclusions['duplicate_opportunity'] or any(n>run_by_id[r]['eligible_beliefs'] for r,n in by_run.items()):
             return None,'INCONSISTENT_CONSOLIDATION_OPPORTUNITY_INVENTORY',metadata
         if not eligible_count:
@@ -766,6 +849,10 @@ def _scoped_source(source,metric,definition,window,member,evidence):
         return source,'published_lifetime_at_capture' if whole else 'registered_publication_window'
     if metric.startswith('semantic.'):
         if not whole:return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
+        if metric=='semantic.promotion-latency':
+            # Retain the complete run/creation capture; _semantic validates it
+            # globally, then scopes original B4 versions independently.
+            return source,'captured_source_opportunity_scope'
         if action!='all' or signal!='all':
             rows=_table(source,'semantic_memories')
             if rows is None:return None,'MISSING_REGISTERED_SCOPE_EVIDENCE'
@@ -831,7 +918,7 @@ def measure_producers(evidence, sources, plan):
             source={}
         elif metric.startswith('world.'):value,reason,facts=_world(source,metric)
         elif metric.startswith('curiosity.'):value,reason,facts=_curiosity(source,metric,selected)
-        elif metric.startswith('semantic.'):value,reason,facts=_semantic(source,metric,member['protocol'])
+        elif metric.startswith('semantic.'):value,reason,facts=_semantic(source,metric,member['protocol'],definition)
         elif metric.startswith('self.'):value,reason,facts=_self(source,metric)
         else:
             # A flat tuple belongs to a single-member assay. A multi-member
