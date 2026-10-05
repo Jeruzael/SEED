@@ -6,6 +6,7 @@ import statistics
 from ..analysis import expand_inventory
 from ..contracts import ContractError, Measurement, QuestionFinding, RunSummary, VerificationReport, strict_json
 from .registry import expected_metadata, measurement_data, plan_data
+from .payloads import valid_structured, adaptation
 from ..specs import raw_bytes
 
 EXECUTION = ('PLANNED','RUNNING','COMPLETED','INCOMPLETE','FAILED','INVALID')
@@ -37,8 +38,8 @@ def _valid_payload(row,data):
             if type(r) is not dict or any(not _count(r.get(k+'_count')) or r[k+'_count']<5 or not _finite(r.get(k)) or r[k]<0 for k in ('early','late')):return False
         return all(math.isclose(means[k],math.fsum(r[k] for r in strata.values())/len(actions),rel_tol=1e-12,abs_tol=1e-12) for k in ('early','late'))
     if row.metric in ('prediction.coverage','prediction.support-counts'):
-        return type(value) is dict and _valid_paired(row,data,data.get('numerator'),data.get('denominator'))
-    if row.metric not in _MEANS:return type(value) is dict
+        return valid_structured(row,data) and _valid_paired(row,data,data.get('numerator'),data.get('denominator'))
+    if row.metric not in _MEANS:return valid_structured(row,data)
     numerator,denominator=data.get('numerator'),data.get('denominator')
     if (not _finite(value) or value<0 or not _finite(numerator) or numerator<0
             or not _count(denominator) or denominator<1
@@ -123,6 +124,8 @@ def _valid_row(plan,row):
         if not expected['applicable'] and (row.state!='NOT_EVALUATED' or row.reason!=expected['reason']):
             return False
         if row.state=='MEASURED' and not _valid_payload(row,data):return False
+        if row.state=='UNAVAILABLE' and row.metric=='prediction.adaptation-delay' and 'observed_rest_exposures' in data:
+            adaptation(None,data)
         if (row.state=='UNAVAILABLE' and row.metric in (*_MEANS[:-1],'prediction.coverage','prediction.support-counts')
                 and any(k in data for k in ('opportunities','baseline_numerator','baseline_value','action_strata','coverage','eligibility_cross_tab'))
                 and not _valid_paired(row,data,data.get('numerator'),data.get('denominator'))):return False
