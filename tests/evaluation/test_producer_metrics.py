@@ -107,7 +107,20 @@ def test_semantic_opportunities_and_provenance(tmp_path, plan_body, monkeypatch)
             ('world_beliefs','semantic_memories','semantic_memory_history','consolidation_runs','consolidation_state')}
         out = results(frozen_plan,tables)
         assert out['semantic.source-consistency'].value['matched'] == 2
+        assert out['semantic.source-consistency'].value['content_matched'] == 2
         assert out['semantic.provenance'].value['valid_source_links'] == 2
+        original_dump=list(memory.db.iterdump())
+        wrong=copy.deepcopy(tables)
+        wrong['semantic_memories'][0].update(evidence_count=999,confidence=.95,
+            contradiction_count=999,payload_json='{"mean_delta":42}')
+        audited=results(frozen_plan,wrong)['semantic.source-consistency'].value
+        assert audited['matched']==2  # fingerprint alone is unchanged
+        assert audited['content_mismatched']==1 and audited['content_matched']==1
+        fact=audited['facts'][0]
+        assert set(fact['content_mismatched_fields'])=={'evidence_count','confidence','contradiction_count','payload_json'}
+        assert fact['actual_support']==999 and fact['reference_support']==8
+        assert fact['actual_confidence']==.95 and fact['reference_confidence']==.4
+        assert list(memory.db.iterdump())==original_dump
         assert out['semantic.promotion-latency'].state == 'UNAVAILABLE'  # no captured eligibility history
         opportunities=[dict(run_id=run['id'],source_belief_id=b['id'],at=8.,support=b['evidence_count'],
                             confidence=b['confidence'],resource_guard=False) for b in tables['world_beliefs']]
@@ -124,6 +137,27 @@ def test_semantic_opportunities_and_provenance(tmp_path, plan_body, monkeypatch)
         readonly = results(plan(frozen_path,plan_body,frozen=True),tables)
         assert readonly['semantic.promotion-latency'].state == 'NOT_EVALUATED'
         assert readonly['semantic.revisions'].state == 'NOT_EVALUATED'
+        # A real later B4 publication can precede semantic consolidation.
+        _,tid=memory.record_transition_experience(state_before={'load_ratio':.5},action='rest',
+            state_after={'load_ratio':.6},outcome={},legacy_reward=0,started_at=9,completed_at=10,world_model_eligible=True)
+        WorldModel(memory).observe_transition(tid)
+        lagged=copy.deepcopy(tables)
+        lagged['world_beliefs']=[dict(r) for r in memory.db.execute('SELECT * FROM world_beliefs')]
+        no_history=results(frozen_plan,lagged)['semantic.source-consistency'].value
+        assert no_history['matched']==0 and no_history['content_unavailable']==2
+        history=[dict(ordinal=8,beliefs=tables['world_beliefs'])]
+        historical=results(frozen_plan,lagged,world_revisions=history)['semantic.source-consistency'].value
+        assert historical['content_matched']==2 and historical['content_mismatched']==0
+        assert all(f['content_source_version']=='historical' for f in historical['facts'])
+        clock_only=copy.deepcopy(tables)
+        for belief in clock_only['world_beliefs']:belief['updated_at']+=100
+        assert results(frozen_plan,clock_only)['semantic.source-consistency'].value['content_matched']==2
+        invalid=copy.deepcopy(tables)
+        for belief in invalid['world_beliefs']:belief['value_json']='{"mean_delta":42}'
+        for row in invalid['semantic_memories']:row['status']='source_unavailable'
+        unavailable=results(frozen_plan,invalid)['semantic.source-consistency'].value
+        assert unavailable['content_unavailable']==2
+        assert all(f['source_unavailable_consistent'] for f in unavailable['facts'])
     finally: memory.close()
 
 

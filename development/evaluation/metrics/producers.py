@@ -201,22 +201,60 @@ def _semantic(source,metric,protocol):
     beliefs=_table(source,'world_beliefs')
     if beliefs is None:return None,'MISSING_SEMANTIC_SOURCE_BELIEFS',{}
     by_id={b['id']:b for b in beliefs}
-    from seed.semantic_memory import normalized_source
+    from seed.semantic_memory import normalized_source, MODEL, MODEL_VERSION
+    def normalize(belief):
+        try:return normalized_source(dict(belief,value_json=_raw(belief['value_json'])))
+        except (ValueError,TypeError,KeyError,OverflowError,RecursionError):return None
+    # Independently captured source versions, never semantic claims as proof.
+    versions={}
+    current={b['id']:normalize(b) for b in beliefs}
+    for reference in current.values():
+        if reference is not None:versions.setdefault(reference['source_fingerprint'],[]).append(('current',reference))
+    revisions=source.get('world_revisions',[])
+    if type(revisions) is not list or len(revisions)>1024:raise ContractError()
+    for revision in revisions:
+        published=revision.get('beliefs')
+        if type(published) is not list or len(published)>2048:raise ContractError()
+        for belief in published:
+            reference=normalize(belief)
+            if reference is not None:versions.setdefault(reference['source_fingerprint'],[]).append(('historical',reference))
     facts=[]
     for row in rows:
-        belief=by_id.get(row['source_belief_id']); normalized=None
-        if belief is not None:
-            try:
-                original=dict(belief,value_json=_raw(belief['value_json']))
-                normalized=normalized_source(original)
-            except (ValueError,TypeError,KeyError,OverflowError,RecursionError):pass
+        belief=by_id.get(row['source_belief_id']); normalized=current.get(row['source_belief_id'])
         available=normalized is not None
         matched=available and row['source_fingerprint']==normalized['source_fingerprint']
+        candidates=versions.get(row['source_fingerprint'],[])
+        version,reference=candidates[0] if candidates else ('unavailable',None)
+        mismatches=[]
+        if reference is not None:
+            for key,value in reference.items():
+                # Pure normalization deliberately excludes write-clock-only
+                # changes from its fingerprint. Missing old clocks are not
+                # false content; source clocks remain visible below.
+                if key in ('source_belief_updated_at','payload_json'):continue
+                actual=row.get(key)
+                if actual!=value or (type(value) is int and type(actual) is not int):mismatches.append(key)
+            try:payload_matches=_json(row['payload_json'])==_json(reference['payload_json'])
+            except (ValueError,TypeError,KeyError,OverflowError,RecursionError):payload_matches=False
+            if not payload_matches:mismatches.append('payload_json')
+            for key,value in (('model',MODEL),('model_version',MODEL_VERSION)):
+                if row.get(key)!=value or type(row.get(key)) is not type(value):mismatches.append(key)
         facts.append(dict(semantic_id=row['id'],source_belief_id=row['source_belief_id'],source_available=available,
             fingerprint_matches=matched,status=row['status'],source_unavailable_consistent=(row['status']=='source_unavailable' and not available),
             source_link_valid=belief is not None and row['source_first_transition_id']==belief['source_first_transition_id'] and row['source_last_transition_id']==belief['source_last_transition_id'],
-            actual_support=row['evidence_count'],actual_confidence=row['confidence'],eligible_at_capture=row['evidence_count']>=8 and row['confidence']>=.30))
+            actual_support=row['evidence_count'],actual_confidence=row['confidence'],
+            claimed_eligible=row['evidence_count']>=8 and row['confidence']>=.30,
+            eligible_at_capture=normalized['evidence_count']>=8 and normalized['confidence']>=.30 if available else None,
+            content_source_version=version,content_status='UNAVAILABLE' if reference is None else 'MISMATCH' if mismatches else 'MATCH',
+            content_mismatched_fields=mismatches,
+            reference_support=reference['evidence_count'] if reference else None,
+            reference_confidence=reference['confidence'] if reference else None,
+            claimed_source_updated_at=row.get('source_belief_updated_at'),
+            captured_source_updated_at=reference['source_belief_updated_at'] if reference else None))
     return dict(matched=sum(f['fingerprint_matches'] for f in facts),valid_source_links=sum(f['source_link_valid'] for f in facts),
+                content_matched=sum(f['content_status']=='MATCH' for f in facts),
+                content_mismatched=sum(f['content_status']=='MISMATCH' for f in facts),
+                content_unavailable=sum(f['content_status']=='UNAVAILABLE' for f in facts),
                 **_bounded_facts(facts),cursor=_table(source,'consolidation_state'),opportunities=None if runs is None else len(runs)),None,{}
 
 
