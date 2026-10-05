@@ -498,9 +498,15 @@ def _decisions(evidence,source,metric,family):
         return (math.fsum(utilities)/len(utilities) if utilities else None),'MISSING_TASK_TRANSITIONS' if not utilities else None,dict(numerator=math.fsum(utilities) if utilities else None,denominator=len(utilities) if utilities else None)
     if metric=='decision.skipped-fallback':
         skipped=source.get('skipped_attempts')
+        scope=source.get('skipped_scope',{})
+        reason=scope.get('reason')
+        if not facts and reason:return None,reason,{k:v for k,v in scope.items() if k!='reason'}
         if not facts and skipped is None:return None,'MISSING_DECISION_SOURCE',dict(denominator=None)
         return dict(skipped_attempts=None if skipped is None else len(skipped),fallback=sum(f['selection_mode']=='fallback' for f in facts),
-                    completed_decisions=len(facts),skipped_reasons=None if skipped is None else dict(Counter(s['reason'] for s in skipped))),None,dict(denominator=len(facts))
+                    completed_decisions=len(facts),skipped_reasons=None if skipped is None else dict(Counter(s['reason'] for s in skipped)),
+                    skipped_source_status='UNAVAILABLE' if skipped is None else 'MEASURED',
+                    skipped_source_reason=reason if reason else 'MISSING_SKIPPED_SOURCE' if skipped is None else None,
+                    **{k:v for k,v in scope.items() if k!='reason'}),None,dict(denominator=len(facts))
     if not facts:return None,'MISSING_DECISION_SOURCE',dict(denominator=None)
     if metric=='decision.q-compatibility':
         available=[f for f in q_facts if f['source_status']=='MEASURED']
@@ -523,6 +529,36 @@ def _decisions(evidence,source,metric,family):
         q_source_mismatched_candidates=sum(c['matches'] is False for c in checks),
         q_source_unavailable_candidates=sum(c['status']=='UNAVAILABLE' for c in checks),
         **_bounded_facts(facts)),None,dict(denominator=len(facts))
+
+
+def _scope_skipped(source,definition,window):
+    source=dict(source);attempts=source.get('skipped_attempts')
+    if attempts is None:return source
+    if type(attempts) is not list or len(attempts)>2048 or any(type(a) is not dict for a in attempts):raise ContractError()
+    retained=[];excluded=Counter();missing=None;seen=set()
+    for attempt in attempts:
+        if 'key' not in attempt:
+            missing='MISSING_SKIPPED_SCOPE_SOURCE';continue
+        key=validate_event_key(attempt['key'])
+        number=attempt.get('attempt')
+        if key[3]!='pre' or type(number) is not int or not 1<=number<=2048 or number in seen or attempt.get('reason')!='stale_decision' or attempt.get('status')!='skipped':raise ContractError()
+        seen.add(number)
+        if key[0]!=definition['phase']:excluded['phase']+=1;continue
+        if not window['start']<=key[2]<=window['end']:excluded['window']+=1;continue
+        if definition.get('variant') is not None and key[1]!=definition['variant']:excluded['subcase']+=1;continue
+        if definition['action']!='all':
+            capture=source.get('skipped_capture_by_attempt',{}).get(str(number))
+            if type(capture) is not dict or capture.get('selected_action') not in ACTIONS:
+                missing='MISSING_SKIPPED_ACTION_SOURCE';continue
+            if capture['selected_action']!=definition['action']:excluded['action']+=1;continue
+        retained.append(attempt)
+    source['skipped_attempts']=None if missing else retained
+    source['skipped_scope']=dict(reason=missing,attempt_inventory_count=len(attempts),
+        excluded_attempt_count=sum(excluded.values()),excluded_attempt_counts=dict(excluded),
+        scoped_attempt_count=None if missing else len(retained),
+        attempt_inventory_sha256=hashlib.sha256(b'SEED_B10_ATTEMPT_INVENTORY_V1\0'+
+            json.dumps(attempts,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest())
+    return source
 
 
 def _scoped_source(source,metric,definition,window,member,evidence):
@@ -630,6 +666,9 @@ def measure_producers(evidence, sources, plan):
                            and (definition.get('variant') is None or e.key[1]==definition['variant']))
             if definition['action']!='all':
                 selected=tuple(e for e in selected if strict_json(e.body).get('capture',strict_json(e.body)).get('selection',{}).get('selected_action')==definition['action'])
+            if metric=='decision.skipped-fallback':
+                source=_scope_skipped(source,definition,window_definition)
+                source_scope='registered_completed_event_and_skipped_attempt_scope'
             if definition['signal']!='all':value,reason,facts=None,'MISSING_REGISTERED_SCOPE_EVIDENCE',{}
             else:value,reason,facts=_decisions(selected,source,metric,member['family'])
         result.append(measured(metric,population,plan,value=value,reason=reason,

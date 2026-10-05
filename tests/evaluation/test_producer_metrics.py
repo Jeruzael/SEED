@@ -29,6 +29,48 @@ def results(frozen_plan, tables=None, **source):
     return {m.metric:m for m in measure_producers((),{'member-0':bundle},frozen_plan)}
 
 
+@pytest.mark.parametrize('action,variant,expected',[
+    ('all',None,[1,0,1]),('rest',None,[None,0,None]),
+    ('all','fresh',[1,0,1]),('all','stale',[0,0,0]),
+])
+def test_skipped_attempts_follow_registered_scope(tmp_path,plan_body,action,variant,expected):
+    from development.evaluation.analysis import freeze_plan,validate_plan
+    body=copy.deepcopy(plan_body)
+    body['metrics']=[dict(id='decision.skipped-fallback',version=1)]
+    body['questions'][0]['metrics']=['decision.skipped-fallback']
+    body['members'][0]['measured']=400
+    body['windows']=[dict(id=n,start=a,end=b,unit='ordinal') for n,a,b in
+        [('early',1,40),('late',361,400),('whole',1,400)]]
+    body['populations'][0].update(action=action,signal='all')
+    if variant is not None:body['populations'][0]['variant']=variant
+    frozen=freeze_plan(validate_plan(body),ClosedRoot(tmp_path))
+    skipped=[dict(key=[phase,'fresh' if variant else 'default',ordinal,'pre'],attempt=n+1,status='skipped',reason='stale_decision',retry_delay_seconds=60.)
+        for n,(phase,ordinal) in enumerate([('training',1),('measured',2)])]
+    source={'skipped_attempts':skipped,'variants':{v:{'skipped_attempts':skipped} for v in ('fresh','stale')}}
+    out=measure_producers((),{'member-0':source},frozen)
+    for row in out:
+        window=json.loads(row.body)['dimensions']['window']
+        count=expected[['early','late','whole'].index(window)]
+        if count is None:
+            assert row.state=='UNAVAILABLE' and row.reason=='MISSING_SKIPPED_ACTION_SOURCE'
+        else:
+            assert row.value['skipped_attempts']==count
+            assert row.value['attempt_inventory_count']==2
+            assert row.value['excluded_attempt_count']==2-count
+    assert source['skipped_attempts']==skipped
+
+
+def test_skipped_attempts_without_event_scope_are_unavailable(tmp_path,plan_body):
+    body=copy.deepcopy(plan_body)
+    from development.evaluation.analysis import freeze_plan,validate_plan
+    body['metrics']=[dict(id='decision.skipped-fallback',version=1)]
+    body['questions'][0]['metrics']=['decision.skipped-fallback']
+    body['populations'][0]['signal']='all'
+    frozen=freeze_plan(validate_plan(body),ClosedRoot(tmp_path))
+    out=measure_producers((),{'member-0':{'skipped_attempts':[{'reason':'stale_decision'}]}},frozen)
+    assert out[0].state=='UNAVAILABLE' and out[0].reason=='MISSING_SKIPPED_SCOPE_SOURCE'
+
+
 @pytest.mark.parametrize('q,mean,contradictions',[(20,-.025,20),(40,0.,23),(60,.0125,23)])
 def test_world_lifetime_and_contradictions(tmp_path, plan_body, q, mean, contradictions):
     from seed.memory import Memory
