@@ -17,3 +17,15 @@ Protected scope for the whole phase: `seed/**` NONE expected; schema v7 unchange
 | I25 | reexecution.py, cli.py, __main__.py; reader.detail now carries bounded measurements for descriptive comparison; test_reexecution.py + test_cli.py + test_comparison.py 7 passed (same-profile fresh run matches canonical science with new run ID/receipt and original bytes unchanged; incompatible source/lock/schema/dirty profiles refused as INCOMPATIBLE_REEXECUTION; protocol mismatch blocked despite matching plan digest -- compatibility is 14-dimension, not plan-digest-only; bounded earliest divergence with phase/subcase/ordinal/field/expected/actual, <=100 differences, <=64 KiB; CLI verbs validate/verify/replay work on opaque run IDs only, run/suite/reexecute return EMPIRICAL_DISPATCH_DISABLED under the I30 + separate empirical authorization lock, arbitrary paths/code rejected; compare() is DESCRIPTIVE_ONLY and invents no improved/worse classification). Fresh re-execution constructs a new owned run from the original recorded inputs (durable journal, run record, frozen plan) through the same assemble/finalize/publish pipeline; it never executes artifact-contained code and never touches the original. | 1b6463a7f18e516aedefba76941eab0199770068 |
 
 RED/repair evidence for each task is retained in ignored `.superpowers/b10-artifacts/` and summarized here at each task commit.
+
+## Final author verification (2026-10-11, at ea65163)
+
+| Check | Result |
+| --- | --- |
+| Focused I21–I25 + adversarial suites | 29 passed |
+| Complete evaluation suite | 581 passed in 381.84s |
+| Full repository | 1,464 passed, 2 existing warnings, in 415.16s |
+| Seven standalone regressions (baseline, prediction_error, world_model, curiosity, semantic, self_model, decision) | All PASS, valid JSON |
+| Protected scope (seed/**, schema, lock, workflows) | NONE changed in 2940fae..ea65163 |
+
+Branch pushed to origin at ea65163ba5c1541e98072e8e4342251e34bbb619 without merge or PR, per owner instruction. Fresh independent complete-diff review and G6 remain pending.
