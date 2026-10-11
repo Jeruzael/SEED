@@ -203,3 +203,30 @@ re-execution staging admission), reproduced above and fixed in the
 follow-up commit with regression tests RED against the pre-fix code.
 A narrow independent re-review of those two fixes follows; G6 is
 recorded only from that re-review.
+
+## Final acceptance
+
+The narrow independent re-review at `377f39a` closed both MINORs with
+discriminating probes (fail at `98cab3b`, pass at `377f39a`) and
+confirmed no scope creep. Final acceptance for I21–I25:
+
+```text
+BLOCKER 0
+MAJOR 0
+MINOR 0
+UNRESOLVED 0
+
+G1 PASS
+G2 PASS
+G3 PASS
+G4 PASS
+G5 PASS
+G6 PASS
+
+DESIGN AMENDMENT REQUIRED: NO
+```
+
+Review record: docs/reviews/2026-10-11-b10-artifacts-final-remediation-review.md.
+Publication (PR, PR-head CI, merge, post-merge master CI, closure)
+remains owner-gated and has not been performed. I31 remains
+NOT AUTHORIZED.
