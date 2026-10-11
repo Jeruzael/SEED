@@ -208,6 +208,8 @@ def _rename(source, target):
 
 
 def _write_receipt(root, run_id, body):
+    # Admission before the detached receipt allocation.
+    root.budget.require_capacity(bytes=len(raw_bytes(body)))
     evaluation = _directory(root.path / 'evaluation')
     try:
         receipts = _mkdir(evaluation, 'receipts')
@@ -235,6 +237,9 @@ def _update_index(root, entry):
         raise ContractError()
     runs.append(entry)
     data = raw_bytes(dict(schema='b10_runs_index_v1', runs=runs))
+    # Admission before the index allocation (the tmp file peaks beside
+    # the previous index until the rename).
+    root.budget.require_capacity(bytes=len(data))
     tmp = evaluation / 'runs-index.tmp'
     with open(tmp, 'wb') as f:
         f.write(data)

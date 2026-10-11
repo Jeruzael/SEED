@@ -33,7 +33,9 @@ class ScoreJournal:
     def create(cls, root, run_id):
         if type(run_id) is not str or not re.fullmatch('[0-9a-f]{32}', run_id):
             raise ContractError()
-        root.admit_control(0)
+        new_run = not (root.path / 'evaluation' / 'partials'
+                       / run_id).is_dir()
+        root.budget.require_capacity(bytes=0, runs=1 if new_run else 0)
         fd = root._validate()
         os.close(fd)
         evaluation = _directory(root.path / 'evaluation')

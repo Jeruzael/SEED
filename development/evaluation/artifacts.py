@@ -53,6 +53,11 @@ def write_run_record(capability, record):
     data = raw_bytes(record)
     if len(data) > CONTROL_BYTES:
         raise ContractError()
+    # Admission BEFORE the first allocation: a new run identity charges
+    # one retained-run slot; the temporary record file charges its peak
+    # bytes (it coexists with any previous record until the rename).
+    new_run = not (root.path / 'evaluation' / 'partials' / run_id).is_dir()
+    root.budget.require_capacity(bytes=len(data), runs=1 if new_run else 0)
     partials = _partials_fd(root)
     try:
         run_dir = _mkdir(partials, run_id)

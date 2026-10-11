@@ -59,6 +59,10 @@ def _read_staged(root, run_id, name, maximum):
 
 
 def _write_payload_file(root, run_id, name, data):
+    # Admission before replacing/writing any payload file: the new bytes
+    # are charged against current on-disk usage (which already includes
+    # any previous version), so nothing is double counted.
+    root.budget.require_capacity(bytes=len(data))
     run_dir = _directory(root.path / 'evaluation' / 'partials' / run_id)
     try:
         try:
