@@ -47,13 +47,18 @@ def join_events(capability, run_id):
         # Stored B8/evidence digests are recomputed from the stored evidence
         # itself; a coordinated journal+pointer tamper still fails here.
         from seed.decision_record import prediction_digest
-        from .checkpoint import _hash
+        from .channel import wire_bytes
+
+        def _domain_hash(domain, value):
+            return hashlib.sha256(
+                domain.encode('ascii') + b'\0' + wire_bytes(value)).hexdigest()
+
         evidence = record['evidence']
         try:
             digests_ok = (
                 prediction_digest(evidence['prediction']) == header['prediction_sha256']
-                and _hash('SEED_B10_PREUPDATE_EVIDENCE_V1', evidence) == header['evidence_sha256']
-                and _hash('SEED_B10_OUTCOME_V1', evidence['state_after']) == header['outcome_sha256'])
+                and _domain_hash('SEED_B10_PREUPDATE_EVIDENCE_V1', evidence) == header['evidence_sha256']
+                and _domain_hash('SEED_B10_OUTCOME_V1', evidence['state_after']) == header['outcome_sha256'])
         except (ValueError, TypeError, KeyError, OverflowError):
             digests_ok = False
         if not digests_ok:
