@@ -69,7 +69,8 @@ def test_lossless_paging_with_reused_ordinals(tmp_path, foundation_module,
         dict(key=['training', 'default', 1, 'update'], body=dict(confirmed=True)),
         dict(key=['measured', 'default', 1, 'update'], body=dict(confirmed=True))],
         planned_transitions=2)
-    artifacts.write_run_record(root, record)
+    from .test_artifacts import _honest
+    artifacts.write_run_record(root, _honest(artifacts, frozen, tmp_path, record))
     payload = artifacts.assemble_payload(RunResult('COMPLETED', None), frozen, root)
     integrity = foundation_module('integrity')
     finalized = integrity.finalize_payload(payload, root)

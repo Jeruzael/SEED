@@ -113,7 +113,8 @@ def test_science_order_and_key_binding(tmp_path, foundation_module, plan_body):
         dict(key=['measured', 'default', 1, 'update'], body=dict(confirmed=True)),
         dict(key=['measured', 'default', 2, 'update'], body=dict(confirmed=True))],
         planned_transitions=2)
-    artifacts.write_run_record(root, record)
+    from .test_artifacts import _honest
+    artifacts.write_run_record(root, _honest(artifacts, frozen, tmp_path, record))
     payload = artifacts.assemble_payload(RunResult('COMPLETED', None), frozen, root)
     science = foundation_module('science')
     digest1 = science.science_digest(payload, root)

@@ -16,8 +16,9 @@ import re
 
 from . import indexes as _indexes
 from .analysis import expand_inventory
-from .contracts import (ContractError, FrozenPlan, Payload, RootCapability,
-                        RunResult, strict_json, validate_event_key)
+from .contracts import (CompletedEvidence, ContractError, FrozenPlan, Payload,
+                        Population, RootCapability, RunResult, strict_json,
+                        validate_event_key)
 from .paths import EvaluationRoot, _directory, _identity, _mkdir, _open_file
 from .specs import raw_bytes
 
@@ -283,27 +284,113 @@ def _checkpoints(root, run_id, record):
     return entries
 
 
-def _metrics(record, plan, status, reason):
+def derive_scientific_outputs(plan, frames, checkpoint_data, status):
+    """Recompute every registered measurement and question finding from the
+    recorded evidence with the original I16-I19 scientific machinery.
+
+    This is the only derivation used both by producers (to build an honest
+    run record) and by assembly (to reconcile one). A record never becomes
+    scientific fact by assertion: supplied values must equal these.
+    """
+    from .metrics.findings import classify_questions
+    from .metrics.prediction import measure_prediction
+    from .metrics.producers import measure_producers
+    from .metrics.registry import measurement_data
+    evidence = []
+    for key in sorted(frames):
+        line, header = frames[key]
+        record = strict_json(line, max_bytes=DETAIL_BYTES)
+        evidence.append(CompletedEvidence(
+            (key[0], key[1], key[2], 'checkpoint'),
+            raw_bytes(record['evidence'])))
+    evidence = tuple(evidence)
+    registered = expand_inventory(plan.plan)
+    derived = {}
+    measured_objects = {}
+    prediction_rows = [r for r in registered if r.metric.startswith('prediction.')]
+    producer_rows = [r for r in registered if not r.metric.startswith('prediction.')]
+    for registered_row in prediction_rows:
+        member, metric, population, window = registered_row.identity.split(':')
+        pop = Population(population, (member,),
+                         window.removesuffix('~exploratory'), registered_row.role)
+        m = measure_prediction(metric, evidence, pop, plan)
+        measured_objects[m.identity] = m
+        data = measurement_data(m)
+        derived[m.identity] = dict(identity=m.identity, metric=m.metric,
+                                   version=m.version, member=m.member,
+                                   state=m.state, value=data.get('value'),
+                                   reason=data.get('reason'))
+    measurements = []
+    if producer_rows:
+        sources = {}
+        if checkpoint_data:
+            import sqlite3 as _sqlite3
+            from .science import project_state
+            db = _sqlite3.connect(':memory:')
+            try:
+                db.deserialize(checkpoint_data[-1])
+                source = project_state(db)
+            except Exception:
+                raise ContractError() from None
+            finally:
+                db.close()
+            for member in {r.member for r in producer_rows}:
+                sources[member] = source
+        for m in measure_producers(evidence, sources, plan):
+            measured_objects[m.identity] = m
+            data = measurement_data(m)
+            derived[m.identity] = dict(identity=m.identity, metric=m.metric,
+                                       version=m.version, member=m.member,
+                                       state=m.state, value=data.get('value'),
+                                       reason=data.get('reason'))
+    ordered = tuple(derived[row.identity] for row in registered)
+    findings = classify_questions(
+        plan, tuple(measured_objects[row.identity] for row in registered),
+        status)
+    return ordered, [dict(question=f.question, status=f.status,
+                           reason=f.reason, execution=f.execution)
+                      for f in findings]
+
+
+def _row_key(row):
+    return raw_bytes(dict(metric=row['metric'], version=row['version'],
+                          member=row['member'], state=row['state'],
+                          value=row['value'], reason=row['reason']))
+
+
+def _metrics(record, plan, status, reason, frames, checkpoint_data):
     registered_rows = expand_inventory(plan.plan)
     registered = sorted({row.identity for row in registered_rows})
     produced_in = record.get('measurements')
     if type(produced_in) is not list:
         raise ContractError()
-    produced = {}
+    supplied = {}
     for item in produced_in:
         if type(item) is not dict \
                 or set(item) != {'identity', 'metric', 'version', 'member', 'state', 'value', 'reason'} \
-                or item['identity'] not in registered or item['identity'] in produced \
+                or item['identity'] not in registered or item['identity'] in supplied \
                 or item['state'] not in ('MEASURED', 'UNAVAILABLE', 'NOT_EVALUATED'):
             raise ContractError()
-        produced[item['identity']] = item
+        supplied[item['identity']] = item
+    derived_rows, derived_findings = derive_scientific_outputs(
+        plan, frames, checkpoint_data, status)
+    derived = {row['identity']: row for row in derived_rows}
+    # Every supplied measurement must equal the scientific derivation from
+    # the recorded evidence; a COMPLETED run must supply every registered
+    # row. Missing rows are preserved as UNAVAILABLE only for genuinely
+    # incomplete or failed runs.
+    for identity, item in supplied.items():
+        if _row_key(item) != _row_key(derived[identity]):
+            raise ContractError()
+    if status == 'COMPLETED' and set(supplied) != set(registered):
+        raise ContractError()
+    produced = {}
     for identity in registered:
-        if identity not in produced:
-            row = next(r for r in registered_rows if r.identity == identity)
-            produced[identity] = dict(identity=identity, metric=row.metric,
-                                      version=row.version, member=row.member,
-                                      state='UNAVAILABLE', value=None,
-                                      reason=reason or 'not_produced')
+        if identity in supplied:
+            produced[identity] = supplied[identity]
+        else:
+            produced[identity] = dict(derived[identity], state='UNAVAILABLE',
+                                      value=None, reason=reason or 'not_produced')
     findings = record.get('findings')
     if type(findings) is not list:
         raise ContractError()
@@ -311,6 +398,14 @@ def _metrics(record, plan, status, reason):
         if type(finding) is not dict \
                 or set(finding) != {'question', 'status', 'reason', 'execution'}:
             raise ContractError()
+    if findings:
+        if sorted(raw_bytes(f) for f in findings) != \
+                sorted(raw_bytes(f) for f in derived_findings):
+            raise ContractError()
+    elif status == 'COMPLETED':
+        raise ContractError()
+    else:
+        findings = derived_findings
     body = dict(schema='b10_metrics_v1', plan_digest=plan.digest,
                 registered=registered,
                 produced=[produced[k] for k in sorted(produced)],
@@ -378,7 +473,17 @@ def assemble_payload(result: RunResult, plan: FrozenPlan, capability: RootCapabi
     try:
         events_data, joined, skipped = _event_lines(record, frames)
         checkpoint_entries = _checkpoints(root, run_id, record)
-        metrics_data = _metrics(record, plan, result.status, result.reason)
+        checkpoint_data = [_read_staged(root, run_id, e['file'], SNAPSHOT_BYTES)
+                           for e in checkpoint_entries]
+        # F5: admission against the existing root budget (which reconciles
+        # retained partials, workspace, staged and published bytes from
+        # disk, so crash-retained state is always accounted) precedes any
+        # payload write.
+        estimate = len(journal_raw) + sum(e['bytes'] for e in checkpoint_entries) \
+            + sum(FILE_CAPS.values()) + OPERATIONAL_BYTES + CONTROL_BYTES
+        root.budget.require_capacity(bytes=estimate)
+        metrics_data = _metrics(record, plan, result.status, result.reason,
+                                frames, checkpoint_data)
         operations_data = _operations(record)
         truth = record.get('truth')
         if type(truth) is not dict:
@@ -409,9 +514,8 @@ def assemble_payload(result: RunResult, plan: FrozenPlan, capability: RootCapabi
                  'preupdate.ndjson': journal_raw, 'events.ndjson': events_data,
                  'metrics.json': metrics_data, 'truth.json': truth_data,
                  'operations.ndjson': operations_data}
-        for entry in checkpoint_entries:
-            files[entry['file']] = _read_staged(
-                root, run_id, entry['file'], SNAPSHOT_BYTES)
+        for entry, data in zip(checkpoint_entries, checkpoint_data):
+            files[entry['file']] = data
         index_data = raw_bytes(_indexes.build_indexes(
             Payload(run_id, 0), lambda name: files[name]))
         _check_cap('index.json', index_data)

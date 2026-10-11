@@ -54,8 +54,22 @@ def _stage(tmp_path, foundation_module, plan_body, record=None, journal_frames=1
         journal.append(journal.frame(_evidence(ordinal)))
     journal.close()
     artifacts = foundation_module('artifacts')
-    artifacts.write_run_record(root, record or _record())
+    rec = record or _record()
+    if rec.get('status') == 'COMPLETED' and not rec.get('measurements') \
+            and not rec.get('findings'):
+        # Honest producer: measurements/findings are the scientific
+        # derivation over the staged journal, never invented values.
+        rec = _honest(artifacts, frozen, tmp_path, rec)
+    artifacts.write_run_record(root, rec)
     return root, frozen, artifacts
+
+
+def _honest(artifacts, frozen, tmp_path, record):
+    journal_raw = (_payload_dir(tmp_path) / 'preupdate.ndjson').read_bytes()
+    frames = artifacts._journal_frames(journal_raw)
+    rows, findings = artifacts.derive_scientific_outputs(
+        frozen, frames, [], record.get('status', 'COMPLETED'))
+    return dict(record, measurements=list(rows), findings=findings)
 
 
 def _payload_dir(tmp_path):
@@ -156,7 +170,9 @@ def test_checkpoint_snapshots_bounded_and_inventoried(tmp_path, foundation_modul
     db.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)')
     db.execute("INSERT INTO t VALUES (1, 'x')")
     db.commit(); db.close()
-    record = _record(checkpoints=[dict(name='initial', file='checkpoints/initial.sqlite3')])
+    record = _honest(artifacts, frozen, tmp_path,
+                     _record(checkpoints=[dict(name='initial',
+                                               file='checkpoints/initial.sqlite3')]))
     artifacts.write_run_record(root, record)
     artifacts.assemble_payload(RunResult('COMPLETED', None), frozen, root)
     manifest = json.loads((_payload_dir(tmp_path) / 'manifest.json').read_bytes())

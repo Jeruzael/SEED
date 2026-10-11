@@ -251,6 +251,9 @@ def publish(payload: Payload, receipt: Receipt, capability) -> RunArtifact:
                           max_bytes=256 * 1024)
     if {m['identity'] for m in metrics['produced']} != set(metrics['registered']):
         raise ContractError()
+    # F5: publication is admitted against the reconciled root budget
+    # before the atomic rename; retained runs/bytes are never pruned.
+    root.budget.require_capacity(bytes=0, runs=0)
     _fsync_tree(staged)
     _rename(staged, target)
     body = receipt_body(payload, root)
