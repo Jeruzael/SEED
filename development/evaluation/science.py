@@ -163,6 +163,9 @@ def _sections(payload, capability):
     truth = _read_json(directory, 'truth.json')
     metrics = _read_json(directory, 'metrics.json', 256 * 1024)
     initial = None
+    declared_names = [entry['name'] for entry in manifest['checkpoints']]
+    if len(set(declared_names)) != len(declared_names):
+        raise ContractError()
     for entry in manifest['checkpoints']:
         if entry['name'] == 'initial':
             raw = (directory / entry['file']).read_bytes()

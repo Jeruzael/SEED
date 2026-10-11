@@ -433,14 +433,22 @@ def assemble_payload(result: RunResult, plan: FrozenPlan, capability: RootCapabi
             _write_payload_file(root, run_id, name, files[name])
         return Payload(run_id, total)
     except ContractError:
-        for stale in ('events.ndjson', 'metrics.json', 'truth.json',
-                      'index.json', 'operations.ndjson', 'chunks.json',
-                      'analysis-plan.json'):
+        try:
+            partial_fd = _directory(
+                root.path / 'evaluation' / 'partials' / run_id)
+        except OSError:
+            partial_fd = None
+        if partial_fd is not None:
             try:
-                os.unlink(stale, dir_fd=_directory(
-                    root.path / 'evaluation' / 'partials' / run_id))
-            except (FileNotFoundError, OSError):
-                pass
+                for stale in ('events.ndjson', 'metrics.json', 'truth.json',
+                              'index.json', 'operations.ndjson', 'chunks.json',
+                              'analysis-plan.json'):
+                    try:
+                        os.unlink(stale, dir_fd=partial_fd)
+                    except (FileNotFoundError, OSError):
+                        pass
+            finally:
+                os.close(partial_fd)
         _write_incomplete_manifest(root, run_id, record, experiment, plan,
                                    observed=len(frames))
         raise
