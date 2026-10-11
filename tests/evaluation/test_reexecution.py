@@ -41,8 +41,13 @@ def _publish(tmp_path, foundation_module, plan_body, profile, record=None):
 
 
 def test_same_profile_science_matches(tmp_path, foundation_module, plan_body):
+    # The original run is genuinely produced by a disposable worker; the
+    # re-execution must reproduce its science from fresh execution.
+    from .test_remediation import _produce_genuine
     profile = _profile(foundation_module)
-    root, payload = _publish(tmp_path, foundation_module, plan_body, profile)
+    root, _frozen = _produce_genuine(tmp_path, foundation_module, plan_body)
+    from development.evaluation.contracts import Payload as _Payload
+    payload = _Payload(RUN, 0)
     reexecution = foundation_module('reexecution')
     reader = foundation_module('reader').EvaluationReader(root)
     run_dir = tmp_path / '.seed-evaluation' / 'evaluation' / 'runs' / RUN
@@ -63,8 +68,9 @@ def test_same_profile_science_matches(tmp_path, foundation_module, plan_body):
 
 
 def test_incompatible_reexecution_refused(tmp_path, foundation_module, plan_body):
+    from .test_remediation import _produce_genuine
     profile = _profile(foundation_module)
-    root, _ = _publish(tmp_path, foundation_module, plan_body, profile)
+    root, _ = _produce_genuine(tmp_path, foundation_module, plan_body)
     reexecution = foundation_module('reexecution')
     reader = foundation_module('reader').EvaluationReader(root)
     for bad in (_profile(foundation_module, source_commit='e' * 40),
@@ -94,6 +100,13 @@ def test_compatibility_more_than_plan_digest(tmp_path, foundation_module,
     assert checks['protocol'] is False
 
 
+def frozen_plan_for(root, foundation_module, plan_body):
+    from development.evaluation.analysis import require_frozen
+    from development.evaluation.contracts import AnalysisPlan
+    from development.evaluation.canonical import canonical_bytes
+    return require_frozen(AnalysisPlan(canonical_bytes(plan_body)), root)
+
+
 def test_bounded_earliest_divergence(tmp_path, foundation_module, plan_body):
     profile = _profile(foundation_module)
     root, _ = _publish(tmp_path, foundation_module, plan_body, profile)
@@ -111,6 +124,13 @@ def test_bounded_earliest_divergence(tmp_path, foundation_module, plan_body):
     from .test_artifacts import _evidence
     journal.append(journal.frame(_evidence(1)))
     journal.close()
+    frames = artifacts._journal_frames(
+        (tmp_path / '.seed-evaluation' / 'evaluation' / 'partials' / RUN2
+         / 'preupdate.ndjson').read_bytes())
+    rows, findings = artifacts.derive_scientific_outputs(
+        frozen_plan_for(root2, foundation_module, plan_body), frames, [],
+        'COMPLETED')
+    record = dict(record, measurements=list(rows), findings=findings)
     artifacts.write_run_record(root2, record)
     from development.evaluation.analysis import require_frozen
     from development.evaluation.contracts import AnalysisPlan

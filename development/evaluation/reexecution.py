@@ -114,7 +114,9 @@ def compatibility_report(reader, run_id, profile: Profile) -> dict:
                                 and captured.digest == profile.digest)
         except Exception:
             source_available = False
+    execution_inputs = _execution_inputs(root, run_id, record, manifest)
     checks = dict(
+        execution_inputs=execution_inputs is not None,
         source_commit=experiment['source_commit'] == profile.source_commit,
         source_clean=profile.clean is True,
         lock=experiment['lock_digest'] == profile.lock_digest,
@@ -139,6 +141,123 @@ def compatibility_report(reader, run_id, profile: Profile) -> dict:
         experiment['protocol'] in member_protocols
     return dict(run_id=run_id, compatible=all(checks.values()), checks=checks,
                 checkout=checkout_kind)
+
+
+def _execution_inputs(root, run_id, record, manifest):
+    """Validate the original recorded execution inputs. Returns the inputs
+    dict, or None when genuine re-execution is not possible for this run."""
+    execution = record.get('execution')
+    if type(execution) is not dict or set(execution) != {
+            'settings', 'rng_seed', 'uuid', 'training', 'measured',
+            'maintenance'}:
+        return None
+    if type(execution['settings']) is not dict \
+            or type(execution['rng_seed']) is not int \
+            or not 0 <= execution['rng_seed'] < 2 ** 256 \
+            or type(execution['uuid']) is not str \
+            or len(execution['uuid']) != 64 \
+            or any(c not in '0123456789abcdef' for c in execution['uuid']) \
+            or type(execution['training']) is not int \
+            or not 0 <= execution['training'] <= 512 \
+            or type(execution['measured']) is not int \
+            or not 1 <= execution['measured'] <= 1024 \
+            or type(execution['maintenance']) is not bool:
+        return None
+    if manifest['checkpoints']:
+        return None
+    journal = (root.path / 'evaluation' / 'runs' / run_id
+               / 'preupdate.ndjson').read_bytes()
+    counts = {'training': 0, 'measured': 0}
+    seen = set()
+    for line in journal.splitlines():
+        if not line.strip():
+            continue
+        header = strict_json(line, max_bytes=64 * 1024)['header']
+        key = (header['phase'], header['subcase'],
+               header['transition_ordinal'])
+        if header['subcase'] != 'default' \
+                or header['phase'] not in counts or key in seen:
+            return None
+        seen.add(key)
+        counts[header['phase']] += 1
+    for phase in counts:
+        expected = execution['training'] if phase == 'training' \
+            else execution['measured']
+        ordinals = sorted(k[2] for k in seen if k[0] == phase)
+        if ordinals != list(range(1, expected + 1)):
+            return None
+    return execution
+
+
+def _execute_fresh(root, run_id, execution, new_id):
+    """Run the disposable worker over the recorded environment inputs.
+
+    Returns (RunResult, fresh journal bytes, fresh record events, fresh
+    record attempts). The disposable root is destroyed afterwards; the
+    fresh journal is the only survivor and it was produced by the
+    organism in this call, never copied from the original artifact.
+    """
+    import json as _json
+    import shutil
+    import tempfile
+    from pathlib import Path as _Path
+
+    from .channel import ChannelRouter
+    from .checkpoint import ScoreJournal
+    from .contracts import RunRequest, WorkerLaunch
+    from .paths import EvaluationRoot as _Root
+    from .prequential import PrequentialDriver
+    from .worker import WorkerHandle
+
+    source = (root.path / 'evaluation' / 'runs' / run_id
+              / 'preupdate.ndjson').read_bytes()
+    frames = {}
+    for line in source.splitlines():
+        if line.strip():
+            record_line = strict_json(line, max_bytes=64 * 1024)
+            evidence = record_line['evidence']
+            frames[(evidence['phase'], evidence['transition_ordinal'])] = evidence
+
+    class _RecordedScenario:
+        def initial_observation(self, key):
+            return dict(frames[(key[0], key[2])]['state_before'])
+
+        def apply_action(self, action, key):
+            return dict(frames[(key[0], key[2])]['state_after'])
+
+    disposable = tempfile.mkdtemp(prefix='seed-reexecute-')
+    try:
+        droot = _Root.create(_Path(disposable))
+        capability = droot.assign_learner(new_id, 0)
+        journal = ScoreJournal.create(droot, new_id)
+        settings = _json.dumps(execution['settings'], sort_keys=True,
+                               separators=(',', ':')).encode('ascii')
+        launch = WorkerLaunch(capability, settings, execution['rng_seed'],
+                              execution['uuid'])
+        router = ChannelRouter(_RecordedScenario(), journal=journal)
+        worker = WorkerHandle.start(launch, channel=router)
+        driver = PrequentialDriver(training=execution['training'],
+                                   measured=execution['measured'],
+                                   maintenance=execution['maintenance'])
+        result = driver.run(RunRequest(new_id), worker)
+        journal.close()
+        fresh = journal.path.read_bytes()
+        events = []
+        for item in driver.events:
+            body = strict_json(item.body, max_bytes=64 * 1024)
+            events.append(dict(key=list(item.key), body=dict(
+                acked=body['acked'], execution=body['execution'],
+                decision_id=body.get('decision_id'),
+                updates={k: {'status': v['status']}
+                         for k, v in body['updates'].items()})))
+        attempts = []
+        for raw in driver.skipped:
+            item = strict_json(raw, max_bytes=512)
+            attempts.append(dict(key=item['key'], status='skipped',
+                                 reason=item['reason']))
+        return result, fresh, events, attempts
+    finally:
+        shutil.rmtree(disposable, ignore_errors=True)
 
 
 def _first_difference(left, right, path=''):
@@ -224,24 +343,41 @@ def reexecute(reader, run_id: str, profile: Profile) -> ReexecutionResult:
         raise ContractError()
     new_id = secrets.token_hex(16)
     source_dir = root.path / 'evaluation' / 'runs' / run_id
+    execution = _execution_inputs(root, run_id, record,
+                                  strict_json((source_dir / 'manifest.json')
+                                              .read_bytes(),
+                                              max_bytes=128 * 1024))
+    result, fresh, events, attempts = _execute_fresh(
+        root, run_id, execution, new_id)
     partials = root.path / 'evaluation' / 'partials'
     staging = partials / new_id
     staging.mkdir(mode=0o700)
-    (staging / 'preupdate.ndjson').write_bytes(
-        (source_dir / 'preupdate.ndjson').read_bytes())
-    for entry in strict_json((source_dir / 'manifest.json').read_bytes(),
-                             max_bytes=128 * 1024)['checkpoints']:
-        target = staging / entry['file']
-        target.parent.mkdir(exist_ok=True)
-        target.write_bytes((source_dir / entry['file']).read_bytes())
-    new_record = dict(record, run_id=new_id)
-    _artifacts.write_run_record(root, new_record)
+    (staging / 'preupdate.ndjson').write_bytes(fresh)
     plan_file = strict_json((source_dir / 'analysis-plan.json').read_bytes(),
                             max_bytes=128 * 1024)
     frozen = require_frozen(AnalysisPlan(canonical_bytes(plan_file['plan'])), root)
+    new_record = dict(record, run_id=new_id, status=result.status,
+                      reason=result.reason, events=events, attempts=attempts,
+                      planned_transitions=execution['training']
+                      + execution['measured'],
+                      measurements=[], findings=[], failure=None)
+    if result.status != 'COMPLETED':
+        _artifacts.write_run_record(root, new_record)
+        try:
+            _artifacts.assemble_payload(result, frozen, root, run_id=new_id)
+        except ContractError:
+            pass
+        _set_report(dict(status='INCOMPLETE_COMPARISON', run_id=run_id,
+                         new_run_id=new_id, execution_status=result.status,
+                         reason=result.reason))
+        return ReexecutionResult('incompatible', ('INCOMPLETE_COMPARISON',))
+    frames = _artifacts._journal_frames(fresh)
+    rows, findings = _artifacts.derive_scientific_outputs(
+        frozen, frames, [], 'COMPLETED')
+    new_record = dict(new_record, measurements=list(rows), findings=findings)
+    _artifacts.write_run_record(root, new_record)
     payload = _artifacts.assemble_payload(
-        RunResult(record['status'], record['reason']), frozen, root,
-        run_id=new_id)
+        RunResult('COMPLETED', None), frozen, root, run_id=new_id)
     finalized = _integrity.finalize_payload(payload, root)
     _integrity.publish(finalized, _integrity.make_receipt(finalized, root), root)
     new_digest = science_digest(Payload(new_id, 0), root)
