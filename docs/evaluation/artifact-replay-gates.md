@@ -276,3 +276,37 @@ seven standalone scenarios 7/7 PASS; compileall and `git diff --check`
 clean; changed files exactly `reader.py`, `replay.py` and the three
 test files; protected scope unchanged. G6 publication readiness awaits
 the fresh independent review of this head.
+
+## Replay budget remediation acceptance
+
+The fresh independent two-tree review (defect head `377f39a` vs repaired
+head `491ad63`) reproduced both findings on the old tree -- including
+the exact 1,102,368 physical bytes against the 1 MiB budget -- and
+closed both on the repaired head (cold request: exactly 1,048,576
+physical bytes, never over; the unmetered single-record fallback is
+eliminated). Independent evaluation suite at the repaired head: 631
+passed. Final verdict for the replay budget remediation:
+
+```text
+BLOCKER 0
+MAJOR 0
+MINOR 0
+UNRESOLVED 0
+
+R-BUDGET-1: CLOSED
+R-BUDGET-2: CLOSED
+
+G1 PASS
+G2 PASS
+G3 PASS
+G4 PASS
+G5 PASS
+G6 PASS — publication-eligible
+
+DESIGN AMENDMENT REQUIRED: NO
+```
+
+Review record: docs/reviews/2026-10-11-b10-replay-budget-remediation-review.md.
+Publication (PR, PR-head CI, merge, post-merge master CI, closure)
+remains owner-gated and has not been performed. I31 remains
+NOT AUTHORIZED.
