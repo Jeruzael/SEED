@@ -103,7 +103,19 @@ export async function fetchEvaluation(path, signal, options = {}) {
     const response = await fetch('/api/' + path,
       {signal: controller.signal, credentials: 'same-origin'});
     const limit = response.ok ? maxBytes : EVALUATION_ERROR_MAX_BYTES;
-    const text = await readBounded(response, limit);
+    let text;
+    try {
+      text = await readBounded(response, limit);
+    } catch (readError) {
+      if (!response.ok) {
+        // An oversized error body is never parsed; surface a bounded
+        // generic error with the status preserved.
+        const error = new Error('Evaluation error response too large');
+        error.status = response.status;
+        throw error;
+      }
+      throw readError;
+    }
     const data = parseEvidence(text, limit);
     if (!response.ok) {
       const error = new Error(

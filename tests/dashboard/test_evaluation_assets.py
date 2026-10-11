@@ -90,12 +90,18 @@ await assert.rejects(pending, e => e.name === 'AbortError');
 // Malformed UTF-8 is fatal, never lossy-decoded.
 globalThis.fetch = async () => new Response(new Uint8Array([255, 254]));
 await assert.rejects(fetchEvaluation('evaluation/runs'), /encoded|UTF|encoding/i);
-// Error bodies are capped at 1024 bytes and surface the typed code.
+// Error bodies are capped at 1024 bytes; a normal error body surfaces
+// its typed code, an oversized one degrades to a bounded generic error.
+globalThis.fetch = async () => new Response(
+  JSON.stringify({error: {code: 'evaluation_unavailable', message: 'No root'}}),
+  {status: 503});
+await assert.rejects(fetchEvaluation('evaluation/runs'),
+  e => e.status === 503 && e.code === 'evaluation_unavailable');
 globalThis.fetch = async () => new Response(
   JSON.stringify({error: {code: 'evaluation_unavailable', message: 'x'.repeat(5000)}}),
   {status: 503});
 await assert.rejects(fetchEvaluation('evaluation/runs'),
-  e => e.status === 503 && e.code === 'evaluation_unavailable' && e.message.length <= 1024);
+  e => e.status === 503 && e.message.length <= 1024);
 // Lossless signed-64 values survive the client parser as exact strings.
 globalThis.fetch = async () => new Response('{"id":9223372036854775807,"n":9007199254740993}');
 const data = await fetchEvaluation('evaluation/runs');
