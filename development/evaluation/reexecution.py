@@ -8,6 +8,7 @@ executes code contained in an artifact, never modifies the original, and
 refuses with INCOMPATIBLE_REEXECUTION when any compatibility dimension
 fails -- a matching AnalysisPlan digest alone is never sufficient.
 """
+import os
 import secrets
 
 from . import artifacts as _artifacts
@@ -114,8 +115,11 @@ def compatibility_report(reader, run_id, profile: Profile) -> dict:
                                 and captured.digest == profile.digest)
         except Exception:
             source_available = False
-    execution_inputs = _execution_inputs(root, run_id, record, manifest)
+    engine = _registered_scenario(root, run_id, record)
+    execution_inputs = _execution_inputs(root, run_id, record, manifest,
+                                         engine)
     checks = dict(
+        scenario=engine is not None,
         execution_inputs=execution_inputs is not None,
         source_commit=experiment['source_commit'] == profile.source_commit,
         source_clean=profile.clean is True,
@@ -143,9 +147,93 @@ def compatibility_report(reader, run_id, profile: Profile) -> dict:
                 checkout=checkout_kind)
 
 
-def _execution_inputs(root, run_id, record, manifest):
-    """Validate the original recorded execution inputs. Returns the inputs
-    dict, or None when genuine re-execution is not possible for this run."""
+def _registered_scenario(root, run_id, record):
+    """Resolve the run's registered scenario engine from its recorded
+    truth. The recorded truth must equal the registered engine's own
+    evaluator view exactly; anything else (including a missing scenario
+    identity) means the original scenario definition is not established
+    and genuine re-execution is impossible."""
+    try:
+        raw = (root.path / 'evaluation' / 'runs' / run_id
+               / 'truth.json').read_bytes()
+        truth = strict_json(raw, max_bytes=64 * 1024)
+    except Exception:
+        return None
+    if type(truth) is not dict:
+        return None
+    identity = truth.get('scenario')
+    try:
+        if identity == 'stationary-action-v2':
+            from .scenarios.stationary import StationaryScenario
+            engine = StationaryScenario(
+                protocol=record['experiment']['protocol'])
+        elif identity == 'constrained-v1':
+            from .scenarios.constrained import ConstrainedScenario
+            engine = ConstrainedScenario()
+        elif identity == 'rest-shift-v2':
+            from .scenarios.shift import ShiftScenario
+            engine = ShiftScenario()
+        elif identity == 'evidence-v1':
+            from .scenarios.evidence import EvidenceScenario
+            engine = EvidenceScenario(truth.get('variant'))
+        else:
+            return None
+        view = strict_json(engine.evaluator_view().body,
+                           max_bytes=64 * 1024)
+    except Exception:
+        return None
+    if view != truth:
+        return None
+    return engine
+
+
+def _initial_checkpoint(root, run_id, manifest):
+    """Return the validated initial-checkpoint bytes for a run, None
+    when the run declares no checkpoints, or raise ContractError when a
+    declared checkpoint cannot be validated. Only a single checkpoint
+    named 'initial' is a reproducible starting state."""
+    declared = manifest['checkpoints']
+    if not declared:
+        return None
+    if len(declared) != 1 or declared[0]['name'] != 'initial':
+        raise ContractError()
+    import hashlib as _hl
+    import sqlite3 as _sq
+    from .paths import _directory, _open_nested
+    from .science import project_state
+    entry = declared[0]
+    run_fd = _directory(root.path / 'evaluation' / 'runs' / run_id)
+    try:
+        fd = _open_nested(run_fd, entry['file'], 'read')
+        with os.fdopen(fd, 'rb') as f:
+            raw = f.read(128 * 1024 ** 2 + 1)
+    finally:
+        os.close(run_fd)
+    if len(raw) > 128 * 1024 ** 2 or _hl.sha256(raw).hexdigest() != entry['sha256']:
+        raise ContractError()
+    db = _sq.connect(':memory:')
+    try:
+        db.deserialize(raw)
+        project_state(db)
+    except Exception:
+        raise ContractError() from None
+    finally:
+        db.close()
+    return raw
+
+
+def _execution_inputs(root, run_id, record, manifest, engine=None):
+    """Validate the original recorded execution inputs. Returns
+    (execution, checkpoint_bytes), or None when genuine re-execution is
+    not possible for this run."""
+    if engine is None:
+        engine = _registered_scenario(root, run_id, record)
+    if engine is None:
+        return None
+    # The evidence assay runs under the frozen protocol with probe
+    # subcases; the prequential driver cannot reproduce it.
+    if getattr(engine, 'identity', None) == 'evidence-v1':
+        return None
     execution = record.get('execution')
     if type(execution) is not dict or set(execution) != {
             'settings', 'rng_seed', 'uuid', 'training', 'measured',
@@ -163,7 +251,15 @@ def _execution_inputs(root, run_id, record, manifest):
             or not 1 <= execution['measured'] <= 1024 \
             or type(execution['maintenance']) is not bool:
         return None
-    if manifest['checkpoints']:
+    # Scenario phase support: constrained/shift engines serve the
+    # measured phase only, so a training phase is not reproducible.
+    if getattr(engine, 'identity', None) in ('constrained-v1',
+                                             'rest-shift-v2') \
+            and execution['training'] != 0:
+        return None
+    try:
+        checkpoint_bytes = _initial_checkpoint(root, run_id, manifest)
+    except ContractError:
         return None
     journal = (root.path / 'evaluation' / 'runs' / run_id
                / 'preupdate.ndjson').read_bytes()
@@ -186,21 +282,24 @@ def _execution_inputs(root, run_id, record, manifest):
         ordinals = sorted(k[2] for k in seen if k[0] == phase)
         if ordinals != list(range(1, expected + 1)):
             return None
-    return execution
+    return execution, checkpoint_bytes
 
 
-def _execute_fresh(root, run_id, execution, new_id):
-    """Run the disposable worker over the recorded environment inputs.
+def _execute_fresh(root, run_id, execution, new_id, engine,
+                   checkpoint_bytes):
+    """Execute a fresh run in an evaluator-owned workspace.
 
-    Returns (RunResult, fresh journal bytes, fresh record events, fresh
-    record attempts). The disposable root is destroyed afterwards; the
-    fresh journal is the only survivor and it was produced by the
-    organism in this call, never copied from the original artifact.
+    The disposable root lives inside the target root's work area (never
+    an unrestricted external temp root), is admitted against the target
+    root's budget, and is destroyed afterwards. The scenario is the
+    registered engine resolved from the run's recorded truth, so the
+    environment outcomes are computed for the actions the fresh learner
+    actually selects. When the original run declared a validated initial
+    checkpoint, the fresh learner starts from that owned state through
+    the approved completed-fixture launch pathway.
     """
     import json as _json
     import shutil
-    import tempfile
-    from pathlib import Path as _Path
 
     from .channel import ChannelRouter
     from .checkpoint import ScoreJournal
@@ -209,32 +308,34 @@ def _execute_fresh(root, run_id, execution, new_id):
     from .prequential import PrequentialDriver
     from .worker import WorkerHandle
 
-    source = (root.path / 'evaluation' / 'runs' / run_id
-              / 'preupdate.ndjson').read_bytes()
-    frames = {}
-    for line in source.splitlines():
-        if line.strip():
-            record_line = strict_json(line, max_bytes=64 * 1024)
-            evidence = record_line['evidence']
-            frames[(evidence['phase'], evidence['transition_ordinal'])] = evidence
-
-    class _RecordedScenario:
-        def initial_observation(self, key):
-            return dict(frames[(key[0], key[2])]['state_before'])
-
-        def apply_action(self, action, key):
-            return dict(frames[(key[0], key[2])]['state_after'])
-
-    disposable = tempfile.mkdtemp(prefix='seed-reexecute-')
+    root.budget.require_capacity(bytes=0, runs=1)
+    checkout = root.path / 'work' / new_id
+    if checkout.exists():
+        raise ContractError()
+    checkout.mkdir(mode=0o700)
     try:
-        droot = _Root.create(_Path(disposable))
+        droot = _Root.create(checkout)
         capability = droot.assign_learner(new_id, 0)
-        journal = ScoreJournal.create(droot, new_id)
         settings = _json.dumps(execution['settings'], sort_keys=True,
                                separators=(',', ':')).encode('ascii')
-        launch = WorkerLaunch(capability, settings, execution['rng_seed'],
-                              execution['uuid'])
-        router = ChannelRouter(_RecordedScenario(), journal=journal)
+        if checkpoint_bytes is not None:
+            from .state import CompletedFixture, _fixture_facts
+            fd = capability.open('state', 'db', 'create')
+            with os.fdopen(fd, 'wb') as f:
+                f.write(checkpoint_bytes)
+                f.flush()
+                os.fsync(f.fileno())
+            fixture = CompletedFixture(capability,
+                                       *_fixture_facts(capability))
+            launch = WorkerLaunch(capability, settings,
+                                  execution['rng_seed'], execution['uuid'],
+                                  launch_mode='COMPLETED_OWNED_FIXTURE',
+                                  fixture=fixture)
+        else:
+            launch = WorkerLaunch(capability, settings,
+                                  execution['rng_seed'], execution['uuid'])
+        journal = ScoreJournal.create(droot, new_id)
+        router = ChannelRouter(engine, journal=journal)
         worker = WorkerHandle.start(launch, channel=router)
         driver = PrequentialDriver(training=execution['training'],
                                    measured=execution['measured'],
@@ -257,7 +358,7 @@ def _execute_fresh(root, run_id, execution, new_id):
                                  reason=item['reason']))
         return result, fresh, events, attempts
     finally:
-        shutil.rmtree(disposable, ignore_errors=True)
+        shutil.rmtree(checkout, ignore_errors=True)
 
 
 def _first_difference(left, right, path=''):
@@ -343,16 +444,25 @@ def reexecute(reader, run_id: str, profile: Profile) -> ReexecutionResult:
         raise ContractError()
     new_id = secrets.token_hex(16)
     source_dir = root.path / 'evaluation' / 'runs' / run_id
-    execution = _execution_inputs(root, run_id, record,
-                                  strict_json((source_dir / 'manifest.json')
-                                              .read_bytes(),
-                                              max_bytes=128 * 1024))
+    manifest = strict_json((source_dir / 'manifest.json').read_bytes(),
+                           max_bytes=128 * 1024)
+    engine = _registered_scenario(root, run_id, record)
+    inputs = _execution_inputs(root, run_id, record, manifest, engine)
+    if inputs is None:
+        raise ContractError()
+    execution, checkpoint_bytes = inputs
     result, fresh, events, attempts = _execute_fresh(
-        root, run_id, execution, new_id)
+        root, run_id, execution, new_id, engine, checkpoint_bytes)
     partials = root.path / 'evaluation' / 'partials'
     staging = partials / new_id
     staging.mkdir(mode=0o700)
     (staging / 'preupdate.ndjson').write_bytes(fresh)
+    if checkpoint_bytes is not None:
+        # The fresh run genuinely started from the validated initial
+        # checkpoint, so its artifact declares the same starting state.
+        (staging / 'checkpoints').mkdir(mode=0o700)
+        (staging / 'checkpoints' / 'initial.sqlite3').write_bytes(
+            checkpoint_bytes)
     plan_file = strict_json((source_dir / 'analysis-plan.json').read_bytes(),
                             max_bytes=128 * 1024)
     frozen = require_frozen(AnalysisPlan(canonical_bytes(plan_file['plan'])), root)

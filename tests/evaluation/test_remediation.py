@@ -322,20 +322,12 @@ def _produce_genuine(tmp_path, foundation_module, plan_body, *,
     root = _root(tmp_path, foundation_module)
     frozen = _frozen(root, foundation_module, plan_body)
     journal = foundation_module('checkpoint').ScoreJournal.create(root, RUN)
-    base = checkpoint()
-    frames = {(base['phase'], base['transition_ordinal']): base}
-
-    class Scenario:
-        def initial_observation(self, key):
-            return dict(frames[(key[0], key[2])]['state_before'])
-
-        def apply_action(self, action, key):
-            return dict(frames[(key[0], key[2])]['state_after'])
-
+    from development.evaluation.scenarios.stationary import StationaryScenario
+    scenario = StationaryScenario()
     cap = root.assign_learner(RUN, 0)
     launch = WorkerLaunch(cap, json.dumps(EXECUTION['settings']).encode(),
                           EXECUTION['rng_seed'], EXECUTION['uuid'])
-    router = foundation_module('channel').ChannelRouter(Scenario(), journal=journal)
+    router = foundation_module('channel').ChannelRouter(scenario, journal=journal)
     worker = foundation_module('worker').WorkerHandle.start(launch, channel=router)
     driver = foundation_module('prequential').PrequentialDriver(
         training=0, measured=1)
@@ -358,7 +350,8 @@ def _produce_genuine(tmp_path, foundation_module, plan_body, *,
                              reason=item['reason']))
     rows, findings = _derive(frozen, journal_raw)
     record = _record(journal_raw, frozen=frozen, measurements=rows,
-                     findings=findings, events=events, attempts=attempts)
+                     findings=findings, events=events, attempts=attempts,
+                     truth=json.loads(scenario.evaluator_view().body))
     artifacts = foundation_module('artifacts')
     artifacts.write_run_record(root, record)
     payload = artifacts.assemble_payload(RunResult('COMPLETED', None), frozen, root)
@@ -394,8 +387,11 @@ def test_f1_tampered_stored_prediction_diverges(tmp_path, foundation_module, pla
     journal_raw = (partial / 'preupdate.ndjson').read_bytes()
     rows, findings = _derive(frozen, journal_raw)
     artifacts = foundation_module('artifacts')
+    from development.evaluation.scenarios.stationary import StationaryScenario
+    truth = json.loads(StationaryScenario().evaluator_view().body)
     artifacts.write_run_record(root, _record(journal_raw, frozen=frozen,
-                                             measurements=rows, findings=findings))
+                                             measurements=rows, findings=findings,
+                                             truth=truth))
     payload = artifacts.assemble_payload(RunResult('COMPLETED', None), frozen, root)
     integrity = foundation_module('integrity')
     finalized = integrity.finalize_payload(payload, root)
