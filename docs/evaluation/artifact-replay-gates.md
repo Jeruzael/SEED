@@ -310,3 +310,20 @@ Review record: docs/reviews/2026-10-11-b10-replay-budget-remediation-review.md.
 Publication (PR, PR-head CI, merge, post-merge master CI, closure)
 remains owner-gated and has not been performed. I31 remains
 NOT AUTHORIZED.
+
+## Publication verification (PR #29)
+
+- Engineering PR [#29](https://github.com/Jeruzael/SEED/pull/29) opened
+  at head `4d612f05b18fcf8ddf9008cf4456b4e781fd304a`; PR-head CI run
+  [38148048011](https://github.com/Jeruzael/SEED/actions/runs/38148048011):
+  linux-py311, linux-py313 and macos-py313 jobs all SUCCESS; the diff
+  and head were unchanged before the normal merge.
+- Merged normally: merge commit
+  `b3277bf0935615c7d743c82e2a418b62a5c603d7` (parents `2940fae` +
+  `4d612f0`; merged tree identical to the PR head tree).
+- Post-merge master CI run
+  [38148400993](https://github.com/Jeruzael/SEED/actions/runs/38148400993)
+  at `b3277bf`: all three jobs SUCCESS.
+- Closure record: docs/reviews/2026-10-11-b10-artifacts-closure.md.
+  I21–I25 is COMPLETE / VERIFIED / CLOSED once the separate
+  documentation closure PR completes its own CI gates.
