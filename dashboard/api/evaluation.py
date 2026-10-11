@@ -17,6 +17,7 @@ from ..services.read_store import ServiceError
 
 _RUN_ID = re.compile(r'^[0-9a-f]{32}$')
 _TOKEN = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$')
 _DIGITS = re.compile(r'^[0-9]{1,10}$')
 _FILE_ID = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$')
 
@@ -108,8 +109,8 @@ def evaluation_router(service: EvaluationService) -> APIRouter:
     def curve(request: Request, run_id: str):
         params = _params(request, {'metric', 'series'})
         metric, series = params.get('metric'), params.get('series')
-        if not metric or not series or not _TOKEN.fullmatch(metric) \
-                or len(series) > 128:
+        if not metric or not series or not _NAME.fullmatch(metric) \
+                or not _NAME.fullmatch(series):
             raise _invalid('Invalid curve selection.')
         return service.curve(_run_id(run_id), metric, series)
 
@@ -120,7 +121,7 @@ def evaluation_router(service: EvaluationService) -> APIRouter:
         if not left or not right:
             raise _invalid('Compare requires two run IDs.')
         metric = params.get('metric')
-        if metric is not None and not _TOKEN.fullmatch(metric):
+        if metric is not None and not _NAME.fullmatch(metric):
             raise _invalid('Invalid metric.')
         return service.compare(_run_id(left), _run_id(right), metric)
 
