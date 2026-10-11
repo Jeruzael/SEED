@@ -135,7 +135,7 @@ def test_oversized_file_not_silently_truncated(tmp_path, foundation_module,
     from development.evaluation.contracts import ContractError
     root, frozen, payload, artifacts = _assembled(tmp_path, foundation_module,
                                                   plan_body)
-    import development.evaluation.artifacts as artifacts_mod
+    import development.evaluation.artifact_io as artifacts_mod
     monkeypatch.setattr(artifacts_mod, 'ARTIFACT_BYTES', 1024)
     integrity = foundation_module('integrity')
     with pytest.raises(ContractError):
