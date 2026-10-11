@@ -115,7 +115,7 @@ def _worker_entry(pipe, launch):
                     if launch.protocol!='FROZEN_SELECTION_ASSAY':raise WorkerError()
                     key=message['key']
                     observation=client.observation(key[0],key[2],key[1])
-                    value=strict_json(core.probe(observation,key,client).body)
+                    value=strict_json(core.probe(observation,key,client,read_time=launch.read_time).body)
                 elif message['operation']=='cycle':
                     if launch.protocol!='PREQUENTIAL':raise WorkerError()
                     capture.begin(message['key'])

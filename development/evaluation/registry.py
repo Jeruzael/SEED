@@ -4,6 +4,10 @@ from types import MappingProxyType
 ACTIONS = ('observe', 'reflect', 'consolidate', 'rest')
 PROTOCOLS = ('FROZEN_SELECTION_ASSAY', 'PREQUENTIAL')
 OPERATIONS = ('observation', 'action_catalog', 'apply', 'checkpoint', 'acknowledgment')
+SCENARIOS = MappingProxyType({'A': 'stationary-action-v2', 'B': 'rest-shift-v2',
+                             'C': 'evidence-v1', 'D': 'constrained-v1'})
+WINDOWS = MappingProxyType({'A': ((1, 40), (361, 400)),
+                           'B': ((281, 320), (321, 360), (761, 800))})
 METRICS = ('prediction.numeric-mae', 'prediction.numeric-normalized-mae', 'prediction.boolean-accuracy',
            'prediction.boolean-brier', 'prediction.coverage', 'prediction.support-counts',
            'prediction.window-change', 'prediction.adaptation-delay', 'world.first-belief',

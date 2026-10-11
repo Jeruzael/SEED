@@ -182,6 +182,7 @@ class WorkerLaunch:
     protocol: str = 'PREQUENTIAL'
     launch_mode: str = 'FRESH'
     fixture: object = None
+    read_time: float | None = None
 
 
 @dataclass(frozen=True)
@@ -218,6 +219,8 @@ class RunResult:
 class Population:
     identity: str
     members: tuple[str, ...]
+    window: str = 'whole'
+    role: Literal['PRIMARY', 'EXPLORATORY_DIAGNOSTIC'] = 'PRIMARY'
 
 
 @dataclass(frozen=True)
@@ -226,6 +229,17 @@ class Measurement:
     metric: str
     version: int
     member: str
+    state: Literal['MEASURED', 'UNAVAILABLE', 'NOT_EVALUATED'] = 'UNAVAILABLE'
+    body: bytes = b'{}'
+    role: Literal['PRIMARY', 'EXPLORATORY_DIAGNOSTIC'] = 'PRIMARY'
+
+    @property
+    def value(self):
+        return strict_json(self.body).get('value')
+
+    @property
+    def reason(self):
+        return strict_json(self.body).get('reason')
 
 
 @dataclass(frozen=True)
@@ -233,6 +247,7 @@ class QuestionFinding:
     question: str
     status: Literal['POSITIVE', 'MIXED', 'NEGATIVE', 'INCONCLUSIVE', 'NOT_EVALUATED']
     reason: str | None
+    execution: Literal['PLANNED', 'RUNNING', 'COMPLETED', 'INCOMPLETE', 'FAILED', 'INVALID'] = 'COMPLETED'
 
 
 @dataclass(frozen=True)
@@ -251,6 +266,7 @@ class Receipt:
 class RunSummary:
     identity: str
     execution: RunResult
+    body: bytes = b'{}'
 
 
 @dataclass(frozen=True)
@@ -288,3 +304,11 @@ class VerificationReport:
     gate: str
     passed: bool
     reasons: tuple[str, ...]
+
+    @property
+    def status(self):
+        return 'PASS' if self.passed else 'FAILED'
+
+    @property
+    def reason(self):
+        return None if self.passed else self.reasons[0] if self.reasons else 'SCIENTIFIC_REPORT_INVALID'
