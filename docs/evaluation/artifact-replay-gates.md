@@ -160,3 +160,25 @@ its own commit; RED logs preserved in the working records.
 Author verification at the final HEAD is recorded in the entry below
 after the serial runs complete; G6 acceptance remains for the fresh
 independent complete-diff review.
+
+## Final remediation verification (author side, at 279c54f)
+
+Run serially against the clean final HEAD `279c54f` (engineering code
+`e107b75` plus docs/style follow-ups):
+
+- Focused sets (remediation, admission, checkpoint paths, replay
+  budget, re-execution fidelity, artifacts, integrity, reader, replay,
+  comparison, CLI, science, dependency): green at each remediation
+  commit and in the final focused pass.
+- Complete evaluation suite: **622 passed** (188 s).
+- Full repository suite: **1,505 passed, 2 warnings** (214 s).
+- Seven standalone scenarios (baseline, prediction_error, world_model,
+  curiosity, semantic, self_model, decision): **7/7 PASS**.
+- `compileall` on development/evaluation: OK. `git diff --check`
+  2940fae..HEAD: OK. Protected paths (`seed/**`, dependencies/lock,
+  workflows): **no changes**.
+- One earlier evaluation run at `01ca123` was interrupted at ~92% by a
+  service restart and is not counted; the runs above are the evidence
+  for this HEAD.
+
+G6 acceptance remains for the fresh independent complete-diff review.
