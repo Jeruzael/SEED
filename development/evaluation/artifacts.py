@@ -15,6 +15,12 @@ import os
 import re
 
 from . import indexes as _indexes
+from .artifact_io import (CONTROL_BYTES, DETAIL_BYTES, FILE_CAPS, MAX_ATTEMPTS,
+                          MAX_FILES, MAX_TRANSITIONS, OPERATIONAL_BYTES,
+                          PAYLOAD_FILES, RECORD_SCHEMA, SNAPSHOT_BYTES,
+                          TOTAL_DETAIL_BYTES, ARTIFACT_BYTES, _partials_fd,
+                          _read_staged, _record_path, _run_id,
+                          _write_payload_file)
 from .analysis import expand_inventory
 from .contracts import (CompletedEvidence, ContractError, FrozenPlan, Payload,
                         Population, RootCapability, RunResult, strict_json,
@@ -22,23 +28,7 @@ from .contracts import (CompletedEvidence, ContractError, FrozenPlan, Payload,
 from .paths import EvaluationRoot, _directory, _identity, _mkdir, _open_file
 from .specs import raw_bytes
 
-DETAIL_BYTES = 64 * 1024
-TOTAL_DETAIL_BYTES = 64 * 1024 ** 2
-SNAPSHOT_BYTES = 128 * 1024 ** 2
-ARTIFACT_BYTES = 224 * 1024 ** 2
-CONTROL_BYTES = 4 * 1024 ** 2
-OPERATIONAL_BYTES = 4 * 1024 ** 2
-MAX_FILES = 32
-MAX_TRANSITIONS = 1024
-MAX_ATTEMPTS = 2048
-FILE_CAPS = {'manifest.json': 128 * 1024, 'analysis-plan.json': 128 * 1024,
-             'index.json': 128 * 1024, 'metrics.json': 256 * 1024,
-             'chunks.json': 512 * 1024}
-PAYLOAD_FILES = ('manifest.json', 'analysis-plan.json', 'preupdate.ndjson',
-                 'events.ndjson', 'metrics.json', 'truth.json', 'index.json',
-                 'operations.ndjson')
-RECORD_SCHEMA = 'b10_run_record_v1'
-_RUN_ID = re.compile(r'[0-9a-f]{32}')
+
 _CHECKPOINT = re.compile(r'checkpoints/[a-z0-9][a-z0-9-]*\.sqlite3')
 
 
@@ -48,24 +38,6 @@ def _root(capability):
     fd = capability._validate()
     os.close(fd)
     return capability
-
-
-def _run_id(value):
-    if type(value) is not str or not _RUN_ID.fullmatch(value):
-        raise ContractError()
-    return value
-
-
-def _partials_fd(root):
-    evaluation = _directory(root.path / 'evaluation')
-    try:
-        return _mkdir(evaluation, 'partials')
-    finally:
-        os.close(evaluation)
-
-
-def _record_path(root, run_id):
-    return root.path / 'evaluation' / 'partials' / f'{run_id}.record.json'
 
 
 def write_run_record(capability, record):
@@ -130,33 +102,6 @@ def read_run_record(capability, run_id):
             or record.get('run_id') != run_id:
         raise ContractError()
     return record
-
-
-def _read_staged(root, run_id, name, maximum):
-    run_dir = _directory(root.path / 'evaluation' / 'partials' / run_id)
-    try:
-        fd = _open_file(run_dir, name, 'read')
-        with os.fdopen(fd, 'rb') as f:
-            return f.read(maximum + 1)
-    finally:
-        os.close(run_dir)
-
-
-def _write_payload_file(root, run_id, name, data):
-    run_dir = _directory(root.path / 'evaluation' / 'partials' / run_id)
-    try:
-        try:
-            os.unlink(name, dir_fd=run_dir)
-        except FileNotFoundError:
-            pass
-        fd = _open_file(run_dir, name, 'create')
-        with os.fdopen(fd, 'wb') as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-        os.fsync(run_dir)
-    finally:
-        os.close(run_dir)
 
 
 def _journal_frames(raw):

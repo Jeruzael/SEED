@@ -13,7 +13,7 @@ import os
 import re
 from dataclasses import dataclass
 
-from . import artifacts as _artifacts
+from . import artifact_io as _artifacts
 from . import indexes as _indexes
 from .contracts import ContractError, Payload, Receipt, strict_json
 from .paths import EvaluationRoot, _directory, _mkdir, _open_file
