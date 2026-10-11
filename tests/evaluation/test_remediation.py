@@ -292,9 +292,16 @@ def test_f3_byte_budget_interruptions_lossless(tmp_path, foundation_module,
     reader_mod = foundation_module('reader')
     monkeypatch.setattr(reader_mod, 'REQUEST_BYTES', 2350)
     reader = reader_mod.EvaluationReader(root)
+    from development.evaluation.contracts import ContractError
     seen, cursor, pages = [], None, 0
+    attempts = 0
     while True:
-        page = reader.events(RUN, cursor=cursor, limit=20)
+        attempts += 1
+        assert attempts < 200
+        try:
+            page = reader.events(RUN, cursor=cursor, limit=20)
+        except ContractError:
+            continue  # bounded error; indexing resumes on the next request
         pages += 1
         assert sum(len(e.body) for e in page.events) <= 2350 + max(
             (len(e.body) for e in page.events), default=0)

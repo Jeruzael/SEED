@@ -187,9 +187,21 @@ class EvaluationReader:
                        self._fingerprint(directory / 'events.ndjson'))
         cached = self._replay_indexes.get(run_id)
         if cached is not None and cached[0] == fingerprint:
-            return cached[1]
-        index = _replay.build_index(
-            self._root, run_id, deadline=self._started + REQUEST_SECONDS)
+            index = cached[1]
+        else:
+            index = _replay.ReplayIndex.empty()
+        try:
+            # The incremental build charges every physical byte it pulls
+            # to this request's budget (_tick). On a bounded failure the
+            # partially built index is cached, so the next request
+            # resumes the scan instead of restarting it.
+            _replay.build_index(
+                self._root, run_id,
+                deadline=self._started + REQUEST_SECONDS,
+                charge=self._tick, resume=index)
+        except ContractError:
+            self._replay_indexes[run_id] = (fingerprint, index)
+            raise
         self._replay_indexes[run_id] = (fingerprint, index)
         return index
 
@@ -204,9 +216,15 @@ class EvaluationReader:
         position = offset
         page_bytes = 0
         while position < index.total and len(page) < limit:
-            row = _replay.read_rows(
-                self._root, run_id, index, position, 1,
-                deadline=self._started + REQUEST_SECONDS)[0]
+            try:
+                row = _replay.read_rows(
+                    self._root, run_id, index, position, 1,
+                    deadline=self._started + REQUEST_SECONDS,
+                    charge=self._tick)[0]
+            except ContractError:
+                if page:
+                    break  # bounded partial page; cursor still advances
+                raise
             if page and page_bytes + len(row.body) > REQUEST_BYTES:
                 break
             page_bytes += len(row.body)
@@ -222,19 +240,22 @@ class EvaluationReader:
         index = self._replay_index(run_id)
         for i, (_o, _l, frame_key, _d) in enumerate(index.frames):
             if (frame_key[0], frame_key[1], frame_key[2], 'update') == key:
-                return _replay.read_rows(self._root, run_id, index, i, 1)[0]
+                return _replay.read_rows(self._root, run_id, index, i, 1,
+                                         charge=self._tick)[0]
         for j, (_o, _l, event_key, _d) in enumerate(index.events):
             if event_key == key:
                 rows = _replay.read_rows(
                     self._root, run_id, index,
-                    len(index.frames) + index.unbound.index(j), 1) \
+                    len(index.frames) + index.unbound.index(j), 1,
+                    charge=self._tick) \
                     if j in index.unbound else None
                 if rows:
                     return rows[0]
                 # A bound event is presented through its transition row.
                 return _replay.read_rows(
                     self._root, run_id, index,
-                    next(i for i, ej in index.bound.items() if ej == j), 1)[0]
+                    next(i for i, ej in index.bound.items() if ej == j), 1,
+                    charge=self._tick)[0]
         raise ContractError()
 
     def curve(self, run_id, metric, series):
