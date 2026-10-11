@@ -230,3 +230,49 @@ Review record: docs/reviews/2026-10-11-b10-artifacts-final-remediation-review.md
 Publication (PR, PR-head CI, merge, post-merge master CI, closure)
 remains owner-gated and has not been performed. I31 remains
 NOT AUTHORIZED.
+
+## Final replay budget remediation (R-BUDGET-1 / R-BUDGET-2)
+
+Owner instruction after the G6 acceptance above identified a remaining
+bypass: the B remediation's disclosed single-record escape in
+`EvaluationReader.events()` retried a failed row read WITHOUT the
+request budget charge, and replay reads were charged after the physical
+read. The earlier G6 PASS stands as historical evidence at its reviewed
+HEAD (`377f39a`); this cycle re-opens publication readiness until the
+new independent review accepts the repaired head.
+
+Fix commit `491ad63` ("fix: enforce strict replay read budget without
+unmetered fallback"):
+
+- The unmetered single-record retry is **eliminated**. One coherent
+  budget (`replay.RequestBudget`, created per reader request) governs
+  the receipt, manifests, index scans, row lines and chunks: reads are
+  preflighted (admit/pull) before they happen and charged for actual
+  bytes afterwards; the deadline is checked before and after each read.
+- Budget/deadline exhaustion is the internally typed
+  `replay.BudgetError` (a `ContractError` subclass -- the external
+  error surface is unchanged) and is distinguished from invalid
+  evidence: `events()` shortens a page only on `BudgetError` with rows
+  already served; corruption propagates, even mid-page; an
+  unaffordable first record is an explicit bounded error -- never a
+  stalled successful cursor, never a skipped record.
+- Index scans pull at most the remaining allowance per `os.pread`;
+  offsets advance only for charged bytes; resumability across requests
+  is preserved.
+- RED evidence (`tests/evaluation/test_replay_budget_escape.py`, 7
+  tests): on the pre-fix code the first row was served unmetered at a
+  receipt+row-1 budget, physical reads reached 1,102,368 bytes against
+  the 1 MiB request budget (315,936 against a 256 KiB budget), a
+  corrupt second row silently truncated the page, and no typed budget
+  existed. All 7 pass after the fix. The F3 interruption test was
+  recalibrated to the strict contract from measured fixture sizes
+  (receipt 1123 + largest row span 2490 = 3613 <= 3800 budget < 4072
+  total history); its lossless exactly-once properties are unchanged.
+
+Author verification at `491ad63`: focused replay/reader/remediation/
+adversarial/dependency sets 52 passed; complete evaluation suite
+**631 passed**; full repository suite **1,514 passed, 2 warnings**;
+seven standalone scenarios 7/7 PASS; compileall and `git diff --check`
+clean; changed files exactly `reader.py`, `replay.py` and the three
+test files; protected scope unchanged. G6 publication readiness awaits
+the fresh independent review of this head.
