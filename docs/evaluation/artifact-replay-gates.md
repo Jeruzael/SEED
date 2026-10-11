@@ -29,3 +29,65 @@ RED/repair evidence for each task is retained in ignored `.superpowers/b10-artif
 | Protected scope (seed/**, schema, lock, workflows) | NONE changed in 2940fae..ea65163 |
 
 Branch pushed to origin at ea65163ba5c1541e98072e8e4342251e34bbb619 without merge or PR, per owner instruction. Fresh independent complete-diff review and G6 remain pending.
+
+## Owner independent-review remediation (2026-10-11)
+
+The owner's independent source inspection of the published head raised five
+deeper findings beyond the first review cycle. Each was reproduced RED
+before repair (tests/evaluation/test_remediation.py; RED log preserved in
+the working records):
+
+- **F1 (MAJOR)** — re-execution never executed: it rebuilt envelopes from
+  stored rows, so a tampered stored prediction re-executed to `matched`.
+  Repaired in efb00f4: genuine disposable-worker re-execution
+  (`PrequentialDriver` + `ChannelRouter` + real organism) from the
+  recorded execution inputs only; stored rows are never read; only fresh
+  organism evidence is staged/assembled/finalized/published; incompatible
+  records (driver-mismatched journals, declared checkpoints, tampered
+  execution blocks) fail closed with INCOMPATIBLE_REEXECUTION; non-COMPLETED
+  fresh executions stage a partial and report INCOMPLETE_COMPARISON.
+- **F2 (MAJOR)** — scientific outputs were trusted, not derived. Repaired
+  in 90ee816: assembly re-derives every registered measurement and finding
+  from journal evidence via the I14–I20 metric code and rejects any
+  supplied row that differs; COMPLETED runs must supply the full derived
+  set; underived rows on non-COMPLETED runs become UNAVAILABLE
+  `not_produced`.
+- **F3 (MAJOR)** — reader pages scanned the whole event history per page.
+  Repaired in f1c81f5/b8426ac/e8c6f9b: streamed byte-offset replay index,
+  fingerprint-cached by the reader; page reads are windowed with
+  incremental byte/deadline budgets; the generic event join stays strict
+  and is no longer used for paging.
+- **F4 (MAJOR)** — replay silently dropped non-point-update stages, skipped
+  attempts and duplicate-digest rows. Same commits: the row inventory is
+  lossless — journal frames in journal order, then unbound event lines
+  (every stage, skipped attempt, duplicate) in file order, each exactly
+  once.
+- **F5 (MAJOR)** — no storage-budget admission. Repaired in 90ee816:
+  assembly estimates payload bytes and requires budget capacity before
+  canonicalization; publish re-requires capacity at the commit boundary,
+  with the budget reconciled from on-disk usage including crash-retained
+  state.
+
+Follow-on repair 9530e14 moved shared artifact IO into the leaf module
+`artifact_io.py` after the F2 derivation imports broke the reader
+dependency boundary (`reader → replay → integrity → artifacts →
+metrics.producers → scenarios`); 241096d repointed one cap-monkeypatch
+test at the leaf module.
+
+## Remediation verification (author side, at 241096d)
+
+- RED evidence: all five findings reproduced before repair; the
+  regression tests live in tests/evaluation/test_remediation.py and fail
+  on the pre-remediation head, pass after.
+- Focused evaluation sets (artifacts, integrity, replay, comparison,
+  reader, reexecution, CLI, remediation, dependency audit): green.
+- Complete evaluation suite and full repository suite: full repository
+  1,482 passed / 2 warnings at 241096d. Two earlier contaminated runs are
+  recorded honestly: one filled the 512 MB tmpfs /tmp with test
+  scratch (121 disk-full errors in unrelated root tests); one ran with
+  TMPDIR on slow overlay disk and produced timing flakes in
+  worker/state/frozen/scenario tests — the same flakes reproduce at the
+  pre-remediation head under the same conditions and vanish on tmpfs.
+- All seven standalone scenarios PASS.
+- G6 remains for the fresh independent complete-diff review; this ledger
+  entry is author-side evidence only.
