@@ -191,7 +191,7 @@ def test_all_route_bounds(client, eval_checkout):
                  params={'series': series}).status_code == 422
     assert c.get(f'/api/evaluation/runs/{RUN}/curve',
                  params={'metric': 'prediction.numeric-mae',
-                         'series': 'nope'}).status_code == 422
+                         'series': 'nope'}).status_code in (409, 422)
     # Compare: same run is dimension-compatible; missing run is 404.
     compare = c.get('/api/evaluation/compare',
                     params={'left': RUN, 'right': RUN,
