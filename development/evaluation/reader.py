@@ -224,7 +224,12 @@ class EvaluationReader:
             except ContractError:
                 if page:
                     break  # bounded partial page; cursor still advances
-                raise
+                # Single-record escape: one row is always servable (its
+                # line is bounded by the 64 KiB record cap), mirroring
+                # the page-body rule; corruption still raises from here.
+                row = _replay.read_rows(
+                    self._root, run_id, index, position, 1,
+                    deadline=self._started + REQUEST_SECONDS)[0]
             if page and page_bytes + len(row.body) > REQUEST_BYTES:
                 break
             page_bytes += len(row.body)
