@@ -187,3 +187,19 @@ NO B10 EXPERIMENTS EXECUTED
 ```
 
 Protected scope confirmed by the review: `seed/**` NONE, schema v7 unchanged, dependencies/lock unchanged, workflows unchanged, no I21+ implementation, registered dispatch disabled, installed SEED untouched. This G5 acceptance is an engineering gate, not a scientific B10 pass; empirical evaluation remains not authorized and not started.
+
+## Science Infrastructure PR #27 Publication Verification
+
+Final independent review: **G5 PASS** — BLOCKER 0 / MAJOR 0 / MINOR 0 / UNRESOLVED 0, R1–R21 RESOLVED; record: [final independent review](../reviews/2026-10-11-b10-science-final-review.md).
+
+[Science Infrastructure PR #27](https://github.com/Jeruzael/SEED/pull/27): `seed-0.2-b10-impl-03-science` → `master`; exact base `e6da08efc219a0415de6dcd11fac485cf4461f41`; exact PR head `b8c460d2514ee3cda95d3a326f4d0f681fc74db9`.
+
+Exact PR-head CI: [run 38127645966](https://github.com/Jeruzael/SEED/actions/runs/38127645966), event `pull_request`, **SUCCESS** — test (linux-py311) job `114435240228` SUCCESS; test (linux-py313) job `114435239900` SUCCESS; test (macos-py313) job `114435240018` SUCCESS.
+
+Normal merge: `e776433fc26a8b5644268469f697e9c24f85f9ac`. The merged master tree is identical to the accepted PR-head tree; no code modifications occurred during the merge.
+
+Separate exact post-merge master CI: [run 38128270534](https://github.com/Jeruzael/SEED/actions/runs/38128270534), event `push`, exact head `e776433fc26a8b5644268469f697e9c24f85f9ac`, **SUCCESS** — test (linux-py311) job `114437070364` SUCCESS; test (linux-py313) job `114437070589` SUCCESS; test (macos-py313) job `114437070544` SUCCESS.
+
+Protected scope unchanged: `seed/**` NONE, schema v7, dependencies/lock, workflows and historical baseline bytes unchanged; registered dispatch disabled; no I21+ implementation; **NO B10 EXPERIMENTS EXECUTED; INSTALLED SEED UNTOUCHED**.
+
+Closure documentation publication is pending on branch `docs/b10-science-infrastructure-closure` with record [2026-10-11 science infrastructure closure](../reviews/2026-10-11-b10-science-infrastructure-closure.md). I14–I20 becomes COMPLETE / VERIFIED / CLOSED only after the closure PR's exact-head CI, normal merge, and separate exact final-master push CI all pass.
