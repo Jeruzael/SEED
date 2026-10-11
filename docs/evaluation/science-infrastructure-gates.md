@@ -168,3 +168,22 @@ Retained intermediate attempts: first R20 green verification revealed six failur
 Final serial author verification at exact clean code `1f0faedd8c56b13d70dceee99b07eaf666db198f`: **evaluation 552 passed in 304.33s (0:05:04);repository 1435 passed, 2 warnings in 323.79s (0:05:23);focused science 295 passed in 90.46s (0:01:30);separately selected A–D literal/adversarial 292 passed in 89.91s (0:01:29);seven standalone regressions PASS/JSON parsed;pip/scoped compile/whitespace/protected scope/clean head PASS**. The focused and separate literal selections include the two new structured-report/source-inventory modules. Existing Starlette/AnyIO warnings remain unchanged. Exact serial commands/logs are retained in `.superpowers/b10-science/` and `/private/tmp/verify_b10_science_R20_R21_final.py`. Protected core/schema v7/dependencies/workflows/historical baselines remain byte-identical to the canonical base; approved spec/plan changes remain authorization/status documentation only. Registered dispatch stays disabled; no B10 experiments or installed-organism access.
 
 A completely fresh independent full-branch acceptance is required next. **G5 NOT YET ACCEPTED**; science PR/exact-head CI/normal merge/distinct exact-master push CI and separate docs closure PR/master gates remain pending. I21–I30 owner authorized/not started/waiting; I31/empirical not authorized. Stop after verified current-branch closure; do not start I21 here.
+
+## Final independent acceptance — 2026-10-11
+
+A fresh independent complete-diff review of `e6da08efc219a0415de6dcd11fac485cf4461f41..74853b34427e8a0ea6ef7ec0702ad7ecf1a817a3` (engineering code ending at `1f0faedd8c56b13d70dceee99b07eaf666db198f`) was performed from an independently materialized exact tree. Record: [final independent review](../reviews/2026-10-11-b10-science-final-review.md). Independent evaluation execution: **552 passed in 209.96s, exit 0**. Reviewer adversarial probes for R20/R21/R18/R19 (13, on genuine outputs): **all rejected or correctly qualified as required**. Findings: **BLOCKER 0 / MAJOR 0 / MINOR 0 / UNRESOLVED 0**. R1–R21 all RESOLVED at the final engineering code. All seven earlier negative reviews remain preserved unchanged.
+
+```text
+I14-I20 IMPLEMENTATION COMPLETE / INDEPENDENTLY VERIFIED
+G1 PASS
+G2 PASS
+G3 PASS
+G4 PASS
+G5 PASS
+SCIENCE INFRASTRUCTURE PR PUBLICATION PENDING
+I21-I30 OWNER AUTHORIZED / NOT STARTED / WAITING ON VERIFIED I14-I20 PUBLICATION/CLOSURE
+I31 NOT AUTHORIZED
+NO B10 EXPERIMENTS EXECUTED
+```
+
+Protected scope confirmed by the review: `seed/**` NONE, schema v7 unchanged, dependencies/lock unchanged, workflows unchanged, no I21+ implementation, registered dispatch disabled, installed SEED untouched. This G5 acceptance is an engineering gate, not a scientific B10 pass; empirical evaluation remains not authorized and not started.
