@@ -127,7 +127,12 @@ its own commit; RED logs preserved in the working records.
   completed-fixture launch pathway: the checkpoint bytes are validated
   (descriptor-relative read, manifest digest, state projection) and seed
   a `COMPLETED_OWNED_FIXTURE` launch; corrupt or undeclared checkpoints
-  are incompatible. The disposable root now lives in the target root's
+  are incompatible. (Narrow follow-up `MINOR-1/MINOR-2` fixes: the
+  compatibility report's initial-state check now reads the checkpoint
+  through the same descriptor-safe validated helper instead of a plain
+  path read, and re-execution stages the fresh journal/checkpoint copy
+  only after a budget admission covering those bytes plus the run slot;
+  regression tests in tests/evaluation/test_review_minors.py.) The disposable root now lives in the target root's
   owned `work/` area under budget admission and is destroyed afterwards;
   no external temp root is allocated. RED evidence: against the prior
   implementation the fresh-action, missing-scenario and checkpoint
@@ -149,13 +154,17 @@ its own commit; RED logs preserved in the working records.
   partials count through the existing reconciliation.
 - **D — checkpoint descriptor traversal (BLOCKER concern), `60ec70f`.**
   Reproduced at the open level: a staged `checkpoints` symlink made the
-  assembly read foreign bytes. All nested artifact opens now walk
-  descriptor-relatively (`paths._open_nested`): every intermediate
-  directory is opened O_NOFOLLOW and validated, components are strictly
-  checked, and descriptors close on every path. Applied to staged
-  reads/writes, integrity payload reads and fsync, and snapshot
-  inspection (with pre/post identity checks around SQLite's native
-  open, per the Option B exception).
+  assembly read foreign bytes. Nested artifact opens on the assembly,
+  integrity and reader paths now walk descriptor-relatively
+  (`paths._open_nested`): every intermediate directory is opened
+  O_NOFOLLOW and validated, components are strictly checked, and
+  descriptors close on every path. Applied to staged reads/writes,
+  integrity payload reads and fsync, and snapshot inspection (with
+  pre/post identity checks around SQLite's native open, per the Option
+  B exception). The one plain-path checkpoint read the independent
+  review later found in the re-execution compatibility report was
+  routed through the same validated helper in the MINOR-1 follow-up
+  above.
 
 Author verification at the final HEAD is recorded in the entry below
 after the serial runs complete; G6 acceptance remains for the fresh
@@ -182,3 +191,15 @@ Run serially against the clean final HEAD `279c54f` (engineering code
   for this HEAD.
 
 G6 acceptance remains for the fresh independent complete-diff review.
+
+## Independent review of remediation A–D and MINOR follow-ups
+
+The fresh independent complete-diff review at `98cab3b` (independent
+tree; evaluation suite 622 passed; 22 reviewer probes) verified A–D
+HOLD on all named surfaces and F1–F5 unregressed, with verdict
+0 BLOCKER / 0 MAJOR / 2 MINOR / 0 UNRESOLVED — both MINORs in
+re-execution secondary paths (compatibility-report checkpoint read;
+re-execution staging admission), reproduced above and fixed in the
+follow-up commit with regression tests RED against the pre-fix code.
+A narrow independent re-review of those two fixes follows; G6 is
+recorded only from that re-review.

@@ -79,12 +79,13 @@ def compatibility_report(reader, run_id, profile: Profile) -> dict:
                         if e['name'] == 'initial']
     if initial_declared:
         try:
-            import hashlib as _hl
-            from .canonical import canonical_bytes as _cb
             from .science import iter_science as _iter, project_state as _ps
             import sqlite3 as _sq
-            raw = (root.path / 'evaluation' / 'runs' / run_id
-                   / initial_declared[0]['file']).read_bytes()
+            # Descriptor-relative, digest-validated read (remediation D):
+            # never a plain path read of a checkpoint file.
+            raw = _initial_checkpoint(root, run_id, manifest)
+            if raw is None:
+                raise ContractError()
             _db = _sq.connect(':memory:')
             try:
                 _db.deserialize(raw)
@@ -453,6 +454,13 @@ def reexecute(reader, run_id: str, profile: Profile) -> ReexecutionResult:
     execution, checkpoint_bytes = inputs
     result, fresh, events, attempts = _execute_fresh(
         root, run_id, execution, new_id, engine, checkpoint_bytes)
+    # Admission BEFORE the first staging write (remediation C): the
+    # fresh journal and any checkpoint copy are charged, plus the new
+    # retained-run slot, before the partial directory appears.
+    root.budget.require_capacity(
+        bytes=len(fresh) + (len(checkpoint_bytes)
+                            if checkpoint_bytes is not None else 0),
+        runs=1)
     partials = root.path / 'evaluation' / 'partials'
     staging = partials / new_id
     staging.mkdir(mode=0o700)
