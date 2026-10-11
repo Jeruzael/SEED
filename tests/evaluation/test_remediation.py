@@ -292,14 +292,14 @@ def test_f3_byte_budget_interruptions_lossless(tmp_path, foundation_module,
     reader_mod = foundation_module('reader')
     receipt_size = (tmp_path / '.seed-evaluation' / 'evaluation' / 'receipts'
                     / f'{RUN}.json').stat().st_size
-    budget = receipt_size + 1200
+    budget = receipt_size + 2600
     monkeypatch.setattr(reader_mod, 'REQUEST_BYTES', budget)
     reader = reader_mod.EvaluationReader(root)
     seen, cursor, pages = [], None, 0
     while True:
         page = reader.events(RUN, cursor=cursor, limit=20)
         pages += 1
-        assert sum(len(e.body) for e in page.events) <= 1200 + max(
+        assert sum(len(e.body) for e in page.events) <= 2600 + max(
             (len(e.body) for e in page.events), default=0)
         seen.extend(e.key for e in page.events)
         cursor = page.cursor

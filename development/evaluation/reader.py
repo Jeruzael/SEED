@@ -67,6 +67,7 @@ class EvaluationReader:
         self._root = capability
         self._fingerprints = {}
         self._chunk_verified = set()
+        self._replay_indexes = {}
         self._started = None
         self._read_bytes = 0
 
@@ -180,30 +181,59 @@ class EvaluationReader:
                  for i, item in enumerate(metrics['produced'])]
         return self._page(items, cursor, limit)
 
+    def _replay_index(self, run_id):
+        directory = payload_directory(self._root, run_id)
+        fingerprint = (self._fingerprint(directory / 'preupdate.ndjson'),
+                       self._fingerprint(directory / 'events.ndjson'))
+        cached = self._replay_indexes.get(run_id)
+        if cached is not None and cached[0] == fingerprint:
+            return cached[1]
+        index = _replay.build_index(
+            self._root, run_id, deadline=self._started + REQUEST_SECONDS)
+        self._replay_indexes[run_id] = (fingerprint, index)
+        return index
+
     def events(self, run_id, cursor=None, limit=20):
         self._begin()
         self._receipt(run_id)
         if type(limit) is not int or not 1 <= limit <= PAGE_LIMIT:
             raise ContractError()
         offset = _offset(cursor)
-        joined = _replay.join_events(self._root, run_id)
+        index = self._replay_index(run_id)
         page = []
-        used = 0
-        for event in joined[offset:offset + limit]:
-            used += len(event.body)
-            if page and used > REQUEST_BYTES:
+        position = offset
+        while position < index.total and len(page) < limit:
+            row = _replay.read_rows(
+                self._root, run_id, index, position, 1,
+                deadline=self._started + REQUEST_SECONDS)[0]
+            self._tick(row.body)
+            if page and self._read_bytes > REQUEST_BYTES:
                 break
-            page.append(event)
-        consumed = offset + len(page)
-        next_cursor = _cursor(consumed) if consumed < len(joined) else None
+            page.append(row)
+            position += 1
+        next_cursor = _cursor(position) if position < index.total else None
         return ReplayPage(tuple(page), next_cursor)
 
     def event(self, run_id, key):
         self._begin()
         self._receipt(run_id)
-        for event in _replay.join_events(self._root, run_id):
-            if event.key == tuple(key):
-                return event
+        key = tuple(key)
+        index = self._replay_index(run_id)
+        for i, (_o, _l, frame_key, _d) in enumerate(index.frames):
+            if (frame_key[0], frame_key[1], frame_key[2], 'update') == key:
+                return _replay.read_rows(self._root, run_id, index, i, 1)[0]
+        for j, (_o, _l, event_key, _d) in enumerate(index.events):
+            if event_key == key:
+                rows = _replay.read_rows(
+                    self._root, run_id, index,
+                    len(index.frames) + index.unbound.index(j), 1) \
+                    if j in index.unbound else None
+                if rows:
+                    return rows[0]
+                # A bound event is presented through its transition row.
+                return _replay.read_rows(
+                    self._root, run_id, index,
+                    next(i for i, ej in index.bound.items() if ej == j), 1)[0]
         raise ContractError()
 
     def curve(self, run_id, metric, series):
