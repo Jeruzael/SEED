@@ -138,6 +138,8 @@ class EvaluationReader:
             raise ReaderError('ARTIFACT_NOT_PUBLISHED')
         raw = self._read(directory, 'manifest.json', 128 * 1024)
         manifest = strict_json(raw, max_bytes=128 * 1024)
+        metrics = strict_json(self._read(directory, 'metrics.json', 256 * 1024),
+                              max_bytes=256 * 1024)
         key = ('detail', run_id)
         fingerprint = {name: self._fingerprint(directory / name)
                        for name in ('manifest.json', 'metrics.json',
@@ -149,7 +151,8 @@ class EvaluationReader:
         summary_body = raw_bytes(dict(
             run_id=run_id, status=manifest['status'], reason=manifest['reason'],
             science_digest=manifest['science_digest'],
-            counts=manifest['counts'], verification=verification))
+            counts=manifest['counts'], measurements=metrics['produced'],
+            verification=verification))
         if len(summary_body) > DETAIL_BYTES:
             raise ContractError()
         summary = RunSummary(run_id, RunResult(manifest['status'],
