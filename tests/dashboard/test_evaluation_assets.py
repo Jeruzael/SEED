@@ -47,7 +47,7 @@ for (const bad of [
   '#evaluation?cursor=' + 'A'.repeat(513),             // oversized cursor
   '#evaluation?run=' + 'a'.repeat(32) + '&run=' + 'b'.repeat(32),  // duplicate
   '#evaluation?bogus=1',                               // unknown selector
-  '#evaluation?left=' + 'a'.repeat(32),                // compare needs both
+  '#evaluation?right=' + 'b'.repeat(32),               // right requires left
   '#evaluation?event=measured:default:9223372036854775808:update', // > int64
   '#evaluation?event=measured:default:01:update',      // leading zero
   '#evaluation?chunk=-1',
@@ -107,4 +107,122 @@ globalThis.fetch = async () => new Response('{"id":9223372036854775807,"n":90071
 const data = await fetchEvaluation('evaluation/runs');
 assert.equal(data.id, '9223372036854775807');
 assert.equal(data.n, '9007199254740993');
+''')
+
+
+def _mock_fetch(routes):
+    """JS prelude: route globalThis.fetch by URL substring to JSON bodies."""
+    lines = ["globalThis.fetch = async (url) => {"]
+    for needle, payload in routes:
+        lines.append(
+            f"  if (String(url).includes({needle!r})) "
+            f"return new Response({payload!r});")
+    lines.append("  return new Response('{\"error\":{\"code\":\"not_found\","
+                 "\"message\":\"missing\"}}', {status: 404});")
+    lines.append("};")
+    return '\n'.join(lines)
+
+
+def test_negative_findings_visible_on_completed_run():
+    detail = ('{"run_id":"' + 'a' * 32 + '","status":"COMPLETED",'
+              '"reason":null,"science_digest":"' + 'e' * 64 + '",'
+              '"counts":{"planned_transitions":2,"joined_events":2,'
+              '"observed_transitions":2,"skipped_attempts":1},'
+              '"measurements":[],"verification":"VERIFIED",'
+              '"chunk_verification":"VERIFIED",'
+              '"receipt_digest":"' + 'f' * 64 + '",'
+              '"receipt_files":["manifest.json","metrics.json"],'
+              '"findings":[{"question":"prediction","status":"NEGATIVE",'
+              '"reason":"PREREGISTERED_RULE","execution":"COMPLETED"},'
+              '{"question":"world","status":"NOT_EVALUATED",'
+              '"reason":"DESCRIPTIVE_ONLY","execution":"COMPLETED"}]}')
+    javascript(r'''
+import assert from 'node:assert/strict';
+import {Element, installDOM} from '../../tests/dashboard/astra_dom.mjs';
+installDOM();
+''' + _mock_fetch([('evaluation/runs/' + 'a' * 32, detail)]) + r'''
+globalThis.location = {hash: '#evaluation?run=' + 'a'.repeat(32)};
+const {renderEvaluation} = await import('./views/evaluation.js');
+const root = new Element();
+await renderEvaluation(root, new AbortController().signal);
+const text = root.textContent;
+// Execution and findings are separate, both prominent.
+assert.ok(text.includes('Execution'), text);
+assert.ok(text.includes('Scientific findings'), text);
+assert.ok(text.includes('COMPLETED'));
+assert.ok(text.includes('NEGATIVE'), 'unfavorable finding must stay visible');
+assert.ok(text.includes('NOT_EVALUATED'));
+assert.ok(!/scientific[^.]*\bPASS\b/i.test(text), 'no universal scientific PASS');
+''')
+
+
+def test_comparison_blocks_incompatibility():
+    compare = ('{"left":"' + 'a' * 32 + '","right":"' + 'b' * 32 + '",'
+               '"compatible":false,"dimensions":{'
+               '"experiment":{"left":{"id":"x","version":1},'
+               '"right":{"id":"x","version":2},"match":false},'
+               '"plan_digest":{"left":"p1","right":"p2","match":false},'
+               '"science_digest":{"left":"s1","right":"s2","match":false}},'
+               '"metric":null}')
+    javascript(r'''
+import assert from 'node:assert/strict';
+import {Element, installDOM} from '../../tests/dashboard/astra_dom.mjs';
+installDOM();
+''' + _mock_fetch([('evaluation/compare', compare)]) + r'''
+globalThis.location = {hash: '#evaluation?left=' + 'a'.repeat(32) + '&right=' + 'b'.repeat(32)};
+const {renderEvaluation} = await import('./views/evaluation.js');
+const root = new Element();
+await renderEvaluation(root, new AbortController().signal);
+const text = root.textContent;
+assert.ok(text.includes('Incompatible'), text);
+assert.ok(text.includes('experiment'), 'exact differing dimensions are named');
+assert.ok(text.includes('plan_digest'));
+assert.ok(!/better|worse|equivalent/i.test(text), 'no automatic verdict');
+''')
+
+
+def test_evaluation_dom_and_chart_caps():
+    rows = ','.join(
+        '{"identity":"m%d","metric":"prediction.numeric-mae","version":1,'
+        '"member":"member-0","state":"MEASURED","value":0.5,"reason":null}'
+        % i for i in range(20))
+    page = ('{"available":true,"items":[' + rows + '],"next_cursor":null}')
+    javascript(r'''
+import assert from 'node:assert/strict';
+import {Element, installDOM} from '../../tests/dashboard/astra_dom.mjs';
+installDOM();
+''' + _mock_fetch([('measurements', page)]) + r'''
+globalThis.location = {hash: '#evaluation?run=' + 'a'.repeat(32) + '&view=measurements'};
+const {renderEvaluation} = await import('./views/evaluation.js');
+const root = new Element();
+await renderEvaluation(root, new AbortController().signal);
+const elements = root.querySelectorAll('*');
+assert.ok(elements.length <= 1500, 'DOM cap: ' + elements.length);
+const rowsRendered = root.querySelectorAll('tr').length;
+assert.ok(rowsRendered <= 21, 'table rows cap (20 + header): ' + rowsRendered);
+''')
+
+
+def test_escaped_hostile_artifact_strings():
+    hostile = ('{"available":true,"items":[{"run_id":"' + 'a' * 32 + '",'
+               '"digest":"d","science_digest":"s","status":'
+               '"<img src=x onerror=alert(1)>","verification":"VERIFIED"}],'
+               '"next_cursor":null}')
+    javascript(r'''
+import assert from 'node:assert/strict';
+import {Element, installDOM} from '../../tests/dashboard/astra_dom.mjs';
+installDOM();
+''' + _mock_fetch([('evaluation/runs?', hostile),
+                   ('evaluation/runs', hostile)]) + r'''
+globalThis.location = {hash: '#evaluation'};
+const {renderEvaluation} = await import('./views/evaluation.js');
+const root = new Element();
+await renderEvaluation(root, new AbortController().signal);
+// The hostile string is text, never an element: no img node exists and
+// the literal text is present verbatim.
+assert.equal(root.querySelectorAll('img').length, 0);
+assert.ok(root.textContent.includes('<img src=x onerror=alert(1)>'));
+const source = await import('node:fs').then(fs => fs.readFileSync('./views/evaluation.js', 'utf8'));
+assert.ok(!source.includes('innerHTML'), 'view must not use innerHTML');
+assert.ok(!source.includes('eval('), 'view must not use eval');
 ''')

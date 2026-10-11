@@ -54,7 +54,8 @@ export function parseEvaluationRoute(hash) {
             || BigInt(ordinal) > 2n ** 63n - 1n) throw Error();
       }
     }
-    if ((params.left === undefined) !== (params.right === undefined)) throw Error();
+    // 'left' alone is compare-selection state; 'right' requires 'left'.
+    if (params.right !== undefined && params.left === undefined) throw Error();
     return {params};
   } catch { return {params: {}, invalid: true}; }
 }

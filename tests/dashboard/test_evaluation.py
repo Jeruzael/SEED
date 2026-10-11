@@ -153,6 +153,11 @@ def test_all_route_bounds(client, eval_checkout):
     assert detail.status_code == 200
     assert detail.json()['status'] == 'COMPLETED'
     assert detail.json()['receipt_digest']
+    # Scientific findings travel with the detail response, stored not
+    # recomputed: this descriptive-only fixture is NOT_EVALUATED.
+    findings = detail.json()['findings']
+    assert findings and findings[0]['status'] == 'NOT_EVALUATED'
+    assert findings[0]['execution'] == 'COMPLETED'
     for bad in ('xyz', 'A' * 32, 'a' * 31, 'a' * 33, 'g' * 32):
         assert c.get(f'/api/evaluation/runs/{bad}').status_code == 422, bad
     assert c.get(f"/api/evaluation/runs/{'f' * 32}").status_code == 404

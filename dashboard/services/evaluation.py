@@ -86,6 +86,11 @@ class EvaluationService:
             body['receipt_digest'] = detail.receipt.digest
             body['receipt_files'] = [entry.identity
                                      for entry in detail.receipt.payloads]
+            # Scientific finding details belong in the detail response
+            # (plan I26 interfaces); read them from the receipt-verified
+            # stored metrics file, never recomputed here.
+            metrics = self._stored_file(reader, run_id, 'metrics.json')
+            body['findings'] = metrics['findings']
             return body
         return self._guarded(call)
 
