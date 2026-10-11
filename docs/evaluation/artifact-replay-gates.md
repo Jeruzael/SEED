@@ -91,3 +91,21 @@ test at the leaf module.
 - All seven standalone scenarios PASS.
 - G6 remains for the fresh independent complete-diff review; this ledger
   entry is author-side evidence only.
+
+## G6 acceptance (fresh independent complete-diff review, 2026-10-11)
+
+- Reviewed head `8fa069c` (engineering code `241096d`), tree materialized
+  independently via `git archive`; complete diff `2940fae..8fa069c`.
+- Verdict: BLOCKER 0 / MAJOR 0 / MINOR 1 (documentation) / UNRESOLVED 0;
+  the single MINOR was this ledger's `not_produced` wording, corrected in
+  `b4c7b3d`, after which the branch stands at 0 / 0 / 0 / 0.
+- F1–F5 each verified HOLDS under reviewer-written adversarial probes
+  (21 probes passed), including a fully rebound forgery of a stored
+  outcome, which genuine re-execution catches as SCIENTIFIC_DIVERGENCE.
+- Independent evaluation suite: 599 passed. Standalone scenarios: 7/7.
+  Author-side full repository suite at `241096d`: 1,482 passed.
+- G1–G5 PRESERVED. **G6 PASS.**
+- Review record: docs/reviews/2026-10-11-b10-artifacts-review.md.
+- Per the owner's instruction, no PR was opened and nothing was merged;
+  PR publication, PR-head CI, merge and post-merge master CI remain
+  separate owner-gated steps. I31 remains NOT AUTHORIZED.
