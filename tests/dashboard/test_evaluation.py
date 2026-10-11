@@ -210,8 +210,11 @@ def test_all_route_bounds(client, eval_checkout):
     assert len(chunk.content) <= 64 * 1024
     for bad_id in ('../secret', 'evil.exe', 'manifest.json/extra', ''):
         if bad_id:
+            # Rejected at the API shape check (422), by routing (404),
+            # or by the reader's fixed inventory contract (409) — never
+            # served.
             assert c.get(f'/api/evaluation/runs/{RUN}/files/{bad_id}'
-                         ).status_code in (404, 422), bad_id
+                         ).status_code in (404, 409, 422), bad_id
     assert c.get(f'/api/evaluation/runs/{RUN}/files/manifest.json?chunk=-1'
                  ).status_code == 422
     assert c.get(f'/api/evaluation/runs/{RUN}/files/manifest.json?chunk=x'
