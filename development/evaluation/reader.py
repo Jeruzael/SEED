@@ -202,13 +202,14 @@ class EvaluationReader:
         index = self._replay_index(run_id)
         page = []
         position = offset
+        page_bytes = 0
         while position < index.total and len(page) < limit:
             row = _replay.read_rows(
                 self._root, run_id, index, position, 1,
                 deadline=self._started + REQUEST_SECONDS)[0]
-            self._tick(row.body)
-            if page and self._read_bytes > REQUEST_BYTES:
+            if page and page_bytes + len(row.body) > REQUEST_BYTES:
                 break
+            page_bytes += len(row.body)
             page.append(row)
             position += 1
         next_cursor = _cursor(position) if position < index.total else None

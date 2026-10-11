@@ -66,28 +66,32 @@ def test_missing_receipt_is_unavailable(tmp_path, foundation_module, plan_body):
         reader.detail(RUN)
 
 
-def test_events_page_byte_budget(tmp_path, foundation_module, plan_body,
-                                 monkeypatch):
-    # Review M1 (reader): an oversized page must be shortened with a correct
-    # next cursor, never returned whole and never dropping records.
-    root = _publish(tmp_path, foundation_module, plan_body)
-    reader_mod = foundation_module('reader')
-    replay = foundation_module('replay')
-    from development.evaluation.contracts import Event
-    big = [Event(('measured', 'default', i + 1, 'update'),
-                 b'x' * 60000) for i in range(40)]
-    monkeypatch.setattr(replay, 'join_events', lambda root_, run_id: big)
-    reader = reader_mod.EvaluationReader(root)
-    seen, cursor = [], None
+def test_events_page_byte_budget(tmp_path, foundation_module, plan_body):
+    # Windowed paging: a page whose joined bodies would exceed the 1 MiB
+    # request budget is shortened with a correct next cursor; paging stays
+    # lossless across byte-budget interruptions.
+    from .test_replay import _publish
+    from .test_artifacts import _record
+    frames = 24
+    events = [dict(key=['measured', 'default', i + 1, 'update'],
+                   body=dict(blob={f'k{j}': 'x' * 4000 for j in range(13)}))
+              for i in range(frames)]
+    root = _publish(tmp_path, foundation_module, plan_body,
+                    record=_record(events=events, planned_transitions=frames),
+                    frames=frames)
+    reader = foundation_module('reader').EvaluationReader(root)
+    seen, cursor, pages = [], None, 0
     while True:
         page = reader.events(RUN, cursor=cursor, limit=20)
-        total = sum(len(e.body) for e in page.events)
-        assert total <= 1024 * 1024
+        pages += 1
+        assert sum(len(e.body) for e in page.events) <= 1024 * 1024
         seen.extend(e.key for e in page.events)
         cursor = page.cursor
         if cursor is None:
             break
-    assert seen == [e.key for e in big]
+    assert pages > 1
+    assert seen == [('measured', 'default', i + 1, 'update')
+                    for i in range(frames)]
 
 
 def test_chunk_verified_label_and_large_file(tmp_path, foundation_module,
