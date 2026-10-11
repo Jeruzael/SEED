@@ -79,6 +79,77 @@ def _open_file(directory, name, mode):
         raise ContractError() from None
 
 
+def _nested_parts(name):
+    """Validate a relative multi-component name for descriptor traversal:
+    no absolute paths, no empty/dot/traversal components, no backslashes."""
+    if type(name) is not str or not name or name.startswith('/') \
+            or '\\' in name:
+        raise ContractError()
+    parts = name.split('/')
+    if any(part in ('', '.', '..') for part in parts):
+        raise ContractError()
+    return parts
+
+
+def _parent_fd(directory, parts):
+    """Open each intermediate component of parts[:-1] descriptor-relatively
+    with no-follow directory semantics. Returns (parent_fd, owned_fds);
+    the caller closes owned_fds (parent_fd is parts' last opened fd, or
+    the supplied directory when there are no intermediates)."""
+    current = directory
+    owned = []
+    try:
+        for part in parts[:-1]:
+            try:
+                fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY
+                             | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=current)
+            except OSError:
+                raise ContractError() from None
+            try:
+                _checked(os.fstat(fd), directory=True)
+            except BaseException:
+                os.close(fd)
+                raise
+            owned.append(fd)
+            current = fd
+        return current, owned
+    except BaseException:
+        for fd in owned:
+            os.close(fd)
+        raise
+
+
+def _open_nested(directory, name, mode):
+    """Open a possibly nested ordinary file by descriptor-relative
+    traversal: every intermediate directory is opened with O_NOFOLLOW and
+    validated as an owned directory, and the final component goes through
+    _open_file. Symlinks, traversal, absolute paths and unexpected
+    components are rejected; all intermediate descriptors are closed on
+    every path."""
+    parts = _nested_parts(name)
+    if len(parts) == 1:
+        return _open_file(directory, name, mode)
+    parent, owned = _parent_fd(directory, parts)
+    try:
+        return _open_file(parent, parts[-1], mode)
+    finally:
+        for fd in owned:
+            os.close(fd)
+
+
+def _unlink_nested(directory, name):
+    parts = _nested_parts(name)
+    if len(parts) == 1:
+        os.unlink(name, dir_fd=directory)
+        return
+    parent, owned = _parent_fd(directory, parts)
+    try:
+        os.unlink(parts[-1], dir_fd=parent)
+    finally:
+        for fd in owned:
+            os.close(fd)
+
+
 @dataclass(frozen=True)
 class RootAdmission:
     """Identity/accounting only: no evaluator open, plan path or slot assignment.
