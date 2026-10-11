@@ -115,9 +115,9 @@ class EvaluationService:
 
     def curve(self, run_id: str, metric: str, series: str) -> dict:
         def call(reader):
-            points = reader.curve(run_id, metric, series)
-            return {'metric': metric, 'series': series,
-                    'points': [list(point) for point in points]}
+            curve = reader.curve(run_id, metric, series)
+            return {'metric': curve.metric, 'series': series,
+                    'points': [list(point) for point in curve.points]}
         return self._guarded(call)
 
     def _stored_file(self, reader, run_id: str, name: str) -> dict:
