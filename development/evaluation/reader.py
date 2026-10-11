@@ -69,22 +69,33 @@ class EvaluationReader:
         self._chunk_verified = set()
         self._replay_indexes = {}
         self._started = None
-        self._read_bytes = 0
+        self._budget = None
 
     # -- bounded IO -----------------------------------------------------
     def _begin(self):
+        # One coherent request budget (remediation R-BUDGET): every
+        # read in this request -- receipt, manifests, index scans, row
+        # lines, chunks -- is preflighted and charged against the same
+        # 1 MiB / 2 s allowance.
         self._started = time.monotonic()
-        self._read_bytes = 0
+        self._budget = _replay.RequestBudget(
+            REQUEST_BYTES, self._started + REQUEST_SECONDS)
 
     def _tick(self, data):
-        self._read_bytes += len(data)
-        if self._read_bytes > REQUEST_BYTES \
-                or time.monotonic() - self._started > REQUEST_SECONDS:
-            raise ContractError()
+        self._budget.charge(data)
         return data
 
     def _read(self, directory, name, maximum):
-        raw = (directory / name).read_bytes()
+        path = directory / name
+        try:
+            size = os.path.getsize(path)
+        except OSError:
+            size = None
+        if size is not None:
+            if size > maximum:
+                raise ContractError()
+            self._budget.admit(size)
+        raw = path.read_bytes()
         if len(raw) > maximum:
             raise ContractError()
         return self._tick(raw)
@@ -97,6 +108,7 @@ class EvaluationReader:
         path = self._root.path / 'evaluation' / 'runs-index.json'
         if not path.exists():
             return []
+        self._budget.admit(os.path.getsize(path))
         return strict_json(self._tick(path.read_bytes()),
                            max_bytes=128 * 1024)['runs']
 
@@ -191,14 +203,12 @@ class EvaluationReader:
         else:
             index = _replay.ReplayIndex.empty()
         try:
-            # The incremental build charges every physical byte it pulls
-            # to this request's budget (_tick). On a bounded failure the
-            # partially built index is cached, so the next request
-            # resumes the scan instead of restarting it.
-            _replay.build_index(
-                self._root, run_id,
-                deadline=self._started + REQUEST_SECONDS,
-                charge=self._tick, resume=index)
+            # The incremental build preflights and charges every physical
+            # byte it pulls against this request's budget. On a bounded
+            # failure the partially built index is cached, so the next
+            # request resumes the scan instead of restarting it.
+            _replay.build_index(self._root, run_id, budget=self._budget,
+                                resume=index)
         except ContractError:
             self._replay_indexes[run_id] = (fingerprint, index)
             raise
@@ -219,17 +229,18 @@ class EvaluationReader:
             try:
                 row = _replay.read_rows(
                     self._root, run_id, index, position, 1,
-                    deadline=self._started + REQUEST_SECONDS,
-                    charge=self._tick)[0]
-            except ContractError:
+                    budget=self._budget)[0]
+            except _replay.BudgetError:
+                # Resource exhaustion only. With rows already served,
+                # return the bounded partial page (its cursor points at
+                # the unserved row); on an empty page the explicit
+                # bounded error propagates -- no unmetered retry, no
+                # skipped record, no stalled successful cursor. Any
+                # other ContractError is invalid evidence and propagates
+                # untouched, even mid-page.
                 if page:
-                    break  # bounded partial page; cursor still advances
-                # Single-record escape: one row is always servable (its
-                # line is bounded by the 64 KiB record cap), mirroring
-                # the page-body rule; corruption still raises from here.
-                row = _replay.read_rows(
-                    self._root, run_id, index, position, 1,
-                    deadline=self._started + REQUEST_SECONDS)[0]
+                    break
+                raise
             if page and page_bytes + len(row.body) > REQUEST_BYTES:
                 break
             page_bytes += len(row.body)
@@ -246,13 +257,13 @@ class EvaluationReader:
         for i, (_o, _l, frame_key, _d) in enumerate(index.frames):
             if (frame_key[0], frame_key[1], frame_key[2], 'update') == key:
                 return _replay.read_rows(self._root, run_id, index, i, 1,
-                                         charge=self._tick)[0]
+                                         budget=self._budget)[0]
         for j, (_o, _l, event_key, _d) in enumerate(index.events):
             if event_key == key:
                 rows = _replay.read_rows(
                     self._root, run_id, index,
                     len(index.frames) + index.unbound.index(j), 1,
-                    charge=self._tick) \
+                    budget=self._budget) \
                     if j in index.unbound else None
                 if rows:
                     return rows[0]
@@ -260,7 +271,7 @@ class EvaluationReader:
                 return _replay.read_rows(
                     self._root, run_id, index,
                     next(i for i, ej in index.bound.items() if ej == j), 1,
-                    charge=self._tick)[0]
+                    budget=self._budget)[0]
         raise ContractError()
 
     def curve(self, run_id, metric, series):
@@ -290,6 +301,8 @@ class EvaluationReader:
         path = directory / file_id
         if os.path.getsize(path) != entry['length']:
             raise ContractError()
+        expected = min(CHUNK_BYTES, entry['length'] - chunk * CHUNK_BYTES)
+        self._budget.admit(expected)
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
         try:
             piece = os.pread(fd, CHUNK_BYTES, chunk * CHUNK_BYTES)

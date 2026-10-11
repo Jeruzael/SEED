@@ -25,6 +25,53 @@ from .specs import raw_bytes
 MAX_DETAIL_BYTES = 64 * 1024
 
 
+class BudgetError(ContractError):
+    """Request byte-budget or deadline exhaustion.
+
+    Internally typed so callers can distinguish resource exhaustion
+    from invalid evidence; externally it remains a ContractError, so
+    the approved error surface is unchanged."""
+
+
+class RequestBudget:
+    """One coherent per-request budget for replay-related reads.
+
+    Every physical read is preflighted against the remaining allowance
+    (admit/pull) before it happens and charged for the actual bytes
+    read (charge) afterwards; the deadline is checked before and after
+    each operation. Index state advances only for charged bytes."""
+
+    __slots__ = ('remaining', 'deadline')
+
+    def __init__(self, max_bytes, deadline=None):
+        self.remaining = max_bytes
+        self.deadline = deadline
+
+    def check_deadline(self):
+        if self.deadline is not None and time.monotonic() > self.deadline:
+            raise BudgetError()
+
+    def admit(self, nbytes):
+        """Preflight a known-length read."""
+        self.check_deadline()
+        if nbytes > self.remaining:
+            raise BudgetError()
+
+    def charge(self, data):
+        """Account for the actual bytes of a completed read."""
+        self.remaining -= len(data)
+        if self.remaining < 0:
+            raise BudgetError()
+        self.check_deadline()
+
+    def pull(self, want):
+        """Cap a streaming read at the remaining allowance."""
+        self.check_deadline()
+        if self.remaining <= 0:
+            raise BudgetError()
+        return min(want, self.remaining)
+
+
 def _root(capability):
     if type(capability) is not EvaluationRoot:
         raise ContractError()
@@ -95,11 +142,6 @@ class ReplayIndex:
         return self._journal_done and self._events_done
 
 
-def _check_deadline(deadline, counter=None):
-    if deadline is not None and time.monotonic() > deadline:
-        raise ContractError()
-
-
 def _process_line(index, source, line, offset):
     if not line.strip():
         return
@@ -143,31 +185,39 @@ def _drain(index, source):
         _process_line(index, source, line, offset)
 
 
-def _scan_some(index, path, source, budget_left, deadline, charge):
-    """Pull at most budget_left physical bytes from one file, updating
-    the resumable scan state BEFORE charging, so a budget failure never
-    loses progress. Returns the number of physical bytes pulled."""
-    if source == 'journal':
-        if index._journal_done:
-            return 0
-    elif index._events_done:
+def _scan_some(index, path, source, budget):
+    """Pull physical bytes from one file into the resumable scan state.
+
+    Each pull is capped at the budget's remaining allowance BEFORE the
+    read; the index offsets/pending buffers advance only for bytes that
+    were successfully charged, so exhaustion never marks unread bytes
+    as processed and never discards prior progress. Returns the number
+    of physical bytes pulled."""
+    done = index._journal_done if source == 'journal' else index._events_done
+    if done:
         return 0
-    _check_deadline(deadline)
     _drain(index, source)
     pulled = 0
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         size = os.fstat(fd).st_size
-        while pulled < budget_left:
-            _check_deadline(deadline)
+        while True:
             offset = index._journal_offset if source == 'journal' \
                 else index._events_offset
             if offset >= size:
+                if source == 'journal':
+                    index._journal_done = True
+                else:
+                    index._events_done = True
+                _drain(index, source)
                 break
-            want = min(64 * 1024, budget_left - pulled, size - offset)
+            want = budget.pull(64 * 1024) if budget is not None \
+                else 64 * 1024
             data = os.pread(fd, want, offset)
             if not data:
                 break
+            if budget is not None:
+                budget.charge(data)
             if source == 'journal':
                 index._journal_pending += data
                 index._journal_offset += len(data)
@@ -175,16 +225,6 @@ def _scan_some(index, path, source, budget_left, deadline, charge):
                 index._events_pending += data
                 index._events_offset += len(data)
             pulled += len(data)
-            if charge is not None:
-                charge(data)
-            _drain(index, source)
-        offset = index._journal_offset if source == 'journal' \
-            else index._events_offset
-        if offset >= size:
-            if source == 'journal':
-                index._journal_done = True
-            else:
-                index._events_done = True
             _drain(index, source)
     finally:
         os.close(fd)
@@ -205,11 +245,10 @@ def _finalize(index):
     index.total = len(index.frames) + len(index.unbound)
 
 
-def advance(capability, run_id, index, *, max_bytes, deadline=None,
-            charge=None):
-    """Advance the incremental index by at most max_bytes of physical
-    reads (journal first, then events), charging every pulled byte to
-    the caller. Returns the physical bytes pulled in this call."""
+def advance(capability, run_id, index, *, budget=None):
+    """Advance the incremental index (journal first, then events),
+    charging every pulled byte to the request budget. Returns the
+    physical bytes pulled in this call."""
     root = _root(capability)
     directory = payload_directory(root, run_id)
     if directory.parent.name != 'runs':
@@ -217,23 +256,22 @@ def advance(capability, run_id, index, *, max_bytes, deadline=None,
     pulled = 0
     if not index._journal_done:
         pulled += _scan_some(index, directory / 'preupdate.ndjson',
-                             'journal', max_bytes - pulled, deadline, charge)
-    if index._journal_done and not index._events_done and pulled < max_bytes:
+                             'journal', budget)
+    if index._journal_done and not index._events_done:
         pulled += _scan_some(index, directory / 'events.ndjson',
-                             'events', max_bytes - pulled, deadline, charge)
+                             'events', budget)
     if index.complete:
         _finalize(index)
     return pulled
 
 
-def build_index(capability, run_id, deadline=None, charge=None, resume=None):
-    """Build (or resume building) the complete index. With a charge
-    callback the build stops by raising the caller's bounded error; the
-    partially built index (pass it back via resume) retains progress."""
+def build_index(capability, run_id, budget=None, resume=None):
+    """Build (or resume building) the complete index. With a budget the
+    build stops by raising BudgetError; the partially built index (pass
+    it back via resume) retains exactly the progress that was charged."""
     index = resume if resume is not None else ReplayIndex.empty()
     while not index.complete:
-        pulled = advance(capability, run_id, index, max_bytes=1 << 62,
-                         deadline=deadline, charge=charge)
+        pulled = advance(capability, run_id, index, budget=budget)
         if pulled == 0 and not index.complete:
             raise ContractError()
     return index
@@ -250,20 +288,26 @@ def _read_line(path, offset, length):
     return data
 
 
-def _frame_row(directory, index, position, charge=None):
+def _frame_row(directory, index, position, budget=None):
     offset, length, key, _digest = index.frames[position]
+    event_position = index.bound.get(position)
+    if budget is not None:
+        # Preflight the exact stored spans before any physical read.
+        spans = length
+        if event_position is not None:
+            spans += index.events[event_position][1]
+        budget.admit(spans)
     line = _read_line(directory / 'preupdate.ndjson', offset, length)
-    if charge is not None:
-        charge(line)
+    if budget is not None:
+        budget.charge(line)
     record = strict_json(line, max_bytes=MAX_DETAIL_BYTES)
     _validate_frame(record)
     post = None
-    event_position = index.bound.get(position)
     if event_position is not None:
         e_off, e_len, _k, _d = index.events[event_position]
         event_line = _read_line(directory / 'events.ndjson', e_off, e_len)
-        if charge is not None:
-            charge(event_line)
+        if budget is not None:
+            budget.charge(event_line)
         event = strict_json(event_line, max_bytes=MAX_DETAIL_BYTES)
         post = event['body']
     body = raw_bytes(dict(preupdate=record, post_ack=post,
@@ -273,19 +317,22 @@ def _frame_row(directory, index, position, charge=None):
     return Event((key[0], key[1], key[2], 'update'), body)
 
 
-def _event_row(directory, index, event_position, charge=None):
+def _event_row(directory, index, event_position, budget=None):
     offset, length, key, _digest = index.events[event_position]
+    if budget is not None:
+        budget.admit(length)
     line = _read_line(directory / 'events.ndjson', offset, length)
-    if charge is not None:
-        charge(line)
+    if budget is not None:
+        budget.charge(line)
     event = strict_json(line, max_bytes=MAX_DETAIL_BYTES)
     return Event(key, raw_bytes(event['body']))
 
 
-def read_rows(capability, run_id, index, offset, limit, deadline=None,
-              charge=None):
+def read_rows(capability, run_id, index, offset, limit, budget=None):
     """Materialize rows [offset, offset+limit) of the lossless row sequence,
-    reading only the stored lines those rows need."""
+    reading only the stored lines those rows need. With a budget, every
+    read is preflighted and charged; budget/deadline exhaustion raises
+    BudgetError, while invalid evidence raises ContractError."""
     if not index.complete:
         raise ContractError()
     root = _root(capability)
@@ -293,13 +340,14 @@ def read_rows(capability, run_id, index, offset, limit, deadline=None,
     rows = []
     frame_count = len(index.frames)
     for position in range(offset, min(offset + limit, index.total)):
-        _check_deadline(deadline)
+        if budget is not None:
+            budget.check_deadline()
         if position < frame_count:
-            rows.append(_frame_row(directory, index, position, charge))
+            rows.append(_frame_row(directory, index, position, budget))
         else:
             rows.append(_event_row(directory, index,
                                    index.unbound[position - frame_count],
-                                   charge))
+                                   budget))
     return rows
 
 

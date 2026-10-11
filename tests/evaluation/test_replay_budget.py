@@ -70,8 +70,9 @@ def test_replay_deadline_enforced_during_indexing(
     from development.evaluation.contracts import ContractError
     root = _big_root(tmp_path, foundation_module, plan_body)
     replay = foundation_module('replay')
+    budget = replay.RequestBudget(1 << 62, deadline=time.monotonic() - 1)
     with pytest.raises(ContractError):
-        replay.build_index(root, RUN, deadline=time.monotonic() - 1)
+        replay.build_index(root, RUN, budget=budget)
 
 
 def test_replay_budget_interruption_preserves_cursor_progress(
@@ -103,14 +104,18 @@ def test_replay_advance_is_resumable_and_charged(
     root = _big_root(tmp_path, foundation_module, plan_body)
     replay = foundation_module('replay')
     index = replay.ReplayIndex.empty()
-    charged = []
     total = 0
     while not index.complete:
-        consumed = replay.advance(root, RUN, index, max_bytes=200_000,
-                                  charge=lambda data: charged.append(len(data)))
+        budget = replay.RequestBudget(200_000)
+        try:
+            consumed = replay.advance(root, RUN, index, budget=budget)
+        except replay.BudgetError:
+            # Exhaustion mid-advance: progress stays in the index and the
+            # consumed amount is exactly what the budget was charged.
+            consumed = 200_000 - budget.remaining
         assert 0 < consumed <= 200_000
+        assert 200_000 - budget.remaining == consumed  # charged == pulled
         total += consumed
-    assert sum(charged) == total
     full = replay.build_index(root, RUN)
     assert index.total == full.total == FRAMES
     directory = root.path / '.seed-evaluation'

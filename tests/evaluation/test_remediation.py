@@ -290,7 +290,12 @@ def test_f3_byte_budget_interruptions_lossless(tmp_path, foundation_module,
                                                plan_body, monkeypatch):
     root = _publish_varied2(tmp_path, foundation_module, plan_body)
     reader_mod = foundation_module('reader')
-    monkeypatch.setattr(reader_mod, 'REQUEST_BYTES', 2350)
+    # Strict budget (R-BUDGET): no unmetered single-record escape. The
+    # budget is calibrated from the fixture's measured sizes -- receipt
+    # 1123 + largest row span (journal line 2193 + event line 297) =
+    # 3613 must fit, while the whole history (4072 bytes of stored
+    # lines) must not, so indexing still interrupts and resumes.
+    monkeypatch.setattr(reader_mod, 'REQUEST_BYTES', 3800)
     reader = reader_mod.EvaluationReader(root)
     from development.evaluation.contracts import ContractError
     seen, cursor, pages = [], None, 0
@@ -303,8 +308,7 @@ def test_f3_byte_budget_interruptions_lossless(tmp_path, foundation_module,
         except ContractError:
             continue  # bounded error; indexing resumes on the next request
         pages += 1
-        assert sum(len(e.body) for e in page.events) <= 2350 + max(
-            (len(e.body) for e in page.events), default=0)
+        assert sum(len(e.body) for e in page.events) <= 3800
         seen.extend(e.key for e in page.events)
         cursor = page.cursor
         if cursor is None:
