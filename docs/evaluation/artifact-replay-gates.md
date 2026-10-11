@@ -50,8 +50,8 @@ the working records):
   in 90ee816: assembly re-derives every registered measurement and finding
   from journal evidence via the I14–I20 metric code and rejects any
   supplied row that differs; COMPLETED runs must supply the full derived
-  set; underived rows on non-COMPLETED runs become UNAVAILABLE
-  `not_produced`.
+  set; underived rows on non-COMPLETED runs become UNAVAILABLE stamped
+  with the run's own reason, or `not_produced` when the run has none.
 - **F3 (MAJOR)** — reader pages scanned the whole event history per page.
   Repaired in f1c81f5/b8426ac/e8c6f9b: streamed byte-offset replay index,
   fingerprint-cached by the reader; page reads are windowed with
