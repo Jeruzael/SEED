@@ -101,3 +101,31 @@ def test_science_digest_incidental_run_id(tmp_path, foundation_module, plan_body
     (base / f'{RUN2}.record.json').write_bytes(json.dumps(rec).encode())
     from development.evaluation.contracts import Payload
     assert science.science_digest(Payload(RUN2, payload.byte_length), root) == digest1
+
+
+def test_science_order_and_key_binding(tmp_path, foundation_module, plan_body):
+    # Review m3/m4: science must bind events to frames by tuple AND digest,
+    # refuse duplicate journal tuples, and be sensitive to stored order.
+    from development.evaluation.contracts import ContractError, RunResult
+    root, frozen, artifacts = _stage(tmp_path, foundation_module, plan_body,
+                                     journal_frames=2)
+    record = _record(events=[
+        dict(key=['measured', 'default', 1, 'update'], body=dict(confirmed=True)),
+        dict(key=['measured', 'default', 2, 'update'], body=dict(confirmed=True))],
+        planned_transitions=2)
+    artifacts.write_run_record(root, record)
+    payload = artifacts.assemble_payload(RunResult('COMPLETED', None), frozen, root)
+    science = foundation_module('science')
+    digest1 = science.science_digest(payload, root)
+    journal = _payload_dir(tmp_path) / 'preupdate.ndjson'
+    lines = journal.read_bytes().splitlines(keepends=True)
+    journal.write_bytes(b''.join(reversed(lines)))
+    assert science.science_digest(payload, root) != digest1
+    journal.write_bytes(b''.join(lines))
+    # An event whose key tuple disagrees with its referenced frame is refused.
+    events = _payload_dir(tmp_path) / 'events.ndjson'
+    rows = [json.loads(x) for x in events.read_bytes().splitlines()]
+    rows[0]['key'] = ['measured', 'default', 9, 'update']
+    events.write_bytes(b''.join(json.dumps(r).encode() + b'\n' for r in rows))
+    with pytest.raises(ContractError):
+        science.science_digest(payload, root)

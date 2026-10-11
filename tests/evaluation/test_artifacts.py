@@ -165,3 +165,38 @@ def test_checkpoint_snapshots_bounded_and_inventoried(tmp_path, foundation_modul
     assert entry['sha256'] == hashlib.sha256(
         (snap_dir / 'initial.sqlite3').read_bytes()).hexdigest()
     assert not (snap_dir / 'initial.sqlite3-wal').exists()
+
+
+def test_assembly_guards_from_review(tmp_path, foundation_module, plan_body):
+    from development.evaluation.contracts import ContractError, RunResult
+    # Duplicate checkpoint names/files are refused (review M2).
+    dup = _record(checkpoints=[dict(name='initial', file='checkpoints/a.sqlite3'),
+                               dict(name='initial', file='checkpoints/b.sqlite3')])
+    root, frozen, artifacts = _stage(tmp_path, foundation_module, plan_body,
+                                     record=dup)
+    with pytest.raises(ContractError):
+        artifacts.assemble_payload(RunResult('COMPLETED', None), frozen, root)
+    # Raw prediction duplicated one nesting level down is refused (m1).
+    nested = _record(events=[dict(key=['measured', 'default', 1, 'update'],
+                                  body=dict(evidence=dict(prediction=dict(x=1))))])
+    root2, frozen2, artifacts2 = _stage(tmp_path / 'n', foundation_module,
+                                        plan_body, record=nested) \
+        if (tmp_path / 'n').mkdir() is None else (None, None, None)
+    with pytest.raises(ContractError):
+        artifacts2.assemble_payload(RunResult('COMPLETED', None), frozen2, root2)
+    # Duplicate non-update EventKeys are refused (m8).
+    dupkey = _record(events=[
+        dict(key=['measured', 'default', 1, 'checkpoint'], body=dict(a=1)),
+        dict(key=['measured', 'default', 1, 'checkpoint'], body=dict(a=2))])
+    root3, frozen3, artifacts3 = _stage(tmp_path / 'd', foundation_module,
+                                        plan_body, record=dupkey) \
+        if (tmp_path / 'd').mkdir() is None else (None, None, None)
+    with pytest.raises(ContractError):
+        artifacts3.assemble_payload(RunResult('COMPLETED', None), frozen3, root3)
+    # A COMPLETED run whose joined count falls short of planned is refused (m9).
+    short = _record(planned_transitions=2)
+    root4, frozen4, artifacts4 = _stage(tmp_path / 's', foundation_module,
+                                        plan_body, record=short) \
+        if (tmp_path / 's').mkdir() is None else (None, None, None)
+    with pytest.raises(ContractError):
+        artifacts4.assemble_payload(RunResult('COMPLETED', None), frozen4, root4)

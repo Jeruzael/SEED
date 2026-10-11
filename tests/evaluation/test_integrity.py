@@ -110,3 +110,33 @@ def test_atomic_publish_crash_ladder(tmp_path, foundation_module, plan_body, mon
     # No overwrite of the existing (unreceipted) directory identity.
     with pytest.raises(Exception):
         integrity.publish(finalized, receipt, root)
+
+
+def test_undeclared_checkpoint_file_refused(tmp_path, foundation_module, plan_body):
+    # Review M1: an undeclared file inside checkpoints/ must not be
+    # receipted or published; the file set must equal the manifest inventory.
+    from development.evaluation.contracts import ContractError
+    root, frozen, payload, artifacts = _assembled(tmp_path, foundation_module,
+                                                  plan_body)
+    import sqlite3 as _sq
+    sneak = _payload_dir(tmp_path) / 'checkpoints'
+    sneak.mkdir(exist_ok=True)
+    db = _sq.connect(sneak / 'undeclared.sqlite3')
+    db.execute('CREATE TABLE t (id INTEGER)')
+    db.commit(); db.close()
+    integrity = foundation_module('integrity')
+    with pytest.raises(ContractError):
+        integrity.finalize_payload(payload, root)
+
+
+def test_oversized_file_not_silently_truncated(tmp_path, foundation_module,
+                                               plan_body, monkeypatch):
+    # Review M3: reads beyond the cap must fail, never hash a prefix.
+    from development.evaluation.contracts import ContractError
+    root, frozen, payload, artifacts = _assembled(tmp_path, foundation_module,
+                                                  plan_body)
+    import development.evaluation.artifacts as artifacts_mod
+    monkeypatch.setattr(artifacts_mod, 'ARTIFACT_BYTES', 1024)
+    integrity = foundation_module('integrity')
+    with pytest.raises(ContractError):
+        integrity.receipt_body(payload, root)

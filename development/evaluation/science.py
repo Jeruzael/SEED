@@ -170,6 +170,8 @@ def _sections(payload, capability):
             try:
                 db.deserialize(raw)
                 initial = project_state(db)
+            except sqlite3.Error:
+                raise ContractError() from None
             finally:
                 db.close()
     header = dict(schema='b10_science_v1', kind='header',
@@ -188,7 +190,10 @@ def _sections(payload, capability):
         if line.strip():
             record = strict_json(line, max_bytes=64 * 1024)
             h = record['header']
-            frames[(h['phase'], h['subcase'], h['transition_ordinal'])] = (
+            frame_key = (h['phase'], h['subcase'], h['transition_ordinal'])
+            if frame_key in frames:
+                raise ContractError()
+            frames[frame_key] = (
                 line if line.endswith(b'\n') else line + b'\n', h)
     if len(frames) > MAX_TRANSITIONS:
         raise ContractError()
@@ -201,6 +206,8 @@ def _sections(payload, capability):
             continue
         event = strict_json(line, max_bytes=64 * 1024)
         if event.get('journal_sha256'):
+            if event['journal_sha256'] in events:
+                raise ContractError()
             events[event['journal_sha256']] = event
         elif type(event.get('body')) is dict and event['body'].get('status') == 'skipped':
             attempts.append(event)
@@ -208,11 +215,15 @@ def _sections(payload, capability):
             others.append(event)
     if len(events) + len(others) + len(attempts) > MAX_ATTEMPTS:
         raise ContractError()
+    positions = {key: i for i, key in enumerate(frames)}
     for key in sorted(frames):
         line, h = frames[key]
         digest = hashlib.sha256(line).hexdigest()
         event = events.pop(digest, None)
-        yield dict(kind='transition', key=list(key),
+        if event is not None and (tuple(event['key'][:3]) != key
+                                  or event['key'][3] != 'update'):
+            raise ContractError()
+        yield dict(kind='transition', key=list(key), position=positions[key],
                    action=h['selected_action'], cutoff=h['history_cutoff_id'],
                    prediction_sha256=h['prediction_sha256'],
                    outcome_sha256=h['outcome_sha256'],

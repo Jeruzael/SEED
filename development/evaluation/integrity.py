@@ -73,8 +73,15 @@ def _payload_files(directory):
 
 
 def _read_file(path):
+    import os as _os
+    size = _os.path.getsize(path)
+    if size > _artifacts.ARTIFACT_BYTES:
+        raise ContractError()
     with open(path, 'rb') as f:
-        return f.read(_artifacts.ARTIFACT_BYTES + 1)
+        data = f.read(size + 1)
+    if len(data) != size:
+        raise ContractError()
+    return data
 
 
 def _digest_files(files):
@@ -89,6 +96,18 @@ def _digest_files(files):
     return digest.hexdigest()
 
 
+FIXED_FILES = frozenset(_ALLOW)
+
+
+def validate_file_set(directory, manifest):
+    expected = set(FIXED_FILES) | {entry['file']
+                                    for entry in manifest['checkpoints']}
+    actual = set(_payload_files(directory))
+    if actual != expected:
+        raise ContractError()
+    return actual
+
+
 def integrity_digest(payload: Payload, capability) -> str:
     root = _root(capability)
     files = _payload_files(payload_directory(root, payload.identity))
@@ -97,7 +116,12 @@ def integrity_digest(payload: Payload, capability) -> str:
 
 def receipt_body(payload: Payload, capability) -> dict:
     root = _root(capability)
-    files = _payload_files(payload_directory(root, payload.identity))
+    _artifacts._run_id(payload.identity)
+    directory = payload_directory(root, payload.identity)
+    manifest = strict_json(_read_file(directory / 'manifest.json'),
+                           max_bytes=128 * 1024)
+    validate_file_set(directory, manifest)
+    files = _payload_files(directory)
     body = dict(schema='b10_receipt_v1', run_id=payload.identity,
                 files={name: dict(length=len(data),
                                   sha256=hashlib.sha256(data).hexdigest())
@@ -126,9 +150,10 @@ def finalize_payload(payload: Payload, capability) -> Payload:
         raise ContractError()
     manifest = strict_json((directory / 'manifest.json').read_bytes(),
                            max_bytes=128 * 1024)
+    validate_file_set(directory, manifest)
     digest = science_digest(payload, root)
     manifest['science_digest'] = digest
-    manifest['publication'] = 'published'
+    manifest['publication'] = 'finalized'
     _artifacts._write_payload_file(root, payload.identity, 'manifest.json',
                                    raw_bytes(manifest))
     files = _payload_files(directory)
@@ -213,12 +238,14 @@ def publish(payload: Payload, receipt: Receipt, capability) -> RunArtifact:
     target = runs / payload.identity
     if not staged.is_dir() or target.exists():
         raise ContractError()
+    _artifacts._run_id(payload.identity)
     expected = make_receipt(payload, root)
     if receipt.digest != expected.digest or receipt.payloads != expected.payloads:
         raise ContractError()
     manifest = strict_json((staged / 'manifest.json').read_bytes(),
                            max_bytes=128 * 1024)
-    if manifest.get('publication') != 'published' or not manifest.get('science_digest'):
+    validate_file_set(staged, manifest)
+    if manifest.get('publication') != 'finalized' or not manifest.get('science_digest'):
         raise ContractError()
     metrics = strict_json((staged / 'metrics.json').read_bytes(),
                           max_bytes=256 * 1024)

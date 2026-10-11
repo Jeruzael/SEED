@@ -73,6 +73,10 @@ def write_run_record(capability, record):
     if type(record) is not dict or record.get('schema') != RECORD_SCHEMA:
         raise ContractError()
     run_id = _run_id(record.get('run_id'))
+    if (root.path / 'evaluation' / 'runs' / run_id).exists() or \
+            (root.path / 'evaluation' / 'receipts'
+             / f'{run_id}.record.json').exists():
+        raise ContractError()
     data = raw_bytes(record)
     if len(data) > CONTROL_BYTES:
         raise ContractError()
@@ -184,19 +188,36 @@ def _event_lines(record, frames):
     lines = []
     detail_total = 0
     merged = []
+    seen_keys = set()
+
+    def scan(value):
+        if type(value) is dict:
+            if {'prediction', 'state_before', 'state_after'} & set(value):
+                raise ContractError()
+            for item in value.values():
+                scan(item)
+        elif type(value) is list:
+            for item in value:
+                scan(item)
+
     for event in events:
         if type(event) is not dict or set(event) != {'key', 'body'}:
             raise ContractError()
         key = validate_event_key(event['key'])
-        body = event['body']
-        if type(body) is dict and {'prediction', 'state_before', 'state_after'} & set(body):
+        if key in seen_keys:
             raise ContractError()
+        seen_keys.add(key)
+        body = event['body']
+        scan(body)
         merged.append((key, body))
     for attempt in attempts:
         if type(attempt) is not dict or set(attempt) != {'key', 'status', 'reason'} \
                 or attempt['status'] != 'skipped':
             raise ContractError()
         key = validate_event_key(attempt['key'])
+        if key in seen_keys:
+            raise ContractError()
+        seen_keys.add(key)
         merged.append((key, dict(status='skipped', reason=attempt['reason'])))
     merged.sort(key=lambda item: item[0])
     for key, body in merged:
@@ -231,6 +252,9 @@ def _checkpoints(root, run_id, record):
     entries = []
     total = 0
     run_dir_path = root.path / 'evaluation' / 'partials' / run_id
+    if len({item.get('name') for item in declared if type(item) is dict}) != len(declared) \
+            or len({item.get('file') for item in declared if type(item) is dict}) != len(declared):
+        raise ContractError()
     for item in declared:
         if type(item) is not dict or set(item) != {'name', 'file'} \
                 or type(item['file']) is not str or not _CHECKPOINT.fullmatch(item['file']):
@@ -242,6 +266,15 @@ def _checkpoints(root, run_id, record):
         for suffix in ('-wal', '-shm'):
             if (run_dir_path / f"{item['file']}{suffix}").exists():
                 raise ContractError()
+        import sqlite3 as _sqlite3
+        _db = _sqlite3.connect(':memory:')
+        try:
+            _db.deserialize(data)
+            _db.execute("SELECT name FROM sqlite_master LIMIT 1").fetchall()
+        except _sqlite3.Error:
+            raise ContractError() from None
+        finally:
+            _db.close()
         total += len(data)
         if total > SNAPSHOT_BYTES:
             raise ContractError()
@@ -362,6 +395,8 @@ def assemble_payload(result: RunResult, plan: FrozenPlan, capability: RootCapabi
                       skipped_attempts=skipped)
         if type(counts['planned_transitions']) is not int or counts['planned_transitions'] < 0:
             raise ContractError()
+        if result.status == 'COMPLETED' and joined != counts['planned_transitions']:
+            raise ContractError()
         manifest = dict(schema='b10_artifact_v1', run_id=run_id,
                         status=result.status, reason=result.reason,
                         experiment=experiment, plan_digest=plan.digest,
@@ -398,18 +433,28 @@ def assemble_payload(result: RunResult, plan: FrozenPlan, capability: RootCapabi
             _write_payload_file(root, run_id, name, files[name])
         return Payload(run_id, total)
     except ContractError:
-        _write_incomplete_manifest(root, run_id, record, experiment, plan)
+        for stale in ('events.ndjson', 'metrics.json', 'truth.json',
+                      'index.json', 'operations.ndjson', 'chunks.json',
+                      'analysis-plan.json'):
+            try:
+                os.unlink(stale, dir_fd=_directory(
+                    root.path / 'evaluation' / 'partials' / run_id))
+            except (FileNotFoundError, OSError):
+                pass
+        _write_incomplete_manifest(root, run_id, record, experiment, plan,
+                                   observed=len(frames))
         raise
 
 
-def _write_incomplete_manifest(root, run_id, record, experiment, plan):
+def _write_incomplete_manifest(root, run_id, record, experiment, plan,
+                               observed=0):
     try:
         manifest = dict(schema='b10_artifact_v1', run_id=run_id,
                         status='INCOMPLETE',
                         reason=record.get('reason') or 'ASSEMBLY_FAILED',
                         experiment=experiment, plan_digest=plan.digest,
                         counts=dict(planned_transitions=record.get('planned_transitions'),
-                                    observed_transitions=0, joined_events=0,
+                                    observed_transitions=observed, joined_events=0,
                                     skipped_attempts=0),
                         checkpoints=[], failure=record.get('failure'),
                         science_digest=None, publication='pending')
