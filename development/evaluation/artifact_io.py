@@ -77,5 +77,3 @@ def _write_payload_file(root, run_id, name, data):
         os.fsync(run_dir)
     finally:
         os.close(run_dir)
-
-
