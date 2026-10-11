@@ -63,10 +63,10 @@ run/suite/re-execute/modify/delete/import endpoints exist.
   registered cases (incl. a genuine NEGATIVE produced by a
   preregistered threshold rule, and 21-run max-inventory paging
   20 + cursor + 1). Browser verification record:
-  `docs/evaluation/browser-verification.md` — actual-browser items
-  PENDING the owner's tunnel decision (browser VM cannot reach
-  loopback servers; one tunnel was approved and verified, two were
-  declined). Not marked passed on harness evidence.
+  `docs/evaluation/browser-verification.md` — tunnel-based run
+  9 of 11 PASS (below); the two gaps were later closed by the
+  local macOS addendum (final section below). Not marked passed
+  on harness evidence.
 
 ## Author verification (fresh counts, this branch)
 
@@ -104,3 +104,30 @@ run/suite/re-execute/modify/delete/import endpoints exist.
 - Item 10 COULD NOT VERIFY: no viewport-resize control in the
   browser environment; wide-viewport layout and scroll-region
   structure observed instead.
+
+## Local macOS browser acceptance (I29 closure)
+
+- Executed 2026-10-12 in Google Chrome 154.0.8037.99 on the
+  owner's Mac (macOS 26.5.1) against branch head `6495c67`, in a
+  fully isolated disposable environment (review checkout
+  `~/SEED-astra-i29-review`; synthetic home + `complete-negative`
+  fixture under `/private/tmp/seed-i29-mac.1ArWLd`; observer-only
+  dashboard on `127.0.0.1:8971`; no tunnel, no `--operator`, no
+  installed-organism access). Full record: the addendum in
+  `docs/evaluation/browser-verification.md`.
+- Item 3 closed: replay events table and the recorded event
+  detail verified in the real browser on the direct local
+  connection (`events?limit=20` 200 in 2 ms; all 17 page requests
+  200; page Finish 39 ms; the 2,000 ms deadline unchanged).
+- Item 10 closed: all six exact viewport widths (320, 760, 761,
+  1120, 1121, 1440 px) rendered in the DevTools Responsive device
+  toolbar, each value read back from the dimension field, with a
+  screenshot per width — PASS at every width.
+- Regression checks passed (Overview usable, separation of
+  Execution vs findings, honest NEGATIVE with no PASS badge,
+  in-place Refresh, keyboard traversal, light + dark themes, no
+  stale content). Teardown verified: port 8971 closed
+  (`ERR_CONNECTION_REFUSED` after Ctrl+C).
+- **I29 browser acceptance: COMPLETE (11 of 11).** Next gate:
+  fresh independent I26–I29 complete-diff review; the engineering
+  PR remains owner-gated and is not created by this record.

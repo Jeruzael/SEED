@@ -153,3 +153,142 @@ the dashboard API returned the same run and detail with
 `--evaluation-root` pointed at a durable copy of the fixture
 (`~/workspace/seed-eval-demo` on the VM); the demo server was
 stopped after verification (port closed, no process remaining).
+
+## 2026-10-12 Local macOS Browser Acceptance Addendum
+
+Executed in Chrome on the owner's Mac (Guest window), against the
+isolated review checkout `~/SEED-astra-i29-review` at branch head
+`6495c67cb2759623de9f1341b3abd0f5197da93c`, with a disposable review
+directory `REVIEW_DIR=/private/tmp/seed-i29-mac.1ArWLd` (real path;
+`/private/tmp`, never `/tmp`, per the pitfall documented above) and
+an observer-only dashboard on `127.0.0.1:8971` (no `--operator`, no
+tunnels, no installed-organism access). Environment:
+
+- macOS 26.5.1 (build 25F80), MacBook Air (arm64);
+- Google Chrome 154.0.8037.99 (Guest window);
+- Python 3.13.15 (Homebrew), venv built from
+  `requirements-lock.txt`;
+- split execution: the owner ran the terminal steps (clone, venv,
+  fixtures, server launch, teardown Ctrl+C) because Terminal is
+  hard-blocked for the agent's computer control; the agent drove
+  Chrome for all browser checks;
+- fixture setup verified on disk before browsing: synthetic
+  `home/memory.sqlite3` from `tests.dashboard.astra_fixture
+  --case combined`, and `eval/.seed-evaluation` published by
+  `tests.dashboard.evaluation_fixture` case `complete-negative`
+  with run `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`; the dashboard
+  Overview rendered the synthetic home (organism "SEED fixture",
+  Generation 0).
+
+### Test A — replay events and recorded event detail: PASS
+
+In the actual browser, locally served (no tunnel latency):
+
+- Run list shows the `aaaa…` run COMPLETED with science digest
+  `0d574e6f11ad…` and `whole_payload_verified_at_publication`.
+- The Replay events view loads: table "Recorded replay events"
+  ("Recorded stages, including skipped and unconfirmed attempts.
+  Replay never invokes cognition.") with the single recorded event
+  `measured:default:1:update` · SELECTED ACTION `observe` ·
+  LEARNER UPDATE `Confirmed` · INSPECT `Open`, plus First-page
+  paging.
+- The recorded event detail renders: "Recorded event — Recorded
+  replay only; no cognition is invoked." with Phase `measured`,
+  Subcase `default`, Ordinal `1`, Stage `update`; the formatted
+  stored fields expand to the genuine recorded body
+  (`"confirmed": true`, `"post_ack": {"action": "observe",
+  "update": {"kind": "b1_transition", "source_ids": ["s1"]}}`,
+  `"preupdate": {"evidence": {…}}`), displayed as text.
+- The detail page also shows the separate Execution and Scientific
+  findings sections with the stored finding `prediction · NEGATIVE
+  · PREREGISTERED_THRESHOLD_RULE`.
+
+This closes the replay half of item 3, which the tunnel-based run
+could only mark PARTIAL.
+
+### Test B — exact viewport widths (DevTools device toolbar)
+
+Widths were set in the Responsive device toolbar and each value
+was read back from the field before judging layout.
+
+- **320 px: PASS** — mobile layout with hamburger navigation;
+  Execution card fits the viewport, long run ID and verification
+  strings wrap inside the card, findings and recorded-events
+  tables reachable in their labeled scroll regions; no page-level
+  horizontal overflow.
+- **760 px: PASS** — mobile layout at the breakpoint; Execution
+  and Scientific findings cards stack readably, findings table
+  fully legible; no overlap or page-level overflow.
+- **761 px: PASS** — single-column layout persists immediately
+  above the breakpoint; section links (Measurements, Replay
+  events, Curves, Files, All runs) and the Replay events panel
+  reachable; no overlap or overflow.
+- **1120 px: PASS** — medium layout at the boundary; Refresh and
+  the Execution card fully readable, long verification strings
+  wrap within the card; no overlap or page-level overflow.
+- **1121 px: PASS** — identical medium presentation immediately
+  above the boundary; all fields readable; no overlap or
+  page-level overflow.
+- **1440 px: PASS** — desktop-width viewport renders the same
+  readable layout (DevTools "fit to window" scaling); no overlap
+  or page-level overflow.
+
+This closes item 10, which the tunnel-based run could not verify.
+
+### Network latency (Chrome DevTools, local connection)
+
+Recorded on the events view with the Network panel, no throttling:
+17 requests, all HTTP 200; document 2 ms; the run-detail fetch
+200 in 4 ms; `events?limit=20` 200 in 2 ms (2.8 kB); page Finish
+39 ms, DOMContentLoaded 27 ms. On the run list, `runs?limit=20`
+returned 200 in 2 ms both on navigation and on manual Refresh.
+Every Evaluation request completed roughly three orders of
+magnitude inside the approved 2,000 ms client deadline, which was
+not changed.
+
+### Regression checks (§8 of the acceptance instruction)
+
+- Overview renders the synthetic fixture home and remains usable.
+- Evaluation stays observer-only; no execution controls exist.
+- Execution and Scientific findings remain separate sections.
+- The COMPLETED run shows the stored NEGATIVE finding; no
+  universal scientific PASS badge appears anywhere.
+- Manual Refresh refetched in place (second `runs?limit=20`,
+  200, 2 ms; "Read at" timestamp advanced) without navigating.
+- Keyboard Tab traversal moved focus through the view's controls
+  and scrollable evidence regions.
+- Dark theme and light theme both render readably (theme cycled
+  system → dark → light during the session).
+- Browser navigation (list → detail → events → event detail →
+  back; Evaluation ↔ Overview) never left stale content.
+
+### Integrity confirmations and teardown
+
+- No installed organism memory was accessed: every test process
+  ran with `SEED_HOME` pointing at the disposable review
+  directory and `--evaluation-root` at its `eval/` folder; the
+  installed home `~/Library/Application Support/SEED` was never
+  opened by the test setup, and no migration, install script, or
+  LaunchAgent change was performed.
+- No tunnel was used; the dashboard bound only `127.0.0.1:8971`
+  for the whole session. No `--operator`, no empirical dispatch.
+- Teardown: the owner stopped the test dashboard with Ctrl+C in
+  its Terminal; a subsequent reload in Chrome returned
+  `net::ERR_CONNECTION_REFUSED`, confirming port 8971 closed and
+  no test server remaining. The disposable review directory and
+  the screenshots are preserved until this evidence is reviewed.
+- Screenshots (agent workspace, preserved):
+  `.superpowers/b10-astra/mac-acceptance/` —
+  `network-latency-full.jpg` (Network panel with per-request
+  timings), `width-320.jpg`, `width-760.jpg`, `width-761.jpg`,
+  `width-1120.jpg`, `width-1121.jpg`, `width-1440.jpg`,
+  `theme-light-runlist.jpg` (light theme run list).
+
+### Combined I29 browser acceptance
+
+With this addendum, the two outstanding items from the
+tunnel-based run are closed in a real browser on a direct local
+connection: item 3 is fully PASS (replay list and event detail)
+and item 10 is PASS at all six widths. **I29 browser acceptance
+is COMPLETE (11 of 11)**, the earlier 9-of-11 record above
+remaining unchanged as the historical tunnel-based result.
