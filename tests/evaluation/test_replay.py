@@ -88,3 +88,26 @@ def test_lossless_paging_with_reused_ordinals(tmp_path, foundation_module,
            seen == [('training', 'default', 1, 'update'),
                     ('measured', 'default', 1, 'update')]
     assert len(set(seen)) == 2
+
+
+def test_replay_rejects_coordinated_tamper(tmp_path, foundation_module,
+                                           plan_body):
+    # Review m2: tampering journal evidence AND the events digest pointer
+    # together must still fail, because replay recomputes the B8 prediction
+    # digest and the preupdate evidence digest from the stored evidence.
+    import hashlib
+    from development.evaluation.contracts import ContractError
+    root = _publish(tmp_path, foundation_module, plan_body)
+    run_dir = tmp_path / '.seed-evaluation' / 'evaluation' / 'runs' / RUN
+    journal = run_dir / 'preupdate.ndjson'
+    record = json.loads(journal.read_bytes())
+    record['evidence']['prediction']['signals']['battery_pct']['point'] = 1
+    line = json.dumps(record).encode() + b'\n'
+    journal.write_bytes(line)
+    events = run_dir / 'events.ndjson'
+    event = json.loads(events.read_bytes())
+    event['journal_sha256'] = hashlib.sha256(line).hexdigest()
+    events.write_bytes(json.dumps(event).encode() + b'\n')
+    replay = foundation_module('replay')
+    with pytest.raises(ContractError):
+        replay.join_events(root, RUN)

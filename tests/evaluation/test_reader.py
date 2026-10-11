@@ -64,3 +64,36 @@ def test_missing_receipt_is_unavailable(tmp_path, foundation_module, plan_body):
     reader = foundation_module('reader').EvaluationReader(root)
     with pytest.raises(ContractError):
         reader.detail(RUN)
+
+
+def test_events_page_byte_budget(tmp_path, foundation_module, plan_body,
+                                 monkeypatch):
+    # Review M1 (reader): an oversized page must be shortened with a correct
+    # next cursor, never returned whole and never dropping records.
+    root = _publish(tmp_path, foundation_module, plan_body)
+    reader_mod = foundation_module('reader')
+    replay = foundation_module('replay')
+    from development.evaluation.contracts import Event
+    big = [Event(('measured', 'default', i + 1, 'update'),
+                 b'x' * 60000) for i in range(40)]
+    monkeypatch.setattr(replay, 'join_events', lambda root_, run_id: big)
+    reader = reader_mod.EvaluationReader(root)
+    seen, cursor = [], None
+    while True:
+        page = reader.events(RUN, cursor=cursor, limit=20)
+        total = sum(len(e.body) for e in page.events)
+        assert total <= 1024 * 1024
+        seen.extend(e.key for e in page.events)
+        cursor = page.cursor
+        if cursor is None:
+            break
+    assert seen == [e.key for e in big]
+
+
+def test_chunk_verified_label_and_large_file(tmp_path, foundation_module,
+                                             plan_body):
+    root = _publish(tmp_path, foundation_module, plan_body)
+    reader = foundation_module('reader').EvaluationReader(root)
+    reader.chunk(RUN, 'events.ndjson', 0)
+    body = json.loads(reader.detail(RUN).summary.body)
+    assert body['chunk_verification'] == 'chunk_verified'

@@ -44,6 +44,20 @@ def join_events(capability, run_id):
             continue
         record = strict_json(line, max_bytes=MAX_DETAIL_BYTES)
         header = record['header']
+        # Stored B8/evidence digests are recomputed from the stored evidence
+        # itself; a coordinated journal+pointer tamper still fails here.
+        from seed.decision_record import prediction_digest
+        from .checkpoint import _hash
+        evidence = record['evidence']
+        try:
+            digests_ok = (
+                prediction_digest(evidence['prediction']) == header['prediction_sha256']
+                and _hash('SEED_B10_PREUPDATE_EVIDENCE_V1', evidence) == header['evidence_sha256']
+                and _hash('SEED_B10_OUTCOME_V1', evidence['state_after']) == header['outcome_sha256'])
+        except (ValueError, TypeError, KeyError, OverflowError):
+            digests_ok = False
+        if not digests_ok:
+            raise ContractError()
         digest = hashlib.sha256(
             line if line.endswith(b'\n') else line + b'\n').hexdigest()
         post = by_digest.pop(digest, None)

@@ -62,6 +62,58 @@ def compatibility_report(reader, run_id, profile: Profile) -> dict:
         inventory_ok = {m['identity'] for m in metrics['produced']} == registered
     except ContractError:
         inventory_ok = False
+    # Plan version is bound to the freeze receipt identity, not merely
+    # present: the receipt identity ends with the analysis plan version.
+    receipt = plan_file.get('receipt') or {}
+    version = plan_body.get('analysis_plan_version')
+    plan_version_ok = (type(version) is int and version >= 1
+                       and plan_body.get('schema') == 'b10_analysis_plan_v1'
+                       and str(receipt.get('identity', '')).endswith(
+                           f'-{version}'))
+    # Initial-state identity: when an initial checkpoint is declared, its
+    # producer projection must compute and match the science header's
+    # projected initial state exactly.
+    initial_ok = True
+    initial_declared = [e for e in manifest['checkpoints']
+                        if e['name'] == 'initial']
+    if initial_declared:
+        try:
+            import hashlib as _hl
+            from .canonical import canonical_bytes as _cb
+            from .science import iter_science as _iter, project_state as _ps
+            import sqlite3 as _sq
+            raw = (root.path / 'evaluation' / 'runs' / run_id
+                   / initial_declared[0]['file']).read_bytes()
+            _db = _sq.connect(':memory:')
+            try:
+                _db.deserialize(raw)
+                projected = _ps(_db)
+            finally:
+                _db.close()
+            header = None
+            for chunk in _iter(Payload(run_id, 0), root):
+                header = __import__('development.evaluation.canonical',
+                                    fromlist=['decode_canonical']
+                                    ).decode_canonical(chunk)
+                break
+            initial_ok = header is not None \
+                and header.get('initial_state') == projected
+        except Exception:
+            initial_ok = False
+    # Source availability: in a real git checkout the supplied profile must
+    # equal the captured trusted profile; fixture roots have no checkout.
+    source_available = True
+    checkout_kind = 'non_git_fixture'
+    if (root.path.parent / '.git').exists():
+        checkout_kind = 'git_checkout'
+        try:
+            from .profile import capture_profile
+            captured = capture_profile(root)
+            source_available = (captured.source_commit == profile.source_commit
+                                and captured.lock_digest == profile.lock_digest
+                                and captured.digest == profile.digest)
+        except Exception:
+            source_available = False
     checks = dict(
         source_commit=experiment['source_commit'] == profile.source_commit,
         source_clean=profile.clean is True,
@@ -70,7 +122,7 @@ def compatibility_report(reader, run_id, profile: Profile) -> dict:
         producer_versions=experiment['adapter_version'] == profile.adapter_version,
         plan_digest=plan_file['digest'] == analysis_digest(plan)
         and manifest['plan_digest'] == plan_file['digest'],
-        plan_version=plan_body.get('analysis_plan_version') is not None,
+        plan_version=plan_version_ok,
         inventory=inventory_ok,
         protocol=experiment['protocol'] == 'PREQUENTIAL'
         and plan_body.get('members') is not None,
@@ -78,14 +130,15 @@ def compatibility_report(reader, run_id, profile: Profile) -> dict:
         windows=bool(plan_body.get('windows')),
         baselines=bool(plan_body.get('baselines')),
         profile_digest=experiment['profile_digest'] == profile.digest,
-        initial_state=manifest['counts']['observed_transitions'] > 0
-        or manifest['status'] != 'COMPLETED')
+        initial_state=initial_ok,
+        source_availability=source_available)
     # Protocol recorded in the experiment identity must match the frozen
     # plan's member protocols.
     member_protocols = {m.get('protocol') for m in plan_body.get('members', [])}
     checks['protocol'] = checks['protocol'] and \
         experiment['protocol'] in member_protocols
-    return dict(run_id=run_id, compatible=all(checks.values()), checks=checks)
+    return dict(run_id=run_id, compatible=all(checks.values()), checks=checks,
+                checkout=checkout_kind)
 
 
 def _first_difference(left, right, path=''):

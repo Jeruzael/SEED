@@ -66,6 +66,7 @@ class EvaluationReader:
         os.close(fd)
         self._root = capability
         self._fingerprints = {}
+        self._chunk_verified = set()
         self._started = None
         self._read_bytes = 0
 
@@ -141,9 +142,16 @@ class EvaluationReader:
         metrics = strict_json(self._read(directory, 'metrics.json', 256 * 1024),
                               max_bytes=256 * 1024)
         key = ('detail', run_id)
+        all_names = []
+        for entry in sorted(os.scandir(directory), key=lambda e: e.name):
+            if entry.is_dir(follow_symlinks=False):
+                all_names.extend(f'{entry.name}/{sub.name}' for sub in
+                                 sorted(os.scandir(entry.path),
+                                        key=lambda e: e.name))
+            else:
+                all_names.append(entry.name)
         fingerprint = {name: self._fingerprint(directory / name)
-                       for name in ('manifest.json', 'metrics.json',
-                                    'events.ndjson', 'preupdate.ndjson')}
+                       for name in all_names}
         stale = self._fingerprints.get(key) not in (None, fingerprint)
         self._fingerprints[key] = fingerprint
         verification = 'verification_pending' if stale else \
@@ -152,7 +160,9 @@ class EvaluationReader:
             run_id=run_id, status=manifest['status'], reason=manifest['reason'],
             science_digest=manifest['science_digest'],
             counts=manifest['counts'], measurements=metrics['produced'],
-            verification=verification))
+            verification=verification,
+            chunk_verification='chunk_verified' if run_id in self._chunk_verified
+            else 'none'))
         if len(summary_body) > DETAIL_BYTES:
             raise ContractError()
         summary = RunSummary(run_id, RunResult(manifest['status'],
@@ -173,13 +183,20 @@ class EvaluationReader:
     def events(self, run_id, cursor=None, limit=20):
         self._begin()
         self._receipt(run_id)
+        if type(limit) is not int or not 1 <= limit <= PAGE_LIMIT:
+            raise ContractError()
+        offset = _offset(cursor)
         joined = _replay.join_events(self._root, run_id)
-        total = sum(len(e.body) for e in joined)
-        if total > REQUEST_BYTES:
-            # Byte budget may shorten pages, never drop records: page by
-            # cursor over the full joined list with a smaller effective page.
-            pass
-        return self._page(joined, cursor, limit)
+        page = []
+        used = 0
+        for event in joined[offset:offset + limit]:
+            used += len(event.body)
+            if page and used > REQUEST_BYTES:
+                break
+            page.append(event)
+        consumed = offset + len(page)
+        next_cursor = _cursor(consumed) if consumed < len(joined) else None
+        return ReplayPage(tuple(page), next_cursor)
 
     def event(self, run_id, key):
         self._begin()
@@ -213,12 +230,18 @@ class EvaluationReader:
         if entry is None or type(chunk) is not int \
                 or not 0 <= chunk < len(entry['chunks']):
             raise ContractError()
-        data = self._tick((directory / file_id).read_bytes())
-        if len(data) != entry['length']:
+        path = directory / file_id
+        if os.path.getsize(path) != entry['length']:
             raise ContractError()
-        piece = data[chunk * CHUNK_BYTES:(chunk + 1) * CHUNK_BYTES]
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            piece = os.pread(fd, CHUNK_BYTES, chunk * CHUNK_BYTES)
+        finally:
+            os.close(fd)
+        self._tick(piece)
         if hashlib.sha256(piece).hexdigest() != entry['chunks'][chunk]:
             raise ContractError()
+        self._chunk_verified.add(run_id)
         return piece
 
     def snapshot_tables(self, run_id):
