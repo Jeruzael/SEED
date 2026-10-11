@@ -38,3 +38,9 @@ def decode_canonical(raw: bytes):
     if canonical_bytes(result) != raw:
         raise ContractError()
     return result
+
+
+def canonical_stream(values):
+    """Yield canonical bytes per value for streaming digest construction."""
+    for value in values:
+        yield canonical_bytes(value)
