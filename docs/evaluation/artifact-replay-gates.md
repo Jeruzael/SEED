@@ -109,3 +109,54 @@ test at the leaf module.
 - Per the owner's instruction, no PR was opened and nothing was merged;
   PR publication, PR-head CI, merge and post-merge master CI remain
   separate owner-gated steps. I31 remains NOT AUTHORIZED.
+
+## Final remediation A–D (owner instruction, 2026-10-11)
+
+Four remaining independent-review concerns, each handled test-first with
+its own commit; RED logs preserved in the working records.
+
+- **A — re-execution fidelity (MAJOR), `e107b75`.** The recorded-scenario
+  outcome server is gone. Re-execution resolves the registered scenario
+  engine (stationary-action-v2 / constrained-v1 / rest-shift-v2 /
+  evidence-v1) from the run's recorded truth and requires the truth to
+  equal the engine's own evaluator view exactly; missing or mismatched
+  scenario definitions are INCOMPATIBLE. The fresh learner acts through
+  the ordinary driver/channel and the engine computes outcomes for the
+  freshly selected actions; divergences are preserved, never forced.
+  Declared initial checkpoints are supported through the approved
+  completed-fixture launch pathway: the checkpoint bytes are validated
+  (descriptor-relative read, manifest digest, state projection) and seed
+  a `COMPLETED_OWNED_FIXTURE` launch; corrupt or undeclared checkpoints
+  are incompatible. The disposable root now lives in the target root's
+  owned `work/` area under budget admission and is destroyed afterwards;
+  no external temp root is allocated. RED evidence: against the prior
+  implementation the fresh-action, missing-scenario and checkpoint
+  fidelity tests fail (tampered outcomes re-executed to a match).
+- **B — complete replay budget enforcement (MAJOR), `021aa93` +
+  `b6acf18`.** The replay index is incremental and resumable: every
+  physical byte pulled while indexing is charged to the request's
+  existing 1 MiB / 2 s budget (reader `_tick`), as are row line reads;
+  a request that exhausts its budget during indexing fails with an
+  explicit bounded error and the partial index retains progress in the
+  reader cache for the next request. Rows are served only from a
+  complete index; the single-record escape is preserved.
+- **C — admission before initial staging (MAJOR), `d07c9c4`.**
+  `write_run_record` charges the run slot + peak record bytes before
+  creating the run directory or temp file; journal creation charges the
+  run slot before mkdir; every payload-file write, the detached receipt
+  and the runs-index update are admitted against current on-disk usage
+  before allocation. Renames are not double-charged; crash-retained
+  partials count through the existing reconciliation.
+- **D — checkpoint descriptor traversal (BLOCKER concern), `60ec70f`.**
+  Reproduced at the open level: a staged `checkpoints` symlink made the
+  assembly read foreign bytes. All nested artifact opens now walk
+  descriptor-relatively (`paths._open_nested`): every intermediate
+  directory is opened O_NOFOLLOW and validated, components are strictly
+  checked, and descriptors close on every path. Applied to staged
+  reads/writes, integrity payload reads and fsync, and snapshot
+  inspection (with pre/post identity checks around SQLite's native
+  open, per the Option B exception).
+
+Author verification at the final HEAD is recorded in the entry below
+after the serial runs complete; G6 acceptance remains for the fresh
+independent complete-diff review.
