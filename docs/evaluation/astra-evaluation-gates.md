@@ -83,3 +83,24 @@ run/suite/re-execute/modify/delete/import endpoints exist.
   changed files 18 (dashboard + tests + docs only); protected scope
   `seed/**`, workflows, dependencies/lock: NONE.
 - Empirical dispatch lock untouched; no experiments executed.
+
+## Browser acceptance (I29, actual browser)
+
+- Executed 2026-10-12 against branch head `790c3bb` in the Muse
+  Browser (Chromium) via owner-approved, secret-gated temporary
+  tunnels (see `docs/evaluation/browser-verification.md` for the
+  security handling and verified teardown).
+- **9 of 11 items PASS**, including: separate Execution / Scientific
+  findings headings with a visible NEGATIVE finding and no PASS badge
+  anywhere; incompatible comparison naming `experiment` and
+  `plan_digest` with no ranking language; the unavailable state with
+  a fully working Overview; skip link, keyboard focus, captions;
+  theme cycle; in-place Refresh; ≈145 DOM elements on the detail
+  page.
+- Item 3 PARTIAL: measurements browser-verified; replay events could
+  not load through the tunnel (latency vs the enforced 2 s client
+  deadline, observed verbatim in the UI) — covered by API + DOM
+  tests, not claimed as browser-verified.
+- Item 10 COULD NOT VERIFY: no viewport-resize control in the
+  browser environment; wide-viewport layout and scroll-region
+  structure observed instead.

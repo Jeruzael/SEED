@@ -1,11 +1,13 @@
 # B10 I29 — Astra Evaluation Browser Verification
 
 - **Branch:** `seed-0.2-b10-impl-05-astra`
-- **Engineering base:** `3406e1f2d5f757032befc9b91380ea7636b827fb`
-- **Status:** IN PROGRESS — fixture and harness evidence complete;
-  actual-browser items partially reachable (see "Browser environment"
-  below). This record is updated with the final browser evidence
-  before the phase is considered verified.
+- **Tested commit:** `790c3bb` (branch head during acceptance)
+- **Browser:** Muse Browser (Chromium, leased browser VM; no version
+  number exposed by the environment)
+- **Status:** COMPLETED WITH TWO DOCUMENTED ENVIRONMENT GAPS — 9 of 11
+  checklist items PASS in the actual browser; item 3 is partial and
+  item 10 unverified for environment reasons recorded below. No item
+  is marked passed on DOM-harness evidence alone.
 
 ## Fixture cases (tests/dashboard/evaluation_fixture.py)
 
@@ -33,40 +35,58 @@ exact dimensions and no ranking language, DOM/table caps enforced,
 hostile artifact strings rendered as text (no `innerHTML`/`eval` in
 the view source).
 
-## Browser environment (actual browser attempt 1)
+## Browser reachability and security handling
 
-The Muse browser (Chromium, leased browser VM) could not reach the
-dashboard servers bound to this machine's loopback:
+The browser VM cannot reach the dashboard servers bound to this
+machine's loopback (direct loopback navigation blocked before
+dispatch; DNS-to-loopback names reach only the browser VM's own
+loopback; `host.docker.internal` refused). The dashboard application
+is unchanged and loopback-only.
 
-- Direct loopback navigation was blocked before dispatch.
-- A public DNS name resolving to loopback reached only the browser
-  VM's own loopback, where no server listens.
-- `host.docker.internal` / `gateway.docker.internal` refused the
-  connection (servers are loopback-only by design).
+Acceptance therefore ran through temporary Pinggy tunnels approved by
+the owner under an explicit security plan:
 
-The dashboard application itself is unchanged and loopback-only; a
-test-only loopback proxy presents the exact Host/Origin the security
-middleware requires (equivalent to an SSH port forward; the app is
-untouched). One temporary public tunnel to the complete-negative
-fixture server was approved and verified end-to-end (the Evaluation
-API responded through it). Tunnels for the remaining two fixture
-servers were not approved, so the comparison and unavailable-state
-browser items are pending the owner's decision.
+- a test-only loopback proxy presented the exact Host/Origin the
+  app's security middleware requires (the app itself untouched) and
+  enforced a secret gate: requests without the gate cookie received
+  404; the cookie was set only via a one-time secret path. The gate
+  was verified locally and through the public tunnel (no-cookie →
+  404, gate path → 302, with-cookie → 200);
+- each tunnel creation was individually approved by the owner
+  (runtime SSH permission); tunnel URLs and gate secrets were treated
+  as credentials — never committed, never recorded here;
+- exposure window: tunnels created 2026-10-12 ~00:09–00:11 CST,
+  browser run completed 00:21 CST, teardown verified immediately
+  after: all tunnel/proxy/server processes stopped (0 remaining),
+  gate secret files deleted, all three tunnel URLs unreachable, all
+  six local ports closed;
+- exposed data was limited to synthetic fixture artifacts and an
+  empty disposable organism home, observer mode only.
 
-## Actual browser checklist
+Tunnel latency repeatedly exceeded the app's own 2,000 ms read
+deadline (surfaced in the UI verbatim as "Evaluation read timed out
+after 2000 ms. Retry when ready."), so several views needed Refresh
+retries — itself direct browser evidence that the client enforces
+the approved 2 s deadline.
+
+## Actual browser checklist (verbatim evidence in the run report)
 
 | # | Item | Result |
 |---|---|---|
-| 1 | Run list shows the completed run | PENDING (browser reachability) |
-| 2 | Separate Execution / Scientific findings headings; NEGATIVE visible; no global PASS badge | PENDING |
-| 3 | Measurements, replay events, recorded event detail | PENDING |
-| 4 | Curves data alternative; file chunk preview not executed | PENDING |
-| 5 | Two-run comparison shows Incompatible + dimensions, no ranking | PENDING (tunnel not approved) |
-| 6 | No-root server shows the unavailable state; Overview still works | PENDING (tunnel not approved) |
-| 7 | Skip link, keyboard navigation, captions, visible focus | PENDING |
-| 8 | Theme cycle keeps the Evaluation view working | PENDING |
-| 9 | Manual Refresh reloads data in place | PENDING |
-| 10 | Viewport widths 320/760/761/1120/1121/1440 | PENDING |
-| 11 | DOM element count on detail page (cap 1,500) | PENDING |
+| 1 | Run list shows the completed run | **PASS** — table "Published evaluation runs", row `aaaa…` / COMPLETED / science digest / `whole_payload_verified_at_publication`, links "Open" and "Select to compare"; no run/execute controls |
+| 2 | Separate Execution / Scientific findings headings; NEGATIVE visible; no global PASS badge | **PASS** — "Execution" [h2] and "Scientific findings" [h2]; findings row `prediction | NEGATIVE | PREREGISTERED_THRESHOLD_RULE`; the full page text contains no "PASS" badge or word |
+| 3 | Measurements, replay events, recorded event detail | **PARTIAL** — Measurements PASS (caption "Registered measurements", `prediction.numeric-mae | 1 | MEASURED | 0`). Replay events COULD NOT VERIFY in the browser: the events view timed out on ~9 attempts through the tunnel (2 s client deadline vs tunnel latency). Events and event detail are verified by API tests and Node DOM tests; not claimed as browser-verified |
+| 4 | Curves data alternative; file chunk preview not executed | **PASS** — "Stored curve series" table; "Artifact files" table with chunk counts; `manifest.json` chunk 0 shows "Bytes 750" and an "Untrusted artifact preview" rendering the JSON as literal text, not HTML |
+| 5 | Two-run comparison shows Incompatible + dimensions, no ranking | **PASS** — "Incompatible for automatic comparison: the dimensions below differ. Side-by-side descriptive inspection only; the UI does not rank the runs."; dimensions table shows `experiment … Differs`, `plan_digest … Differs`; no better/worse language in full page text |
+| 6 | No-root server shows the unavailable state; Overview still works | **PASS** — heading "Evaluation unavailable", text "Evaluation unavailable / no artifact root configured. Other dashboard views are unaffected."; Overview then loaded fully (organism, activity, memory, system health) |
+| 7 | Skip link, keyboard navigation, captions, visible focus | **PASS** — first element `<a class="skip" href="#main">Skip to content</a>`; one Tab shows it with a visible focus outline (screenshot); Tab traverses nav incl. Evaluation with visible focus; real h1/h2 headings; every data table has a `<caption>`; table wrappers are `tabindex="0"` scroll regions with descriptive `aria-label`s |
+| 8 | Theme cycle keeps the Evaluation view working | **PASS** — Theme button cycled system → dark; app re-rendered in dark and the Evaluation view remained fully usable (screenshot) |
+| 9 | Manual Refresh reloads data in place | **PASS** — Refresh on the detail kept the URL, showed "Reading stored evaluation artifact…", then reloaded detail with a fresh "Read at" timestamp |
+| 10 | Viewport widths 320/760/761/1120/1121/1440 | **COULD NOT VERIFY** — the browser environment offers no viewport-resize control. At the rendered ~1920px width the layout was usable with no page overflow; tables sit in labelled horizontal scroll regions (structural narrow-width mitigation). Exact-width behavior is not claimed |
+| 11 | DOM element count on detail page (cap 1,500) | **PASS** — complete detail document ≈ 145 elements, well under the cap |
 
-Items must not be marked passed on DOM-harness evidence alone.
+Unverified-item disposition: items 3 (replay sub-part) and 10 remain
+explicitly unverified in a real browser; both are covered by the API
+suite and the Node DOM harness, and neither is silently marked
+passed. Whether this state satisfies the phase gate is the owner's
+decision.
