@@ -9,7 +9,7 @@ import os
 import re
 
 from .contracts import ContractError
-from .paths import _directory, _mkdir, _open_file
+from .paths import _directory, _mkdir, _open_nested, _unlink_nested
 
 DETAIL_BYTES = 64 * 1024
 TOTAL_DETAIL_BYTES = 64 * 1024 ** 2
@@ -51,7 +51,7 @@ def _record_path(root, run_id):
 def _read_staged(root, run_id, name, maximum):
     run_dir = _directory(root.path / 'evaluation' / 'partials' / run_id)
     try:
-        fd = _open_file(run_dir, name, 'read')
+        fd = _open_nested(run_dir, name, 'read')
         with os.fdopen(fd, 'rb') as f:
             return f.read(maximum + 1)
     finally:
@@ -62,10 +62,10 @@ def _write_payload_file(root, run_id, name, data):
     run_dir = _directory(root.path / 'evaluation' / 'partials' / run_id)
     try:
         try:
-            os.unlink(name, dir_fd=run_dir)
+            _unlink_nested(run_dir, name)
         except FileNotFoundError:
             pass
-        fd = _open_file(run_dir, name, 'create')
+        fd = _open_nested(run_dir, name, 'create')
         with os.fdopen(fd, 'wb') as f:
             f.write(data)
             f.flush()

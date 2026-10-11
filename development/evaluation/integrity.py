@@ -16,7 +16,8 @@ from dataclasses import dataclass
 from . import artifact_io as _artifacts
 from . import indexes as _indexes
 from .contracts import ContractError, Payload, Receipt, strict_json
-from .paths import EvaluationRoot, _directory, _mkdir, _open_file
+from .paths import (EvaluationRoot, _directory, _mkdir, _open_file,
+                    _open_nested)
 from .science import science_digest
 from .specs import raw_bytes
 
@@ -54,30 +55,34 @@ def payload_directory(root, run_id):
 
 def _payload_files(directory):
     files = {}
-    for entry in sorted(os.scandir(directory), key=lambda e: e.name):
-        if entry.is_dir(follow_symlinks=False):
-            if entry.name != 'checkpoints':
-                raise ContractError()
-            for sub in sorted(os.scandir(entry.path), key=lambda e: e.name):
-                name = f'checkpoints/{sub.name}'
-                if not _CHECKPOINT.fullmatch(name) or not sub.is_file(follow_symlinks=False):
+    run_fd = _directory(directory)
+    try:
+        for entry in sorted(os.scandir(directory), key=lambda e: e.name):
+            if entry.is_dir(follow_symlinks=False):
+                if entry.name != 'checkpoints':
                     raise ContractError()
-                files[name] = _read_file(sub.path)
-        elif entry.is_file(follow_symlinks=False):
-            if entry.name not in _ALLOW:
+                for sub in sorted(os.scandir(entry.path), key=lambda e: e.name):
+                    name = f'checkpoints/{sub.name}'
+                    if not _CHECKPOINT.fullmatch(name) or not sub.is_file(follow_symlinks=False):
+                        raise ContractError()
+                    files[name] = _read_nested(run_fd, name)
+            elif entry.is_file(follow_symlinks=False):
+                if entry.name not in _ALLOW:
+                    raise ContractError()
+                files[entry.name] = _read_nested(run_fd, entry.name)
+            else:
                 raise ContractError()
-            files[entry.name] = _read_file(entry.path)
-        else:
-            raise ContractError()
+    finally:
+        os.close(run_fd)
     return files
 
 
-def _read_file(path):
-    import os as _os
-    size = _os.path.getsize(path)
-    if size > _artifacts.ARTIFACT_BYTES:
-        raise ContractError()
-    with open(path, 'rb') as f:
+def _read_nested(run_fd, name):
+    fd = _open_nested(run_fd, name, 'read')
+    with os.fdopen(fd, 'rb') as f:
+        size = os.fstat(f.fileno()).st_size
+        if size > _artifacts.ARTIFACT_BYTES:
+            raise ContractError()
         data = f.read(size + 1)
     if len(data) != size:
         raise ContractError()
@@ -118,8 +123,12 @@ def receipt_body(payload: Payload, capability) -> dict:
     root = _root(capability)
     _artifacts._run_id(payload.identity)
     directory = payload_directory(root, payload.identity)
-    manifest = strict_json(_read_file(directory / 'manifest.json'),
-                           max_bytes=128 * 1024)
+    run_fd = _directory(directory)
+    try:
+        manifest = strict_json(_read_nested(run_fd, 'manifest.json'),
+                               max_bytes=128 * 1024)
+    finally:
+        os.close(run_fd)
     validate_file_set(directory, manifest)
     files = _payload_files(directory)
     body = dict(schema='b10_receipt_v1', run_id=payload.identity,
@@ -168,20 +177,30 @@ def finalize_payload(payload: Payload, capability) -> Payload:
 
 
 def _fsync_tree(directory):
-    for entry in os.scandir(directory):
-        if entry.is_dir(follow_symlinks=False):
-            _fsync_tree(entry.path)
-        else:
-            fd = os.open(entry.path, os.O_RDONLY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
-    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    fd = _directory(directory)
     try:
-        os.fsync(fd)
+        _fsync_dir(fd, directory)
     finally:
         os.close(fd)
+
+
+def _fsync_dir(fd, path):
+    for entry in os.scandir(path):
+        if entry.is_dir(follow_symlinks=False):
+            sub = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY
+                          | os.O_NOFOLLOW, dir_fd=fd)
+            try:
+                _fsync_dir(sub, entry.path)
+            finally:
+                os.close(sub)
+        else:
+            child = os.open(entry.name, os.O_RDONLY | os.O_NOFOLLOW,
+                            dir_fd=fd)
+            try:
+                os.fsync(child)
+            finally:
+                os.close(child)
+    os.fsync(fd)
 
 
 def _rename(source, target):

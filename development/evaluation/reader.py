@@ -17,7 +17,7 @@ from .contracts import (ContractError, Curve, Event, Receipt, ReplayPage,
                         RootCapability, RunDetail, RunResult, RunSummary,
                         Payload, strict_json)
 from .integrity import payload_directory
-from .paths import EvaluationRoot
+from .paths import EvaluationRoot, _directory, _identity, _open_nested
 from .specs import raw_bytes
 
 PAGE_LIMIT = 20
@@ -286,6 +286,19 @@ class EvaluationReader:
         names = []
         for entry in manifest['checkpoints']:
             path = directory / entry['file']
+            # Descriptor-relative validation before SQLite's native open
+            # (Option B covers only the native-open interval): every path
+            # component must be an owned directory/regular file, and the
+            # file identity must be unchanged afterwards.
+            run_fd = _directory(directory)
+            try:
+                fd = _open_nested(run_fd, entry['file'], 'read')
+                try:
+                    identity = _identity(os.fstat(fd))
+                finally:
+                    os.close(fd)
+            finally:
+                os.close(run_fd)
             db = sqlite3.connect(f'file:{path}?mode=ro&immutable=1', uri=True)
             try:
                 db.execute('PRAGMA query_only=ON')
@@ -307,4 +320,14 @@ class EvaluationReader:
                     "SELECT name FROM sqlite_master WHERE type='table'"))
             finally:
                 db.close()
+            run_fd = _directory(directory)
+            try:
+                fd = _open_nested(run_fd, entry['file'], 'read')
+                try:
+                    if _identity(os.fstat(fd)) != identity:
+                        raise ContractError()
+                finally:
+                    os.close(fd)
+            finally:
+                os.close(run_fd)
         return names
