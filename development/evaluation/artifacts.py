@@ -102,7 +102,18 @@ def read_run_record(capability, run_id):
     _run_id(run_id)
     partials = _partials_fd(root)
     try:
-        fd = _open_file(partials, f'{run_id}.record.json', 'read')
+        try:
+            fd = _open_file(partials, f'{run_id}.record.json', 'read')
+        except ContractError:
+            evaluation = _directory(root.path / 'evaluation')
+            try:
+                receipts = _mkdir(evaluation, 'receipts')
+                try:
+                    fd = _open_file(receipts, f'{run_id}.record.json', 'read')
+                finally:
+                    os.close(receipts)
+            finally:
+                os.close(evaluation)
         with os.fdopen(fd, 'rb') as f:
             raw = f.read(CONTROL_BYTES + 1)
     finally:
