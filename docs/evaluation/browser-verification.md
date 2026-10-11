@@ -90,3 +90,66 @@ explicitly unverified in a real browser; both are covered by the API
 suite and the Node DOM harness, and neither is silently marked
 passed. Whether this state satisfies the phase gate is the owner's
 decision.
+
+## Addendum (2026-10-12) — running a fixture locally; the macOS `/tmp` pitfall
+
+Operator instructions for building a disposable fixture (for example
+`complete-negative`) and viewing it in the dashboard.
+
+**Pitfall (macOS): a destination under `/tmp` always fails.**
+`EvaluationRoot.create` opens the destination through
+`development/evaluation/paths.py::_directory`, which walks every
+path component with `O_NOFOLLOW` and refuses any component that is
+not a real directory ("Resolve nothing silently: every existing
+path component must be a real directory"). On macOS `/tmp` is a
+symlink to `/private/tmp` (likewise `/var` → `/private/var`), so
+`EvaluationRoot.create` raises `ContractError: INVALID_CONTRACT`
+for any `/tmp/...` destination — after `build()`'s own
+empty-directory checks have already passed. On Linux `/tmp` is a
+real directory and the same command works, which is why the test
+suite never trips over this. Reproduced 2026-10-12: a path through
+a symlinked component raises `ContractError`; the same directory
+addressed by its real path succeeds.
+
+**Correct commands**
+
+macOS — use the real path (`/private/tmp` is the same folder):
+
+```bash
+mkdir -p /private/tmp/seed-eval-demo
+.venv/bin/python -c "from pathlib import Path; from tests.dashboard.evaluation_fixture import build; print(build(Path('/private/tmp/seed-eval-demo'), 'complete-negative'))"
+```
+
+Linux — `/tmp` is fine as written:
+
+```bash
+mkdir -p /tmp/seed-eval-demo
+.venv/bin/python -c "from pathlib import Path; from tests.dashboard.evaluation_fixture import build; print(build(Path('/tmp/seed-eval-demo'), 'complete-negative'))"
+```
+
+Expected result:
+`{'case': 'complete-negative', 'checkout': '<destination>', 'runs': ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'], 'note': 'technical fixture; not an empirical B10 result'}`.
+
+Any destination whose components are all real directories works
+(for example a scratch folder under the user's home). The
+destination must be empty: the builder refuses non-empty or
+state-like destinations, and a fixture root must never be the
+installed SEED home.
+
+**Viewing it (observer mode, read-only):**
+
+```bash
+SEED_HOME=<disposable-home> .venv/bin/python -m dashboard --port 8971 --evaluation-root <fixture-destination>
+```
+
+`GET /api/evaluation/runs` then lists the published run and
+`GET /api/evaluation/runs/<run_id>` returns its detail.
+
+**Local verification (berg, Linux VM, 2026-10-12):** the exact
+command above succeeded at `/tmp/seed-eval-demo`; the reader index
+listed 1 run; the run detail status was `COMPLETED`; the stored
+finding was `NEGATIVE` with reason `PREREGISTERED_THRESHOLD_RULE`;
+the dashboard API returned the same run and detail with
+`--evaluation-root` pointed at a durable copy of the fixture
+(`~/workspace/seed-eval-demo` on the VM); the demo server was
+stopped after verification (port closed, no process remaining).
