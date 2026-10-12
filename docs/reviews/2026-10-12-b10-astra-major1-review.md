@@ -96,3 +96,17 @@ Both MINORs are non-blocking observations about the fix itself; neither affects 
 **Full-repository evidence:** 1,548 passed / 2 warnings in the review tree (author's 1,536 + 12 reviewer probes), matching the author's full-suite claim with no remainder.
 
 **DESIGN AMENDMENT REQUIRED: NO**
+
+# Follow-up note (2026-10-12, appended; verdict above unchanged)
+
+A final deadline verification pass was executed after this review.
+The remaining end-to-end server-processing deadline gap (post-read
+processing and response construction were unchecked) was
+reproduced at `3364ace`, repaired at `fefce84`, and verified by a
+fresh independent narrow review: BLOCKER 0 / MAJOR 0 / MINOR 1 /
+UNRESOLVED 0 — MAJOR-1 DEADLINE CONTRACT COMPLETE — G6
+PRESERVATION CONFIRMED — DESIGN AMENDMENT REQUIRED: NO. Full
+record:
+`docs/reviews/2026-10-12-b10-astra-major1-deadline-review.md` and
+the follow-up section appended to
+`docs/reviews/2026-10-12-b10-astra-major1-remediation.md`.

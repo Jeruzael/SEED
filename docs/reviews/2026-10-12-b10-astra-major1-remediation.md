@@ -166,3 +166,81 @@ here and tracked with the other MINORs for a later separate repair.
 - I26–I29 is therefore **not** claimed 0/0/0/0 overall.
 - I30 not started. I31 NOT AUTHORIZED. No B10 experiments executed.
   Installed SEED organism untouched.
+
+# Follow-up (2026-10-12): final deadline verification
+
+A follow-up instruction required verifying the remaining end-to-end
+server-processing deadline gap: after the remediation above, the
+reader deadline was checked only during admitted/charged physical
+reads, so CPU processing after the final read and JSON response
+construction could, in principle, return HTTP 200 past the 2-second
+server-processing deadline.
+
+**Gap reproduced (RED at `3364ace`).** With a deterministic fake
+monotonic clock patched only into the reader/replay module
+namespaces: processing advanced +3.0 s after the final artifact read
+(stored-JSON decoding) returned HTTP 200; serialization advanced
++3.0 s during JSON response construction returned HTTP 200; all
+Evaluation routes behaved likewise; the past-deadline boundary case
+returned 200. Result: 4 failed / 1 passed among the five new tests
+(the concurrency independence guard passed — MAJOR-1 sessions
+already kept independent deadlines).
+
+**Corrective implementation (`fefce84`; tests `6224e4f`).**
+Dashboard-only; `development/evaluation/reader.py` and
+`replay.py` are byte-unchanged.
+
+- `EvaluationService.request_context()` opens the reader session at
+  API route entry; the service's inner session open reuses that
+  ambient session, so ONE deadline spans request validation,
+  service processing, reader operations, stored-data decoding,
+  response preparation and response construction. No second
+  two-second allowance exists after the service returns.
+- `_guarded` checks the session deadline after the service call
+  succeeds, so post-read CPU inside the service cannot return
+  success late.
+- Every Evaluation route calls a final `guard.enforce()` after the
+  response is fully constructed and before returning it. On expiry:
+  HTTP 429 `deadline_exceeded`, bounded envelope, no partial
+  success. Errors raised by the service (404/409/422/503) are never
+  converted, because enforcement runs only on the success path.
+- Direct `EvaluationService` and standalone `EvaluationReader`
+  behavior are unchanged.
+
+**GREEN evidence (author, at `fefce84`).** New deadline tests 5/5;
+budget test file 15/15; dashboard 323 passed; evaluation 631
+passed; full repository 1,541 passed / 2 warnings (1,526 + 10
+MAJOR-1 + 5 deadline); 7/7 standalone scenarios; compile and
+`git diff --check` clean; protected scope unchanged. Boundary:
+at exactly the deadline a request succeeds; strictly past it, 429.
+One disclosed incident: an intermediate evaluation run showed
+46 failed / 97 errors because the VM's 512 MB /tmp tmpfs filled
+with pytest scratch (490 MB); after cleanup the clean rerun gave
+631 passed and 7/7 scenarios — an environment artifact, not a
+regression.
+
+**Independent narrow review** (fresh clone, exact head `fefce84`;
+`docs/reviews/2026-10-12-b10-astra-major1-deadline-review.md`):
+BLOCKER 0 / MAJOR 0 / MINOR 1 / UNRESOLVED 0 — MAJOR-1 DEADLINE
+CONTRACT COMPLETE — G6 PRESERVATION CONFIRMED — DESIGN AMENDMENT
+REQUIRED: NO. The reviewer reproduced the gap on `3364ace`
+(4 failed / 11 passed on the full budget file), confirmed every
+suite count, and ran 13 probes at different seams (overruns inside
+verified-file assembly and binary response rendering; summed
+partial advances across service and serialization showing no
+second allowance; the 2.0 s vs 2.0 s + 1 µs boundary; no session
+leak after a 429; direct service callers). The single MINOR is a
+pre-existing precedence note: if the deadline expires before the
+physical read that would detect a corruption, the admission gate's
+429 preempts the not-yet-established 409; no raised error is ever
+converted and no success is returned. It is tracked with the other
+MINOR findings for a later separate repair.
+
+**Final deadline interpretation.** The Evaluation HTTP deadline is
+one 2-second server-processing budget per request, established when
+the handler begins and enforced at read admission, after service
+processing, and after final response construction. It does not
+guarantee instant preemption of arbitrary blocking OS operations
+and does not include external network-transfer latency.
+
+PR #31 remains OPEN and unmerged; MAJOR-2 remains OPEN.
