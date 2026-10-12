@@ -1,0 +1,238 @@
+# B10 Astra Evaluation (I26–I29) — Engineering Gate Ledger
+
+Branch: `seed-0.2-b10-impl-05-astra`
+Canonical branch point: `3406e1f2d5f757032befc9b91380ea7636b827fb`
+(verified master; PR #29 merged `b3277bf`, PR #30 merged `3406e1f`,
+all exact-head and master CI runs SUCCESS on linux-py311, linux-py313,
+macos-py313).
+
+Starting gates: G1–G6 PASS; I01–I25 COMPLETE / VERIFIED / CLOSED.
+Scope: I26–I29 ENGINEERING ONLY (Phases M–N). I30 not in this branch.
+I31 NOT AUTHORIZED; no B10 experiments executed; empirical dispatch
+locked. Protected scope: `seed/**`, schema v7, dependencies/lock,
+workflows — no changes.
+
+Flow (observer only, strictly one direction):
+
+```text
+Immutable B10 artifacts → EvaluationReader → EvaluationService
+→ GET-only /api/evaluation → bounded Astra client → observer UI
+```
+
+The dashboard never acquires an evaluator execution capability: no
+run/suite/re-execute/modify/delete/import endpoints exist.
+
+## Task records
+
+(Entries are appended as each task completes, with exact test counts.)
+
+## Task records
+
+- **I26** — commits `178a004` (feat) + `ce37a9c`, `86f6d12`, `a34c5ea`,
+  `fecda24` (validation/test-expectation fixes). `EvaluationService`
+  delegates only to `EvaluationReader`; explicit enablement via
+  `create_app(..., evaluation_root=...)` / `--evaluation-root` /
+  `SEED_EVALUATION_ROOT`; absent or marker-less root → typed
+  `503 evaluation_unavailable`, no directory creation, no organism-home
+  fallback (verified: no `.seed-evaluation` appears in the SEED home).
+  All eight GET routes implemented with raw-query validation
+  (duplicates/unknowns rejected, run ID 32-hex, cursor ≤512 B, chunk
+  bounded int, dotted registered metric/series names allowed).
+  Mutation verbs return 403/404/405 even with a valid operator CSRF
+  token. Corrupted receipts produce typed errors, never empty success.
+- **I27** — commits `3c04fd2` (feat) + `a09862c`. `evaluation_support.js`:
+  strict `parseEvaluationRoute` (exact signed-64 ordinals as strings —
+  `9007199254740993` and `9223372036854775807` round-trip losslessly;
+  duplicates/unknown selectors/path-like IDs/oversized cursors
+  rejected), bounded client (2 s deadline, 1 MiB stream cap, 1,024 B
+  error cap, fatal UTF-8, caller-abort isolation), chunk client
+  (64 KiB). Compare selection state: `left` alone is valid selection,
+  `right` requires `left`.
+- **I28** — commit `5a4858a`. `views/evaluation.js` renders Execution
+  and Scientific findings as separate headed cards; a COMPLETED run
+  with a NEGATIVE finding shows both, with no universal PASS badge
+  (Node DOM tests). Measurements show UNAVAILABLE as unavailable,
+  never zero; replay lists recorded stages incl. unconfirmed;
+  comparison names exact differing dimensions and never ranks runs;
+  DOM/table caps enforced (≤20 rows/page, ≤200 points, ≤1,500
+  elements checked by harness); hostile artifact strings render as
+  text (no `innerHTML`/`eval` in the view). Service detail gained the
+  stored `findings` array from the receipt-verified metrics file
+  (plan I26 interface: finding details in detail responses).
+- **I29** — commit `9135a2a`. Disposable fixture builder with the nine
+  registered cases (incl. a genuine NEGATIVE produced by a
+  preregistered threshold rule, and 21-run max-inventory paging
+  20 + cursor + 1). Browser verification record:
+  `docs/evaluation/browser-verification.md` — tunnel-based run
+  9 of 11 PASS (below); the two gaps were later closed by the
+  local macOS addendum (final section below). Not marked passed
+  on harness evidence.
+
+## Author verification (fresh counts, this branch)
+
+- Focused I26–I29 + dashboard regressions: dashboard suite
+  **308 passed** (296 at base + 12 new).
+- Complete evaluation suite: **631 passed** (unchanged code path).
+- Full repository suite: **1,526 passed, 2 warnings** (clean tmpfs,
+  serial; one earlier run showed 1 failure —
+  `test_world_model_scenario` — with `database or disk is full`
+  caused by accumulated pytest scratch filling the 512 MB /tmp tmpfs;
+  the test passes standalone and in the clean rerun).
+- Seven standalone regressions: **7/7 PASS**.
+- Python compileall OK; JS syntax checks OK; `git diff --check` OK;
+  changed files 18 (dashboard + tests + docs only); protected scope
+  `seed/**`, workflows, dependencies/lock: NONE.
+- Empirical dispatch lock untouched; no experiments executed.
+
+## Browser acceptance (I29, actual browser)
+
+- Executed 2026-10-12 against branch head `790c3bb` in the Muse
+  Browser (Chromium) via owner-approved, secret-gated temporary
+  tunnels (see `docs/evaluation/browser-verification.md` for the
+  security handling and verified teardown).
+- **9 of 11 items PASS**, including: separate Execution / Scientific
+  findings headings with a visible NEGATIVE finding and no PASS badge
+  anywhere; incompatible comparison naming `experiment` and
+  `plan_digest` with no ranking language; the unavailable state with
+  a fully working Overview; skip link, keyboard focus, captions;
+  theme cycle; in-place Refresh; ≈145 DOM elements on the detail
+  page.
+- Item 3 PARTIAL: measurements browser-verified; replay events could
+  not load through the tunnel (latency vs the enforced 2 s client
+  deadline, observed verbatim in the UI) — covered by API + DOM
+  tests, not claimed as browser-verified.
+- Item 10 COULD NOT VERIFY: no viewport-resize control in the
+  browser environment; wide-viewport layout and scroll-region
+  structure observed instead.
+
+## Local macOS browser acceptance (I29 closure)
+
+- Executed 2026-10-12 in Google Chrome 154.0.8037.99 on the
+  owner's Mac (macOS 26.5.1) against branch head `6495c67`, in a
+  fully isolated disposable environment (review checkout
+  `~/SEED-astra-i29-review`; synthetic home + `complete-negative`
+  fixture under `/private/tmp/seed-i29-mac.1ArWLd`; observer-only
+  dashboard on `127.0.0.1:8971`; no tunnel, no `--operator`, no
+  installed-organism access). Full record: the addendum in
+  `docs/evaluation/browser-verification.md`.
+- Item 3 closed: replay events table and the recorded event
+  detail verified in the real browser on the direct local
+  connection (`events?limit=20` 200 in 2 ms; all 17 page requests
+  200; page Finish 39 ms; the 2,000 ms deadline unchanged).
+- Item 10 closed: all six exact viewport widths (320, 760, 761,
+  1120, 1121, 1440 px) rendered in the DevTools Responsive device
+  toolbar, each value read back from the dimension field, with a
+  screenshot per width — PASS at every width.
+- Regression checks passed (Overview usable, separation of
+  Execution vs findings, honest NEGATIVE with no PASS badge,
+  in-place Refresh, keyboard traversal, light + dark themes, no
+  stale content). Teardown verified: port 8971 closed
+  (`ERR_CONNECTION_REFUSED` after Ctrl+C).
+- **I29 browser acceptance: COMPLETE (11 of 11).** Next gate:
+  fresh independent I26–I29 complete-diff review; the engineering
+  PR remains owner-gated and is not created by this record.
+
+## MAJOR-1: aggregate HTTP request resource budgets (2026-10-12)
+
+- The I26–I29 review's publication eligibility did not cover the
+  aggregate per-request budget contract; the owner opened MAJOR-1:
+  `EvaluationReader._begin()` reset the 1 MiB / 2 s budget on every
+  reader call while one HTTP request composes several calls, and the
+  shared reader's mutable budget state was exposed to concurrency.
+- RED reproduction at `898ddae` (author and independent reviewer
+  measurements identical): compare physically read 1,268,594 bytes
+  under HTTP 200; calibrated detail 7,160 bytes vs a 5,000 limit;
+  3 budgets charged in one request; growth race read 102,344 bytes
+  vs a 4,096 allowance; concurrent request A charged 4 budgets;
+  deadline reset returned 200; a 1,048,577-byte response was served.
+- Repair on this branch (tests `2eb9b28`, fix `afc936e`):
+  request-scoped reader sessions (one budget + one deadline per HTTP
+  request, per-request isolation, read-once session memoization,
+  descriptor-capped admitted reads, per-run replay-index locks),
+  BudgetError mapped to a distinct 429 `resource_limit` /
+  `deadline_exceeded`, serialized-response ceiling enforced on the
+  exact bytes, and the stored-file parse cap aligned with the
+  artifact contract. `replay.py` byte-untouched.
+- GREEN: new suite 10/10; dashboard 318; evaluation 631; full
+  repository 1,536 passed / 2 warnings; standalones 7/7; boundary
+  compares at exactly 1,048,575 / 1,048,576 / 1,048,577 aggregate
+  bytes return 200 / 200 / 429 with physical reads never above the
+  ceiling; RED compare fixture now reads 567,706 bytes.
+- Fresh independent narrow review at `afc936e`: BLOCKER 0 /
+  MAJOR 0 / MINOR 2 / UNRESOLVED 0 — **MAJOR-1 CLOSED**,
+  G6 PRESERVATION CONFIRMED, DESIGN AMENDMENT REQUIRED: NO
+  (`docs/reviews/2026-10-12-b10-astra-major1-review.md`; full
+  remediation record in
+  `docs/reviews/2026-10-12-b10-astra-major1-remediation.md`).
+- Remaining open findings: MAJOR-2 (scientific comparison
+  compatibility correctness) is next; the two pre-existing MINORs
+  and the review's two MINOR observations stay tracked for a later
+  separate repair. I26–I29 is not claimed 0/0/0/0. PR #31 remains
+  unmerged pending the owner's decision; I30 not started; I31 NOT
+  AUTHORIZED.
+- Final deadline verification follow-up (2026-10-12): the
+  remaining end-to-end server-processing deadline gap (post-read
+  processing and response construction were unchecked) was
+  reproduced at `3364ace` and repaired at `fefce84`; a fresh
+  independent narrow review confirmed the MAJOR-1 deadline
+  contract COMPLETE with G6 PRESERVATION CONFIRMED — BLOCKER 0 /
+  MAJOR 0 / MINOR 1 / UNRESOLVED 0 (the MINOR is a pre-existing
+  admission-precedence note, tracked with the other MINORs). See
+  `docs/reviews/2026-10-12-b10-astra-major1-deadline-review.md`.
+
+## MAJOR-2 remediation (2026-10-12)
+
+- Finding: `compare()` treated `science_digest` equality as an
+  eligibility condition, so runs with identical definitions and
+  provenance but different recorded outcomes compared as
+  incompatible; a bare metric ID was silently resolved to its
+  first produced row.
+- RED at `f8b7761`: new suite
+  `test_evaluation_comparison_compatibility.py`, 10 failed /
+  1 passed (the pass is the pre-existing integrity guard).
+- Fix at `01e6d28` (`00976f1` tests, `3b62531` + `01e6d28` fix):
+  eligibility from experiment identity, verified frozen-plan
+  binding, protocol and source/lock/profile/adapter provenance,
+  each dimension `match` / `differs` / `not_established`;
+  `science_digest` reported separately as result identity;
+  metric pairing by full stored identity with explicit
+  ambiguous/unavailable/unpaired/version states; the view renders
+  Compatibility, Scientific identity and Scientific results as
+  separate cards. Full record:
+  `docs/reviews/2026-10-12-b10-astra-major2-remediation.md`.
+- Author GREEN at `01e6d28`: new suite 11/11; dashboard 335;
+  evaluation 631; full repository 1,553 passed / 2 warnings;
+  MAJOR-1 tests 15/15; 7/7 standalone scenarios.
+- Fresh independent narrow review at `01e6d28`: **MAJOR-2 CLOSED**
+  — BLOCKER 0 / MAJOR 0 / MINOR 1 / UNRESOLVED 0, G6 & MAJOR-1
+  PRESERVATION CONFIRMED, DESIGN AMENDMENT REQUIRED: NO
+  (`docs/reviews/2026-10-12-b10-astra-major2-review.md`). The new
+  MINOR (observer does not re-hash the served plan body against
+  its stated digest) joins the five previously tracked MINOR
+  items for the final cleanup pass. I26–I29 is not claimed
+  0/0/0/0. PR #31 remains unmerged; I30 not started; I31 NOT
+  AUTHORIZED.
+
+## Final MINOR cleanup and acceptance (2026-10-12)
+
+- Register: `docs/reviews/2026-10-12-b10-astra-minor-findings-register.md`
+  (M-01..M-07). M-01 frozen-plan body digest verification, M-02
+  missing-plan metric state, M-03 client/server event-key grammar
+  alignment and M-04 standalone reader-session release are FIXED
+  (`3fa0184` tests, `9de1f05` fixes); M-05 is closed by a dated
+  erratum appended to `browser-verification.md` (`df6c806`); M-06
+  and M-07 are CLOSED INFORMATIONAL with contract evidence.
+  M-03 also received a real local-browser smoke test on the
+  owner's Mac at `df6c806` (six steps PASS, incl. safe rejection
+  of an ordinal-0 event route), recorded in the register
+  separately from the historical I29 acceptance.
+- Author verification at `df6c806`: cleanup file 27; dashboard
+  362; evaluation 631; full repository 1,580 passed / 2 warnings;
+  7/7 standalone scenarios.
+- Fresh independent final review at `df6c806`
+  (`docs/reviews/2026-10-12-b10-astra-final-minor-review.md`):
+  **BLOCKER 0 / MAJOR 0 / MINOR 0 / UNRESOLVED 0 — G1–G6
+  PRESERVED — MAJOR-1: CLOSED — MAJOR-2: CLOSED — I26–I29
+  TECHNICAL ACCEPTANCE: PASS — DESIGN AMENDMENT REQUIRED: NO.**
+- PR #31 remains unmerged pending the owner's decision. I30 not
+  started; I31 NOT AUTHORIZED.

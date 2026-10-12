@@ -1,5 +1,6 @@
 import {api,el,card,list,details,button,table,select} from './api.js';
-export const ASTRA=new Set(['development','predictions','world-model','curiosity','semantic-memory','self-model','decisions']);
+import {parseEvaluationRoute} from './evaluation_support.js';
+export const ASTRA=new Set(['development','predictions','world-model','curiosity','semantic-memory','self-model','decisions','evaluation']);
 export const SIGNALS=['battery_pct','load_ratio','disk_free_pct','network_reachable'];
 export const ACTIONS=['observe','reflect','consolidate','rest'];
 export function id(value,zero=false){const text=String(value);if(!/^(0|[1-9][0-9]{0,18})$/.test(text)||BigInt(text)>(2n**63n-1n)||(!zero&&text==='0'))throw new Error('Invalid evidence ID');return text;}
@@ -8,6 +9,7 @@ export function parseRoute(hash){
   if(hash==='#main')return {skip:true};
   const [raw,query='',...extra]=hash.replace(/^#/,'').split('?'),page=pages.has(raw)?raw:'overview';
   try{
+    if(page==='evaluation'){const sub=parseEvaluationRoute(hash);return sub.invalid?{page,params:{},invalid:true}:{page,params:sub.params};}
     if(new TextEncoder().encode(hash).length>1024||extra.length)throw Error();
     const params={},search=new URLSearchParams(query);
     for(const [key,value] of search){if(Object.hasOwn(params,key))throw Error();params[key]=value;}

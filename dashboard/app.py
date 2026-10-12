@@ -19,7 +19,8 @@ DASHBOARD_VERSION = '0.1'
 DASHBOARD_EDITION = 'Observer Edition'
 
 
-def create_app(home: Path, port: int = 8765, operator: bool = False) -> FastAPI:
+def create_app(home: Path, port: int = 8765, operator: bool = False,
+               evaluation_root: Path | None = None) -> FastAPI:
     from .__main__ import server_options
     server_options(port)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -55,6 +56,11 @@ def create_app(home: Path, port: int = 8765, operator: bool = False) -> FastAPI:
                 'core_source_version':CORE_VERSION,'dashboard_version':DASHBOARD_VERSION,
                 'dashboard_edition':DASHBOARD_EDITION,'supported_schema_version':VERSION}
     app.include_router(observer_router(service, StreamSlots()))
+    from .services.evaluation import EvaluationService
+    from .api.evaluation import evaluation_router
+    evaluation = EvaluationService.from_root(evaluation_root)
+    app.state.evaluation = evaluation
+    app.include_router(evaluation_router(evaluation))
     @app.get('/api/settings')
     def settings(): return SettingsStore(service.home).get()
     app.include_router(operator_router(service, CommandBroker(service, storage=BackupStore(service.home))))
