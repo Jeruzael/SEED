@@ -184,6 +184,22 @@ def _d_child(pipe, cap, clone):
         pipe.close()
 
 
+def _reap(process):
+    """Bounded shutdown: terminate, join, and kill only if necessary.
+
+    Always ends with a join attempt so no zombie or live worker can
+    retain scenario-owned temporary storage after cleanup.
+    """
+    if process.is_alive():
+        process.terminate()
+        process.join(10)
+    if process.is_alive():
+        process.kill()
+        process.join(10)
+    if process.is_alive():
+        raise RuntimeError('evaluation worker could not be reaped')
+
+
 def _spawn(target, args, checks, name, timeout=120):
     ctx = multiprocessing.get_context('spawn')
     parent, child = ctx.Pipe()
@@ -193,19 +209,19 @@ def _spawn(target, args, checks, name, timeout=120):
     child.close()
     try:
         if not parent.poll(timeout):
-            process.terminate()
             _check(checks, name, False, 'worker timed out')
             return None
         result = parent.recv()
         process.join(10)
+        if process.is_alive():
+            _reap(process)
         if result[0] != 'ok':
             _check(checks, name, False, 'worker reported an error')
             return None
         return result[1]
     finally:
         parent.close()
-        if process.is_alive():
-            process.terminate()
+        _reap(process)
 
 
 def _artifact_and_replay(base, checks):
@@ -296,10 +312,24 @@ def _failure_ladder(checks):
 
 
 def run_all(base=None):
+    """Run the technical scenario and return its bounded report.
+
+    With no ``base`` the scenario owns one temporary directory for
+    the whole run and removes it on normal return and on exception
+    (``tempfile.TemporaryDirectory`` stack-unwinding semantics; a
+    process killed outright cannot clean up, and no guarantee is
+    claimed there). A caller-provided ``base`` is caller-owned and
+    is never removed here.
+    """
+    if base is not None:
+        return _run_all_in(Path(base))
+    with tempfile.TemporaryDirectory(prefix='seed-i30-scenario-') as owned:
+        return _run_all_in(Path(owned))
+
+
+def _run_all_in(base):
     checks = []
     families = {}
-    base = Path(base) if base is not None else Path(
-        tempfile.mkdtemp(prefix='seed-i30-scenario-'))
     base.mkdir(parents=True, exist_ok=True)
     base = base.resolve()
     root = _load('paths').EvaluationRoot.create(base)
