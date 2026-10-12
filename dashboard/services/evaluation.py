@@ -207,38 +207,221 @@ class EvaluationService:
         data = reader.verified_file(run_id, name)
         return strict_json(data, max_bytes=len(data))
 
+    def _stored_file_optional(self, reader, run_id: str, name: str,
+                              receipt) -> dict | None:
+        """Like _stored_file, but an artifact absent from the run's
+        verified inventory yields None instead of an error: absence of
+        evidence is a compatibility fact, not a request failure. No
+        bytes are read for an absent file."""
+        names = {entry.identity for entry in receipt.payloads}
+        if name not in names:
+            return None
+        data = reader.verified_file(run_id, name)
+        return strict_json(data, max_bytes=len(data))
+
+    @staticmethod
+    def _dimension(left, right) -> dict:
+        """One eligibility dimension. Missing evidence is an explicit
+        not-established state, never a match by None == None."""
+        if left is None or right is None:
+            return {'left': left, 'right': right, 'match': None,
+                    'status': 'not_established'}
+        match = left == right
+        return {'left': left, 'right': right, 'match': match,
+                'status': 'match' if match else 'differs'}
+
+    def _plan_state(self, run_id: str, manifest: dict,
+                    plan_file: dict | None, metrics: dict):
+        """Establish one run's frozen-plan binding from its own
+        verified files. Returns (established, plan_body). A stored
+        value that contradicts the manifest binding is invalid
+        evidence (409), not a compatibility outcome; a missing link
+        leaves the binding not established."""
+        digest = manifest.get('plan_digest')
+        if digest is None or plan_file is None:
+            return False, None
+        stated = plan_file.get('digest')
+        receipt = plan_file.get('receipt') or {}
+        if stated is not None and stated != digest \
+                or receipt.get('digest') is not None \
+                and receipt.get('digest') != digest:
+            raise ServiceError('artifact_error',
+                               'Stored evaluation evidence is '
+                               'unavailable or invalid.', 409)
+        metrics_digest = metrics.get('plan_digest')
+        if metrics_digest is not None and metrics_digest != digest:
+            raise ServiceError('artifact_error',
+                               'Stored evaluation evidence is '
+                               'unavailable or invalid.', 409)
+        if stated is None or receipt.get('digest') is None \
+                or metrics_digest is None:
+            return False, None
+        return True, plan_file.get('plan')
+
+    @staticmethod
+    def _metric_block(metric: str, sides: dict) -> dict:
+        """Pair one registered measurement across two runs by its
+        full stored identity (member:metric:population:window).
+
+        A bare metric ID is never silently resolved to the first
+        matching row: zero rows is unavailable, several rows is
+        ambiguous, differing identities are unpaired, and a row whose
+        version is not the plan-registered version is not presented
+        as the run's registered measurement."""
+        block = {'id': metric, 'state': 'unavailable', 'identity': None,
+                 'left': None, 'right': None}
+        rows = {label: [row for row in side['metrics'].get(
+            'produced', []) if row.get('metric') == metric]
+                for label, side in sides.items()}
+        if not rows['left'] or not rows['right']:
+            block['missing'] = [label for label in ('left', 'right')
+                                if not rows[label]]
+            if len(rows['left']) > 1 or len(rows['right']) > 1:
+                block['candidates'] = {
+                    label: sorted({row.get('identity')
+                                   for row in rows[label]})
+                    for label in ('left', 'right')}
+            return block
+        if len(rows['left']) > 1 or len(rows['right']) > 1:
+            block['state'] = 'ambiguous'
+            block['candidates'] = {
+                label: sorted({row.get('identity')
+                               for row in rows[label]})
+                for label in ('left', 'right')}
+            return block
+        left_row, right_row = rows['left'][0], rows['right'][0]
+        left_id, right_id = (left_row.get('identity'),
+                             right_row.get('identity'))
+        if left_id is None or right_id is None:
+            block['state'] = 'not_established'
+            return block
+        if left_id != right_id:
+            block['state'] = 'unpaired'
+            block['identities'] = {'left': left_id, 'right': right_id}
+            return block
+        for label, row in (('left', left_row), ('right', right_row)):
+            plan = sides[label]['plan']
+            registered = None
+            if plan is not None:
+                registered = next(
+                    (entry.get('version')
+                     for entry in plan.get('metrics', [])
+                     if entry.get('id') == metric), None)
+            if registered is None or row.get('version') != registered:
+                block['state'] = 'version_mismatch'
+                return block
+        block.update(state='paired', identity=left_id,
+                     left=left_row, right=right_row)
+        return block
+
     def compare(self, left_id: str, right_id: str,
                 metric: str | None) -> dict:
         """Stored-evidence comparison only; no verdict is invented.
 
-        Compatibility dimensions are read from the two receipt-verified
-        manifests. Descriptive stored values for one registered metric
-        may be shown side by side; the service never classifies a run
-        as better, worse or equivalent.
+        Eligibility (MAJOR-2) is decided from experimental identity,
+        the receipt-bound frozen plan, run protocol and
+        source/lock/profile/adapter provenance -- never from
+        scientific outcomes. The science digest is reported
+        separately as result identity/provenance. Eligibility is
+        'compatible', 'incompatible' (a required dimension
+        demonstrably differs) or 'not_established' (stored evidence
+        is insufficient); the boolean 'compatible' is true only for
+        the first. All evidence is read through the request session
+        before any decision, so near-limit comparisons fail with the
+        bounded resource error instead of skipping checks.
         """
         def call(reader):
-            left = self._stored_file(reader, left_id, 'manifest.json')
-            right = self._stored_file(reader, right_id, 'manifest.json')
-            dimensions = {}
-            for name in ('experiment', 'plan_digest', 'science_digest'):
-                dimensions[name] = {
-                    'left': left.get(name), 'right': right.get(name),
-                    'match': left.get(name) == right.get(name)}
-            compatible = all(entry['match']
-                             for entry in dimensions.values())
-            result = {'left': left_id, 'right': right_id,
-                      'compatible': compatible,
-                      'dimensions': dimensions, 'metric': None}
+            sides = {}
+            for label, run_id in (('left', left_id),
+                                  ('right', right_id)):
+                receipt = reader.receipt(run_id)
+                manifest = self._stored_file(reader, run_id,
+                                             'manifest.json', receipt)
+                plan_file = self._stored_file_optional(
+                    reader, run_id, 'analysis-plan.json', receipt)
+                metrics = self._stored_file(reader, run_id,
+                                            'metrics.json', receipt)
+                established, plan = self._plan_state(
+                    run_id, manifest, plan_file, metrics)
+                sides[label] = {'manifest': manifest, 'plan': plan,
+                                'established': established,
+                                'metrics': metrics}
+            left_m = sides['left']['manifest']
+            right_m = sides['right']['manifest']
+
+            def experiment_value(manifest):
+                experiment = manifest.get('experiment') or {}
+                if experiment.get('id') is None \
+                        or experiment.get('version') is None:
+                    return None
+                return {'id': experiment['id'],
+                        'version': experiment['version']}
+
+            def field(manifest, name):
+                return (manifest.get('experiment') or {}).get(name)
+
+            dimensions = {
+                'experiment': self._dimension(
+                    experiment_value(left_m), experiment_value(right_m)),
+                'plan_digest': self._dimension(
+                    left_m.get('plan_digest')
+                    if sides['left']['established'] else None,
+                    right_m.get('plan_digest')
+                    if sides['right']['established'] else None),
+                'protocol': self._dimension(field(left_m, 'protocol'),
+                                            field(right_m, 'protocol')),
+                'source_commit': self._dimension(
+                    field(left_m, 'source_commit'),
+                    field(right_m, 'source_commit')),
+                'lock_digest': self._dimension(
+                    field(left_m, 'lock_digest'),
+                    field(right_m, 'lock_digest')),
+                'profile_digest': self._dimension(
+                    field(left_m, 'profile_digest'),
+                    field(right_m, 'profile_digest')),
+                'adapter_version': self._dimension(
+                    field(left_m, 'adapter_version'),
+                    field(right_m, 'adapter_version')),
+            }
+            statuses = [entry['status']
+                        for entry in dimensions.values()]
+            if 'differs' in statuses:
+                eligibility = 'incompatible'
+            elif 'not_established' in statuses:
+                eligibility = 'not_established'
+            else:
+                eligibility = 'compatible'
+            reasons = [
+                f'{name}: differs' if entry['status'] == 'differs'
+                else f'{name}: not established from stored evidence'
+                for name, entry in dimensions.items()
+                if entry['status'] != 'match']
+            plan_fields = []
+            left_plan, right_plan = (sides['left']['plan'],
+                                     sides['right']['plan'])
+            if left_plan is not None and right_plan is not None \
+                    and dimensions['plan_digest']['status'] == 'differs':
+                plan_fields = sorted(
+                    name for name in set(left_plan) | set(right_plan)
+                    if left_plan.get(name) != right_plan.get(name))
+            left_digest = left_m.get('science_digest')
+            right_digest = right_m.get('science_digest')
+            result = {
+                'left': left_id, 'right': right_id,
+                'compatible': eligibility == 'compatible',
+                'eligibility': eligibility, 'reasons': reasons,
+                'dimensions': dimensions, 'plan_fields': plan_fields,
+                'scientific_identity': {'science_digest': {
+                    'left': left_digest, 'right': right_digest,
+                    'equal': (left_digest == right_digest)
+                    if left_digest is not None
+                    and right_digest is not None else None}},
+                'findings': {
+                    'left': sides['left']['metrics'].get('findings'),
+                    'right': sides['right']['metrics'].get('findings')},
+                'metric': None}
             if metric:
-                values = {}
-                for label, run_id in (('left', left_id),
-                                      ('right', right_id)):
-                    stored = self._stored_file(reader, run_id,
-                                               'metrics.json')
-                    row = next((entry for entry in stored['produced']
-                                if entry['metric'] == metric), None)
-                    values[label] = row
-                result['metric'] = {'id': metric, **values}
+                result['metric'] = self._metric_block(metric, sides)
             return result
         return self._guarded(call)
 

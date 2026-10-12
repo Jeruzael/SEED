@@ -297,29 +297,96 @@ async function renderCompare(root, signal, params) {
     {left: params.left, right: params.right});
   if (params.metric) query.set('metric', params.metric);
   const data = await fetchEvaluation('evaluation/compare?' + query, signal);
-  const panel = card('Compare runs');
-  if (!data.compatible) {
-    panel.append(el('p',
+  // Compatibility: eligibility from definitions and provenance only.
+  const compat = card('Compatibility');
+  if (data.eligibility === 'compatible') {
+    compat.append(el('p',
+      'Compatible for descriptive comparison of the stored results. '
+      + 'Compatibility is not a scientific verdict: the UI does not '
+      + 'rank the runs.'));
+  } else if (data.eligibility === 'incompatible') {
+    compat.append(el('p',
       'Incompatible for automatic comparison: the dimensions below '
-      + 'differ. Side-by-side descriptive inspection only; the UI does '
-      + 'not rank the runs.', 'notice'));
+      + 'differ. Side-by-side descriptive inspection only; the UI '
+      + 'does not rank the runs.', 'notice'));
+  } else {
+    compat.append(el('p',
+      'Compatibility not established from the stored evidence: the '
+      + 'dimensions below could not be verified. Side-by-side '
+      + 'descriptive inspection only; the UI does not rank the '
+      + 'runs.', 'notice'));
   }
+  const statusText = entry => entry.status === 'match' ? 'Match'
+    : entry.status === 'differs' ? 'Differs' : 'Not established';
   const dimensions = data.dimensions || {};
-  panel.append(table(
-    ['Dimension', 'Left', 'Right', 'Match'],
+  compat.append(table(
+    ['Dimension', 'Left', 'Right', 'Status'],
     Object.entries(dimensions).map(([name, entry]) => [
       name,
-      typeof entry.left === 'object' ? short(JSON.stringify(entry.left), 24)
-                                     : value(entry.left),
-      typeof entry.right === 'object' ? short(JSON.stringify(entry.right), 24)
-                                      : value(entry.right),
-      entry.match ? 'Match' : 'Differs']),
+      entry.left !== null && typeof entry.left === 'object'
+        ? short(JSON.stringify(entry.left), 24) : value(entry.left),
+      entry.right !== null && typeof entry.right === 'object'
+        ? short(JSON.stringify(entry.right), 24) : value(entry.right),
+      statusText(entry)]),
     'Comparison compatibility dimensions'));
-  if (data.metric) {
-    panel.append(raw({metric: data.metric.id,
-                      left: data.metric.left, right: data.metric.right}));
+  if ((data.plan_fields || []).length) {
+    compat.append(el('p',
+      'Differing frozen-plan fields: ' + data.plan_fields.join(', '),
+      'subtle'));
   }
-  root.replaceChildren(panel);
+  // Scientific identity: provenance only, never an eligibility rule.
+  const identity = card('Scientific identity');
+  const digest = data.scientific_identity?.science_digest || {};
+  identity.append(list([
+    ['Left science digest', short(digest.left, 24)],
+    ['Right science digest', short(digest.right, 24)],
+    ['Scientific identity', digest.equal === null
+      || digest.equal === undefined ? 'Not established'
+      : digest.equal ? 'Equal' : 'Different results'],
+  ]));
+  identity.append(el('p',
+    'Science digests identify the recorded scientific content. '
+    + 'Different results are expected between comparable runs and '
+    + 'do not by themselves make runs incompatible.', 'subtle'));
+  // Scientific results: stored values and findings, never ranked.
+  const results = card('Scientific results');
+  if (data.metric) {
+    const metric = data.metric;
+    if (metric.state === 'paired') {
+      results.append(raw({metric: metric.id,
+                          identity: metric.identity,
+                          left: metric.left, right: metric.right}));
+    } else if (metric.state === 'ambiguous') {
+      results.append(el('p',
+        'Metric ' + metric.id + ' has more than one registered '
+        + 'measurement per run, so no single value is selected: '
+        + [...(metric.candidates?.left || []),
+           ...(metric.candidates?.right || [])]
+            .filter((v, i, a) => a.indexOf(v) === i).join(', '),
+        'notice'));
+    } else if (metric.state === 'unavailable') {
+      results.append(el('p',
+        'Metric ' + metric.id + ' is unavailable for: '
+        + (metric.missing || []).join(', ') + '. Unavailable values '
+        + 'are never shown as zero.', 'notice'));
+    } else {
+      results.append(el('p',
+        'Metric ' + metric.id + ' could not be paired across the '
+        + 'runs (' + metric.state.replaceAll('_', ' ') + '), so no '
+        + 'values are presented as a comparison.', 'notice'));
+    }
+  }
+  for (const side of ['left', 'right']) {
+    const rows = data.findings?.[side] || [];
+    if (rows.length) {
+      results.append(table(
+        ['Question', 'Scientific finding', 'Reason'],
+        rows.map(row => [value(row.question), value(row.status),
+                         value(row.reason)]),
+        'Stored scientific findings (' + side + ' run)'));
+    }
+  }
+  root.replaceChildren(compat, identity, results);
 }
 
 export async function renderEvaluation(root, signal) {

@@ -450,20 +450,31 @@ def test_compare_reads_plan_within_same_budget(
     import os
     from pathlib import Path as _Path
     reads = []
+    fd_paths = {}
     real_read_bytes = _Path.read_bytes
     real_pread = os.pread
+    real_open = os.open
 
     def spy_read_bytes(self):
         data = real_read_bytes(self)
         reads.append((str(self), len(data)))
         return data
 
+    def spy_open(path, flags, mode=0o777, *, dir_fd=None):
+        fd = real_open(path, flags, mode, dir_fd=dir_fd)
+        try:
+            fd_paths[fd] = os.readlink(f'/proc/self/fd/{fd}')
+        except OSError:
+            pass
+        return fd
+
     def spy_pread(fd, length, offset):
         data = real_pread(fd, length, offset)
-        reads.append(('pread', len(data)))
+        reads.append((fd_paths.get(fd, 'pread'), len(data)))
         return data
 
     monkeypatch.setattr(_Path, 'read_bytes', spy_read_bytes)
+    monkeypatch.setattr(os, 'open', spy_open)
     monkeypatch.setattr(os, 'pread', spy_pread)
     response = _compare(home, differing_results_root, A, B)
     assert response.status_code == 200
