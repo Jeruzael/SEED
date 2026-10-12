@@ -10,10 +10,25 @@ receipt-verified chunk contract). No mutation verb exists here.
 import re
 
 from fastapi import APIRouter, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from ..services.evaluation import EvaluationService
 from ..services.read_store import ServiceError
+
+_RESPONSE_BYTES = 1024 * 1024
+
+
+def _respond(payload):
+    """Serialize once and enforce the 1 MiB response ceiling on the
+    exact bytes that will be sent. An oversized indivisible response
+    fails explicitly; scientific content is never truncated to fit."""
+    response = JSONResponse(payload)
+    if len(response.body) > _RESPONSE_BYTES:
+        raise ServiceError(
+            'resource_limit',
+            'Evaluation response exceeded its approved size limit.',
+            429)
+    return response
 
 _RUN_ID = re.compile(r'^[0-9a-f]{32}$')
 _TOKEN = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
@@ -81,29 +96,30 @@ def evaluation_router(service: EvaluationService) -> APIRouter:
     @router.get('/runs')
     def runs(request: Request):
         params = _params(request, {'limit', 'cursor'})
-        return service.runs(_cursor(params), _limit(params))
+        return _respond(service.runs(_cursor(params), _limit(params)))
 
     @router.get('/runs/{run_id}')
     def detail(request: Request, run_id: str):
         _params(request, set())
-        return service.detail(_run_id(run_id))
+        return _respond(service.detail(_run_id(run_id)))
 
     @router.get('/runs/{run_id}/measurements')
     def measurements(request: Request, run_id: str):
         params = _params(request, {'limit', 'cursor'})
-        return service.measurements(_run_id(run_id), _cursor(params),
-                                    _limit(params))
+        return _respond(service.measurements(
+            _run_id(run_id), _cursor(params), _limit(params)))
 
     @router.get('/runs/{run_id}/events')
     def events(request: Request, run_id: str):
         params = _params(request, {'limit', 'cursor'})
-        return service.events(_run_id(run_id), _cursor(params),
-                              _limit(params))
+        return _respond(service.events(_run_id(run_id),
+                                       _cursor(params), _limit(params)))
 
     @router.get('/runs/{run_id}/events/{event_key}')
     def event(request: Request, run_id: str, event_key: str):
         _params(request, set())
-        return service.event(_run_id(run_id), _event_key(event_key))
+        return _respond(service.event(_run_id(run_id),
+                                      _event_key(event_key)))
 
     @router.get('/runs/{run_id}/curve')
     def curve(request: Request, run_id: str):
@@ -112,7 +128,7 @@ def evaluation_router(service: EvaluationService) -> APIRouter:
         if not metric or not series or not _NAME.fullmatch(metric) \
                 or not _NAME.fullmatch(series):
             raise _invalid('Invalid curve selection.')
-        return service.curve(_run_id(run_id), metric, series)
+        return _respond(service.curve(_run_id(run_id), metric, series))
 
     @router.get('/compare')
     def compare(request: Request):
@@ -123,7 +139,8 @@ def evaluation_router(service: EvaluationService) -> APIRouter:
         metric = params.get('metric')
         if metric is not None and not _NAME.fullmatch(metric):
             raise _invalid('Invalid metric.')
-        return service.compare(_run_id(left), _run_id(right), metric)
+        return _respond(service.compare(_run_id(left), _run_id(right),
+                                        metric))
 
     @router.get('/runs/{run_id}/files/{file_id}')
     def files(request: Request, run_id: str, file_id: str):
@@ -134,6 +151,11 @@ def evaluation_router(service: EvaluationService) -> APIRouter:
         if not _DIGITS.fullmatch(raw):
             raise _invalid('Invalid chunk index.')
         data = service.chunk(_run_id(run_id), file_id, int(raw))
+        if len(data) > _RESPONSE_BYTES:
+            raise ServiceError(
+                'resource_limit',
+                'Evaluation response exceeded its approved size limit.',
+                429)
         return Response(
             content=data, media_type='application/octet-stream',
             headers={'Content-Disposition':

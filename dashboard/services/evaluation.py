@@ -8,16 +8,14 @@ constructed, every method reports a clear unavailable state and no
 evaluator machinery is initialized.
 """
 import json
-from math import ceil
 from pathlib import Path
 
+from development.evaluation import replay as _replay
 from development.evaluation.contracts import ContractError, strict_json
 from development.evaluation.paths import EvaluationRoot
 from development.evaluation.reader import (EvaluationReader, ReaderError)
 
 from .read_store import ServiceError
-
-_CHUNK = 64 * 1024
 
 
 class EvaluationService:
@@ -52,8 +50,27 @@ class EvaluationService:
         return self._reader
 
     def _guarded(self, call):
+        reader = self._require()
         try:
-            return call(self._require())
+            # One request-scoped reader session per service call (one
+            # HTTP request): every nested reader operation shares the
+            # same 1 MiB read budget and the same 2-second deadline,
+            # and concurrent requests own independent sessions.
+            with reader.request_session() as session:
+                try:
+                    return call(reader)
+                except _replay.BudgetError:
+                    # Resource exhaustion is never mislabeled as
+                    # artifact corruption.
+                    if session.deadline_passed():
+                        raise ServiceError(
+                            'deadline_exceeded',
+                            'Evaluation request exceeded its approved '
+                            'time limit.', 429)
+                    raise ServiceError(
+                        'resource_limit',
+                        'Evaluation request exceeded its approved '
+                        'resource limits.', 429)
         except ReaderError as error:
             if error.reason in ('RECEIPT_UNAVAILABLE',
                                 'ARTIFACT_NOT_PUBLISHED'):
@@ -89,7 +106,8 @@ class EvaluationService:
             # Scientific finding details belong in the detail response
             # (plan I26 interfaces); read them from the receipt-verified
             # stored metrics file, never recomputed here.
-            metrics = self._stored_file(reader, run_id, 'metrics.json')
+            metrics = self._stored_file(reader, run_id, 'metrics.json',
+                                        detail.receipt)
             body['findings'] = metrics['findings']
             return body
         return self._guarded(call)
@@ -125,18 +143,22 @@ class EvaluationService:
                     'points': [list(point) for point in curve.points]}
         return self._guarded(call)
 
-    def _stored_file(self, reader, run_id: str, name: str) -> dict:
-        """Read one receipt-verified stored file through bounded chunks."""
-        detail = reader.detail(run_id)
+    def _stored_file(self, reader, run_id: str, name: str,
+                     receipt=None) -> dict:
+        """Read one receipt-verified stored file within this request's
+        session: chunk-verified by the reader, read at most once, and
+        parsed against the file's own verified length (the artifact
+        contract bounds these files well above the generic 64 KiB
+        message cap that previously made large valid files fail)."""
+        if receipt is None:
+            receipt = reader.receipt(run_id)
         lengths = {entry.identity: entry.byte_length
-                   for entry in detail.receipt.payloads}
+                   for entry in receipt.payloads}
         if name not in lengths:
             raise ServiceError('not_found',
                                'Stored evaluation file not found.', 404)
-        pieces = ceil(lengths[name] / _CHUNK)
-        data = b''.join(reader.chunk(run_id, name, index)
-                        for index in range(pieces))
-        return strict_json(data)
+        data = reader.verified_file(run_id, name)
+        return strict_json(data, max_bytes=len(data))
 
     def compare(self, left_id: str, right_id: str,
                 metric: str | None) -> dict:
