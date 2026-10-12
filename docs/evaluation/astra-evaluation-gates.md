@@ -212,3 +212,27 @@ run/suite/re-execute/modify/delete/import endpoints exist.
   items for the final cleanup pass. I26–I29 is not claimed
   0/0/0/0. PR #31 remains unmerged; I30 not started; I31 NOT
   AUTHORIZED.
+
+## Final MINOR cleanup and acceptance (2026-10-12)
+
+- Register: `docs/reviews/2026-10-12-b10-astra-minor-findings-register.md`
+  (M-01..M-07). M-01 frozen-plan body digest verification, M-02
+  missing-plan metric state, M-03 client/server event-key grammar
+  alignment and M-04 standalone reader-session release are FIXED
+  (`3fa0184` tests, `9de1f05` fixes); M-05 is closed by a dated
+  erratum appended to `browser-verification.md` (`df6c806`); M-06
+  and M-07 are CLOSED INFORMATIONAL with contract evidence.
+  M-03 also received a real local-browser smoke test on the
+  owner's Mac at `df6c806` (six steps PASS, incl. safe rejection
+  of an ordinal-0 event route), recorded in the register
+  separately from the historical I29 acceptance.
+- Author verification at `df6c806`: cleanup file 27; dashboard
+  362; evaluation 631; full repository 1,580 passed / 2 warnings;
+  7/7 standalone scenarios.
+- Fresh independent final review at `df6c806`
+  (`docs/reviews/2026-10-12-b10-astra-final-minor-review.md`):
+  **BLOCKER 0 / MAJOR 0 / MINOR 0 / UNRESOLVED 0 — G1–G6
+  PRESERVED — MAJOR-1: CLOSED — MAJOR-2: CLOSED — I26–I29
+  TECHNICAL ACCEPTANCE: PASS — DESIGN AMENDMENT REQUIRED: NO.**
+- PR #31 remains unmerged pending the owner's decision. I30 not
+  started; I31 NOT AUTHORIZED.
