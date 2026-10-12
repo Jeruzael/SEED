@@ -148,3 +148,12 @@ not execute the registered empirical suite.
   pending owner-approved merge and post-merge closure.
   G1–G6 PASS / PRESERVED. G7 EMPIRICAL: PENDING / NOT
   AUTHORIZED. I31 NOT AUTHORIZED.
+
+
+### I30 engineering post-merge qualification evidence (2026-10-13)
+
+- Engineering [PR #33](https://github.com/Jeruzael/SEED/pull/33), accepted head `082391f82ff2221f31eb35889b2a18bb0ad50097`, normal merge `08683000aa0c3ea711c00fd993ec67461f770542`.
+- Exact PR-head [CI 38314711901](https://github.com/Jeruzael/SEED/actions/runs/38314711901): three jobs SUCCESS.
+- Distinct exact post-merge master push [CI 38317966927](https://github.com/Jeruzael/SEED/actions/runs/38317966927), run #65, attempt 2: Linux 3.11 1,596 passed / 1 skipped; Linux 3.13 and macOS 3.13 1,597 passed; two warnings each. All three jobs SUCCESS; deterministic standalones succeed on both Python 3.13 jobs (skipped as planned on 3.11).
+- Engineering and temporary fixture cleanup independent review records remain unmodified. No empirical B10 experiments have run. G1–G6 PASS / PRESERVED; G7 PENDING; I31 NOT AUTHORIZED.
+- [I30 engineering closure record](../reviews/2026-10-13-b10-i30-engineering-closure.md): drafted; documentation closure publication still requires its own independent review, exact PR-head CI, owner-approved normal merge, and distinct post-merge master CI. Do not record final closure until all pass.
