@@ -8,6 +8,7 @@ file fingerprint (inode/length/mtime/ctime) changes.
 """
 import base64
 import contextvars
+import functools
 import hashlib
 import os
 import sqlite3
@@ -142,11 +143,35 @@ class EvaluationReader:
         finally:
             self._sessions.reset(token)
 
+    def _public(method):
+        """Public-operation lifecycle: the call that owns a
+        transient session releases it (and its raw-file caches) when
+        the operation completes, on success and on failure alike.
+        Ambient sessions spanning composed calls are unaffected."""
+        @functools.wraps(method)
+        def wrapper(self, *args, **kwargs):
+            owned = self._begin()
+            try:
+                return method(self, *args, **kwargs)
+            finally:
+                if owned:
+                    self._sessions.set(None)
+        return wrapper
+
     def _begin(self):
+        """Begin one public operation, creating a transient session
+        when none is active. Returns True only when this call created
+        the context's first transient session and therefore owns its
+        release (M-04). Ambient request sessions are never reset or
+        replaced; a nested standalone call refreshes the transient
+        session (the historical per-call semantics) without owning
+        its release."""
         session = self._sessions.get()
         if session is not None and session.ambient:
-            return
+            return False
+        owned = session is None
         self._sessions.set(self._new_session(False))
+        return owned
 
     # -- bounded IO -----------------------------------------------------
     def _tick(self, data):
@@ -213,9 +238,9 @@ class EvaluationReader:
         session.receipts[run_id] = result
         return result
 
+    @_public
     def receipt(self, run_id):
         """The receipt-verified payload inventory for one run."""
-        self._begin()
         return self._receipt(run_id)[1]
 
     def _chunks(self, run_id, directory):
@@ -233,6 +258,7 @@ class EvaluationReader:
         session.chunks[run_id] = chunks
         return chunks
 
+    @_public
     def verified_file(self, run_id, name):
         """Assemble one stored file from receipt-verified chunks.
 
@@ -289,8 +315,8 @@ class EvaluationReader:
         return ReplayPage(tuple(page), next_cursor)
 
     # -- API ------------------------------------------------------------
+    @_public
     def runs(self, cursor=None, limit=20):
-        self._begin()
         items = []
         for i, entry in enumerate(self._runs_index()):
             body = raw_bytes(dict(run_id=entry['run_id'], digest=entry['digest'],
@@ -300,8 +326,8 @@ class EvaluationReader:
             items.append(Event(('runs', 'default', i + 1, 'run'), body))
         return self._page(items, cursor, limit)
 
+    @_public
     def detail(self, run_id):
-        self._begin()
         body_receipt, receipt = self._receipt(run_id)
         directory = payload_directory(self._root, run_id)
         if directory.parent.name != 'runs':
@@ -340,8 +366,8 @@ class EvaluationReader:
                                                manifest['reason']), summary_body)
         return RunDetail(summary, receipt)
 
+    @_public
     def measurements(self, run_id, cursor=None, limit=20):
-        self._begin()
         self._receipt(run_id)
         directory = payload_directory(self._root, run_id)
         metrics = strict_json(self._read(directory, 'metrics.json', 256 * 1024),
@@ -384,8 +410,8 @@ class EvaluationReader:
             self._replay_indexes[run_id] = (fingerprint, index)
             return index
 
+    @_public
     def events(self, run_id, cursor=None, limit=20):
-        self._begin()
         self._receipt(run_id)
         if type(limit) is not int or not 1 <= limit <= PAGE_LIMIT:
             raise ContractError()
@@ -420,8 +446,8 @@ class EvaluationReader:
         next_cursor = _cursor(position) if position < index.total else None
         return ReplayPage(tuple(page), next_cursor)
 
+    @_public
     def event(self, run_id, key):
-        self._begin()
         self._receipt(run_id)
         key = tuple(key)
         budget = self._session().budget
@@ -449,8 +475,8 @@ class EvaluationReader:
                              if ej == j), 1, budget=budget)[0]
         raise ContractError()
 
+    @_public
     def curve(self, run_id, metric, series):
-        self._begin()
         self._receipt(run_id)
         directory = payload_directory(self._root, run_id)
         index = strict_json(self._read(directory, 'index.json', 128 * 1024),
@@ -461,8 +487,8 @@ class EvaluationReader:
         points = tuple((int(p[0]), p[1]) for p in entry['points'])
         return Curve(series, points)
 
+    @_public
     def chunk(self, run_id, file_id, chunk):
-        self._begin()
         self._receipt(run_id)
         directory = payload_directory(self._root, run_id)
         chunks = self._chunks(run_id, directory)
@@ -491,10 +517,10 @@ class EvaluationReader:
             self._chunk_verified.add(run_id)
         return piece
 
+    @_public
     def snapshot_tables(self, run_id):
         """Optional read-only snapshot inspection: table names only, under a
         write-denying authorizer and a hard VM step budget."""
-        self._begin()
         self._receipt(run_id)
         directory = payload_directory(self._root, run_id)
         manifest = strict_json(self._read(directory, 'manifest.json', 128 * 1024),

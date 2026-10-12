@@ -47,11 +47,17 @@ export function parseEvaluationRoute(hash) {
         const parts = value.split(':');
         if (parts.length !== 4) throw Error();
         const [phase, subcase, ordinal, stage] = parts;
-        if (!TOKEN.test(phase) || !TOKEN.test(subcase) || !TOKEN.test(stage)) throw Error();
-        // The ordinal is an exact signed-64 decimal string; it is
-        // validated as text and never coerced to a JS number.
-        if (!/^(0|[1-9][0-9]{0,18})$/.test(ordinal)
-            || BigInt(ordinal) > 2n ** 63n - 1n) throw Error();
+        // The registered event-key contract (M-03), identical to
+        // the server's: closed phase/subcase/stage sets and a
+        // canonical ordinal in 1..2048. Signed-64 values are
+        // evidence source IDs inside event bodies, not ordinals.
+        if (!['training', 'measured', 'probe'].includes(phase)
+            || !['default', 'fresh', 'stale', 'unavailable',
+                 'contradictory'].includes(subcase)
+            || !['pre', 'action', 'outcome', 'checkpoint', 'update']
+                .includes(stage)) throw Error();
+        if (!/^[1-9][0-9]{0,3}$/.test(ordinal)
+            || Number(ordinal) > 2048) throw Error();
       }
     }
     // 'left' alone is compare-selection state; 'right' requires 'left'.

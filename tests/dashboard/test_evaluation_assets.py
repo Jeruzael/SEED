@@ -31,12 +31,15 @@ import {parseRoute} from './evidence.js';
 // Registered selectors parse; run list is the default.
 assert.deepEqual(parseEvaluationRoute('#evaluation').params, {});
 assert.equal(parseEvaluationRoute('#evaluation?run=' + 'a'.repeat(32)).params.run, 'a'.repeat(32));
-// Scientific identifiers stay exact strings, never coerced numbers.
-const big = parseEvaluationRoute('#evaluation?run=' + 'a'.repeat(32) + '&event=measured:default:9223372036854775807:update');
-assert.equal(big.invalid, undefined);
-assert.equal(big.params.event, 'measured:default:9223372036854775807:update');
-const aboveSafe = parseEvaluationRoute('#evaluation?run=' + 'a'.repeat(32) + '&event=measured:default:9007199254740993:update');
-assert.equal(aboveSafe.invalid, undefined);
+// Registered event keys parse: the ordinal domain is 1..2048.
+// (Signed-64 scientific source IDs stay exact strings in event
+// bodies -- see the parseEvidence tests -- but they are not event
+// ordinals; M-03 aligned this grammar with the server's.)
+const validEvent = parseEvaluationRoute('#evaluation?run=' + 'a'.repeat(32) + '&event=measured:default:2048:update');
+assert.equal(validEvent.invalid, undefined);
+assert.equal(validEvent.params.event, 'measured:default:2048:update');
+const firstEvent = parseEvaluationRoute('#evaluation?run=' + 'a'.repeat(32) + '&event=measured:default:1:update');
+assert.equal(firstEvent.invalid, undefined);
 // The shell route delegates to the strict evaluation parser.
 assert.equal(parseRoute('#evaluation?run=' + 'a'.repeat(32)).page, 'evaluation');
 assert.equal(parseRoute('#evaluation?run=' + 'a'.repeat(32)).invalid, undefined);
@@ -49,7 +52,14 @@ for (const bad of [
   '#evaluation?bogus=1',                               // unknown selector
   '#evaluation?right=' + 'b'.repeat(32),               // right requires left
   '#evaluation?event=measured:default:9223372036854775808:update', // > int64
+  '#evaluation?event=measured:default:9223372036854775807:update', // int64 max: a source ID, not an ordinal
+  '#evaluation?event=measured:default:9007199254740993:update', // above-safe source ID, not an ordinal
+  '#evaluation?event=measured:default:0:update',       // ordinal starts at 1
+  '#evaluation?event=measured:default:2049:update',    // ordinal ceiling is 2048
   '#evaluation?event=measured:default:01:update',      // leading zero
+  '#evaluation?event=bogus:default:1:update',          // unregistered phase
+  '#evaluation?event=measured:bogus:1:update',         // unregistered subcase
+  '#evaluation?event=measured:default:1:bogus',        // unregistered stage
   '#evaluation?chunk=-1',
   '#evaluation?file=../secret',
   '#other?run=' + 'a'.repeat(32),

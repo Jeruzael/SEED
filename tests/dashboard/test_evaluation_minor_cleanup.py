@@ -250,14 +250,14 @@ def test_standalone_calls_keep_per_call_budgets(tmp_path):
 # ------------------------------------------------------------------ M-06
 
 def test_missing_payload_file_is_typed_contract_error(tmp_path):
-    """M-06: reading a published run whose payload file was removed
-    raises the typed ContractError, never a leaked
-    FileNotFoundError."""
+    """M-06: reading a published run whose chunk inventory file was
+    removed raises the typed ContractError from the reader's _read
+    path, never a leaked FileNotFoundError."""
     checkout = tmp_path / 'checkout'
     checkout.mkdir()
     build_fixture(checkout, 'complete-negative')
     target = (checkout / '.seed-evaluation' / 'evaluation' / 'runs'
-              / RUN / 'metrics.json')
+              / RUN / 'chunks.json')
     target.unlink()
     reader = EvaluationReader(EvaluationRoot.create(checkout))
     with pytest.raises(ContractError):

@@ -7,11 +7,13 @@ execution capability: when the root is absent or the reader cannot be
 constructed, every method reports a clear unavailable state and no
 evaluator machinery is initialized.
 """
+import hashlib
 import json
 from contextlib import contextmanager
 from pathlib import Path
 
 from development.evaluation import replay as _replay
+from development.evaluation.canonical import canonical_bytes
 from development.evaluation.contracts import ContractError, strict_json
 from development.evaluation.paths import EvaluationRoot
 from development.evaluation.reader import (EvaluationReader, ReaderError)
@@ -253,8 +255,33 @@ class EvaluationService:
             raise ServiceError('artifact_error',
                                'Stored evaluation evidence is '
                                'unavailable or invalid.', 409)
+        # M-01: verify the actual served plan BODY, not only the
+        # stated digests. The digest is recomputed over the body's
+        # canonical bytes with the plan contract's own domain
+        # (SEED_B10_ANALYSIS_PLAN_V1), and the freeze receipt's
+        # body_sha256 over the same canonical bytes; a body that was
+        # changed while its stated digests were kept is invalid
+        # evidence, however consistent its transport hashes are.
+        body = plan_file.get('plan')
+        if not isinstance(body, dict):
+            raise ServiceError('artifact_error',
+                               'Stored evaluation evidence is '
+                               'unavailable or invalid.', 409)
+        canonical = canonical_bytes(body)
+        computed = hashlib.sha256(
+            b'SEED_B10_ANALYSIS_PLAN_V1\0' + canonical).hexdigest()
+        if computed != digest:
+            raise ServiceError('artifact_error',
+                               'Stored evaluation evidence is '
+                               'unavailable or invalid.', 409)
+        body_hash = receipt.get('body_sha256')
+        if body_hash is not None and body_hash != hashlib.sha256(
+                canonical).hexdigest():
+            raise ServiceError('artifact_error',
+                               'Stored evaluation evidence is '
+                               'unavailable or invalid.', 409)
         if stated is None or receipt.get('digest') is None \
-                or metrics_digest is None:
+                or metrics_digest is None or body_hash is None:
             return False, None
         return True, plan_file.get('plan')
 
@@ -307,7 +334,12 @@ class EvaluationService:
                     (entry.get('version')
                      for entry in plan.get('metrics', [])
                      if entry.get('id') == metric), None)
-            if registered is None or row.get('version') != registered:
+            if registered is None:
+                # M-02: unknown registration is not evidence of a
+                # version mismatch.
+                block['state'] = 'not_established'
+                return block
+            if row.get('version') != registered:
                 block['state'] = 'version_mismatch'
                 return block
         block.update(state='paired', identity=left_id,

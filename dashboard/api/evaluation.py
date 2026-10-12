@@ -74,18 +74,31 @@ def _cursor(params: dict):
     return raw
 
 
+# The registered B10 event-key contract (M-03): phase, subcase and
+# stage are closed registered sets and the ordinal is a canonical
+# decimal integer in 1..2048 (no leading zeros, sign or fraction).
+# Signed-64 values belong to evidence source IDs inside event
+# bodies, a different domain that stays lossless there.
+_EVENT_PHASES = frozenset(('training', 'measured', 'probe'))
+_EVENT_SUBCASES = frozenset(
+    ('default', 'fresh', 'stale', 'unavailable', 'contradictory'))
+_EVENT_STAGES = frozenset(
+    ('pre', 'action', 'outcome', 'checkpoint', 'update'))
+_EVENT_ORDINAL = re.compile(r'[1-9][0-9]{0,3}')
+
+
 def _event_key(value: str) -> tuple:
     parts = value.split(':')
     if len(parts) != 4:
         raise _invalid('Invalid event identity.')
     phase, subcase, ordinal, stage = parts
-    if not (_TOKEN.fullmatch(phase) and _TOKEN.fullmatch(subcase)
-            and _TOKEN.fullmatch(stage)):
+    if phase not in _EVENT_PHASES or subcase not in _EVENT_SUBCASES \
+            or stage not in _EVENT_STAGES:
         raise _invalid('Invalid event identity.')
-    if not _DIGITS.fullmatch(ordinal):
+    if not _EVENT_ORDINAL.fullmatch(ordinal):
         raise _invalid('Invalid event identity.')
     number = int(ordinal)
-    if number > 2**63 - 1:
+    if number > 2048:
         raise _invalid('Invalid event identity.')
     return (phase, subcase, number, stage)
 
