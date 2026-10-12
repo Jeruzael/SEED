@@ -131,3 +131,42 @@ run/suite/re-execute/modify/delete/import endpoints exist.
 - **I29 browser acceptance: COMPLETE (11 of 11).** Next gate:
   fresh independent I26–I29 complete-diff review; the engineering
   PR remains owner-gated and is not created by this record.
+
+## MAJOR-1: aggregate HTTP request resource budgets (2026-10-12)
+
+- The I26–I29 review's publication eligibility did not cover the
+  aggregate per-request budget contract; the owner opened MAJOR-1:
+  `EvaluationReader._begin()` reset the 1 MiB / 2 s budget on every
+  reader call while one HTTP request composes several calls, and the
+  shared reader's mutable budget state was exposed to concurrency.
+- RED reproduction at `898ddae` (author and independent reviewer
+  measurements identical): compare physically read 1,268,594 bytes
+  under HTTP 200; calibrated detail 7,160 bytes vs a 5,000 limit;
+  3 budgets charged in one request; growth race read 102,344 bytes
+  vs a 4,096 allowance; concurrent request A charged 4 budgets;
+  deadline reset returned 200; a 1,048,577-byte response was served.
+- Repair on this branch (tests `2eb9b28`, fix `afc936e`):
+  request-scoped reader sessions (one budget + one deadline per HTTP
+  request, per-request isolation, read-once session memoization,
+  descriptor-capped admitted reads, per-run replay-index locks),
+  BudgetError mapped to a distinct 429 `resource_limit` /
+  `deadline_exceeded`, serialized-response ceiling enforced on the
+  exact bytes, and the stored-file parse cap aligned with the
+  artifact contract. `replay.py` byte-untouched.
+- GREEN: new suite 10/10; dashboard 318; evaluation 631; full
+  repository 1,536 passed / 2 warnings; standalones 7/7; boundary
+  compares at exactly 1,048,575 / 1,048,576 / 1,048,577 aggregate
+  bytes return 200 / 200 / 429 with physical reads never above the
+  ceiling; RED compare fixture now reads 567,706 bytes.
+- Fresh independent narrow review at `afc936e`: BLOCKER 0 /
+  MAJOR 0 / MINOR 2 / UNRESOLVED 0 — **MAJOR-1 CLOSED**,
+  G6 PRESERVATION CONFIRMED, DESIGN AMENDMENT REQUIRED: NO
+  (`docs/reviews/2026-10-12-b10-astra-major1-review.md`; full
+  remediation record in
+  `docs/reviews/2026-10-12-b10-astra-major1-remediation.md`).
+- Remaining open findings: MAJOR-2 (scientific comparison
+  compatibility correctness) is next; the two pre-existing MINORs
+  and the review's two MINOR observations stay tracked for a later
+  separate repair. I26–I29 is not claimed 0/0/0/0. PR #31 remains
+  unmerged pending the owner's decision; I30 not started; I31 NOT
+  AUTHORIZED.
