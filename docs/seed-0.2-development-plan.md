@@ -2475,3 +2475,16 @@ NO DEPLOYMENT AUTHORIZED
 [Astra Evaluation engineering PR #31](https://github.com/Jeruzael/SEED/pull/31), accepted head `064d17d576071b2370a6b55e765f1491de31e6e3`, was merged normally at `7ed644a80f1230bd7f6aed2391003de1786596b6`; exact PR-head CI [38264883085](https://github.com/Jeruzael/SEED/actions/runs/38264883085) and separate exact post-merge master CI [38267915970](https://github.com/Jeruzael/SEED/actions/runs/38267915970) (push, at the merge SHA) both SUCCESS on all three required jobs. [Final independent review](reviews/2026-10-12-b10-astra-final-minor-review.md): BLOCKER 0 / MAJOR 0 / MINOR 0 / UNRESOLVED 0; **G1–G6 PASS**; MAJOR-1 CLOSED; MAJOR-2 CLOSED; I26–I29 TECHNICAL ACCEPTANCE: PASS. [Closure record](reviews/2026-10-12-b10-astra-evaluation-closure.md) preserves the full evidence. I26–I29 becomes **COMPLETE / VERIFIED / CLOSED** only after this documentation-closure PR's own independent review, exact-head CI, normal merge and separate exact final-master push CI pass. B10 overall remains IN PROGRESS; I30 NOT STARTED (no I30 work under this authorization); I31 NOT AUTHORIZED; B10 empirical evaluation NOT STARTED / NOT AUTHORIZED. NO REGISTERED B10 EXPERIMENTS EXECUTED. NO DEPLOYMENT AUTHORIZED. INSTALLED SEED UNTOUCHED by the documented procedures.
 
 **2026-10-13 — B10 I30 engineering qualification checkpoint:** I30 (Phase O) is implemented on branch `seed-0.2-b10-impl-06-release` from canonical master `f736b0feccf9bc99496bb6d9894f3a6b8ea77bf5`: bounded registered-suite inventory (`registered_suite`: exactly 30 members, A10/B5/C5/D10, seeds 0–4; 8-seed/48-request expansion and 33-run inventories rejected before work), suite reconciliation (`verify_suite` over `MemberEvidence`, the smallest compatible typed projection of published evidence in place of the plan's undefined `RunArtifact` input), a bounded technical scenario for all four families and both protocols (classification `TECHNICAL_FIXTURE`, 17/17 checks), and the 22-criterion engineering acceptance matrix with empirical portions `PENDING_EMPIRICAL`. Author verification: focused I30 12 passed; evaluation 641; dashboard 362; full repository 1,592 passed / 2 warnings; 7/7 pre-existing standalones plus the new technical standalone exit 0; empirical dispatch lock verified through the trusted CLI and the coordinator path. I30 remains subject to independent engineering review, exact PR-head CI, owner-approved merge and separate post-merge master CI before engineering closure. **G1–G6 PASS / PRESERVED. G7 EMPIRICAL: PENDING / NOT AUTHORIZED. I31 NOT AUTHORIZED. NO REGISTERED B10 EXPERIMENTS EXECUTED. NO DEPLOYMENT AUTHORIZED. INSTALLED SEED UNTOUCHED.**
+
+> **Checkpoint 2026-10-13 (I30 fixture cleanup repair)**: the
+> pre-merge temporary-directory leak in the I30 technical
+> scenario (mkdtemp roots never removed) was repaired
+> test-first on PR #33 (RED `99ec026`, GREEN `be03c91`):
+> scenario-owned directories now use `TemporaryDirectory`
+> cleanup, caller-provided bases are never deleted, and
+> spawned workers are reaped on every path. Fresh independent
+> review at `be03c91`: 0/0/0/0 — I30 TEMPORARY FIXTURE
+> CLEANUP REPAIR: PASS; full repository 1,597 passed; 3x
+> isolated cleanup audit PASS. I30 remains implemented and
+> qualified on the branch, pending owner-approved merge and
+> post-merge closure. G7 PENDING; I31 NOT AUTHORIZED.

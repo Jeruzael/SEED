@@ -116,3 +116,35 @@ not execute the registered empirical suite.
   NOT AUTHORIZED. I31 NOT AUTHORIZED. No registered B10
   experiments executed. Independent engineering review and PR
   publication gates follow this entry.
+
+### I30 temporary fixture cleanup repair (2026-10-13, pre-merge)
+
+- **Defect**: `tests/evaluation_scenario.py::run_all(base=None)`
+  allocated its scenario directory with `tempfile.mkdtemp(...)` and
+  never removed it (~6.7 MB per invocation; accumulation on a
+  512 MB `/tmp` tmpfs produced disk-full fixture errors during
+  the original I30 review). Test-infrastructure defect only; no
+  production behavior involved.
+- **Repair** (branch `seed-0.2-b10-impl-06-release`, PR #33):
+  RED tests at `99ec026` (4 failed for the leak and the unreaped
+  timeout worker; caller-preservation guard passed), GREEN fix at
+  `be03c91`: `run_all(base=None)` owns exactly one
+  `tempfile.TemporaryDirectory(prefix='seed-i30-scenario-')`
+  removed on return and on exception; a caller-provided `base`
+  is never deleted; `_spawn` workers are terminated and reaped
+  (terminate -> bounded join -> kill -> bounded join; failure to
+  reap raises) on every path before storage is removed.
+- **Evidence**: focused scenario tests 7 passed; standalone
+  17/17 `TECHNICAL_FIXTURE` with zero leftover directories;
+  three-repeat isolated-TMPDIR cleanup audit PASS; dashboard
+  362 passed; full repository 1,597 passed / 2 warnings (1,592
+  pre-repair + 5 new cleanup tests); `pip check` clean.
+- **Review**: fresh independent review at `be03c91` —
+  BLOCKER 0 / MAJOR 0 / MINOR 0 / UNRESOLVED 0 —
+  I30 TEMPORARY FIXTURE CLEANUP REPAIR: PASS (record:
+  `docs/reviews/2026-10-13-b10-i30-fixture-cleanup-review.md`).
+  The original I30 review record is preserved verbatim.
+- **Status**: I30 implemented and qualified on the branch,
+  pending owner-approved merge and post-merge closure.
+  G1–G6 PASS / PRESERVED. G7 EMPIRICAL: PENDING / NOT
+  AUTHORIZED. I31 NOT AUTHORIZED.
