@@ -56,3 +56,104 @@ def test_evaluation_scenario_module_entrypoint():
     result = json.loads(completed.stdout)
     assert result['classification'] == 'TECHNICAL_FIXTURE'
     assert result['passed']
+
+
+# ------------------------------------------- temporary fixture cleanup (I30)
+#
+# run_all() with no base owns the temporary directory it creates and
+# must remove it on success and on exception. A caller-provided base
+# is caller-owned and must never be removed. Spawned workers must be
+# terminated and reaped on the timeout path so no process can retain
+# the storage being cleaned up.
+
+import os
+import tempfile
+import time
+from pathlib import Path
+
+import pytest
+
+import tests.evaluation_scenario as scenario
+
+
+def _leftover_owned(scratch):
+    return sorted(Path(scratch).glob('seed-i30-scenario-*'))
+
+
+def test_owned_temp_directory_removed_after_success(tmp_path, monkeypatch):
+    scratch = tmp_path / 'scratch'
+    scratch.mkdir()
+    monkeypatch.setattr(tempfile, 'tempdir', str(scratch))
+    result = scenario.run_all()
+    assert result['passed'] and len(result['checks']) == 17
+    assert _leftover_owned(scratch) == []
+
+
+def test_owned_temp_directory_removed_after_exception(tmp_path, monkeypatch):
+    scratch = tmp_path / 'scratch'
+    scratch.mkdir()
+    monkeypatch.setattr(tempfile, 'tempdir', str(scratch))
+
+    def explode(name):
+        raise RuntimeError('injected failure')
+
+    monkeypatch.setattr(scenario, '_load', explode)
+    with pytest.raises(RuntimeError, match='injected failure'):
+        scenario.run_all()
+    assert _leftover_owned(scratch) == []
+
+
+def test_caller_owned_base_preserved(tmp_path):
+    base = tmp_path / 'scenario'
+    base.mkdir()
+    sentinel = base / 'caller-owned.txt'
+    sentinel.write_text('keep')
+    result = scenario.run_all(base=base)
+    assert result['passed']
+    assert base.is_dir() and sentinel.read_text() == 'keep'
+
+
+def _sleeping_child(pipe):
+    try:
+        time.sleep(60)
+    finally:
+        pipe.close()
+
+
+def _zombie_children():
+    zombies = []
+    for stat in Path('/proc').glob('[0-9]*/stat'):
+        try:
+            parts = stat.read_text().split()
+        except OSError:
+            continue
+        if parts[3] == str(os.getpid()) and parts[2] == 'Z':
+            zombies.append(parts[0])
+    return zombies
+
+
+def test_spawn_timeout_reaps_worker():
+    checks = []
+    outcome = scenario._spawn(_sleeping_child, (), checks,
+                              'sleeping_worker', timeout=2)
+    assert outcome is None
+    assert any(check['name'] == 'sleeping_worker' and not check['passed']
+               for check in checks)
+    if Path('/proc').is_dir():  # Linux: a reaped worker leaves no zombie
+        assert _zombie_children() == []
+    assert scenario.multiprocessing.active_children() == []
+
+
+def test_scenario_subprocess_leaves_no_owned_directories(tmp_path):
+    scratch = tmp_path / 'scratch'
+    scratch.mkdir()
+    env = dict(os.environ, TMPDIR=str(scratch), TMP=str(scratch),
+               TEMP=str(scratch))
+    repo_root = Path(__file__).resolve().parent.parent
+    completed = subprocess.run(
+        [sys.executable, '-m', 'tests.evaluation_scenario'],
+        capture_output=True, text=True, cwd=str(repo_root), env=env,
+        timeout=600)
+    assert completed.returncode == 0, completed.stderr[-2000:]
+    assert json.loads(completed.stdout)['passed']
+    assert _leftover_owned(scratch) == []
