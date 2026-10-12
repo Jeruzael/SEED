@@ -179,3 +179,36 @@ run/suite/re-execute/modify/delete/import endpoints exist.
   MAJOR 0 / MINOR 1 / UNRESOLVED 0 (the MINOR is a pre-existing
   admission-precedence note, tracked with the other MINORs). See
   `docs/reviews/2026-10-12-b10-astra-major1-deadline-review.md`.
+
+## MAJOR-2 remediation (2026-10-12)
+
+- Finding: `compare()` treated `science_digest` equality as an
+  eligibility condition, so runs with identical definitions and
+  provenance but different recorded outcomes compared as
+  incompatible; a bare metric ID was silently resolved to its
+  first produced row.
+- RED at `f8b7761`: new suite
+  `test_evaluation_comparison_compatibility.py`, 10 failed /
+  1 passed (the pass is the pre-existing integrity guard).
+- Fix at `01e6d28` (`00976f1` tests, `3b62531` + `01e6d28` fix):
+  eligibility from experiment identity, verified frozen-plan
+  binding, protocol and source/lock/profile/adapter provenance,
+  each dimension `match` / `differs` / `not_established`;
+  `science_digest` reported separately as result identity;
+  metric pairing by full stored identity with explicit
+  ambiguous/unavailable/unpaired/version states; the view renders
+  Compatibility, Scientific identity and Scientific results as
+  separate cards. Full record:
+  `docs/reviews/2026-10-12-b10-astra-major2-remediation.md`.
+- Author GREEN at `01e6d28`: new suite 11/11; dashboard 335;
+  evaluation 631; full repository 1,553 passed / 2 warnings;
+  MAJOR-1 tests 15/15; 7/7 standalone scenarios.
+- Fresh independent narrow review at `01e6d28`: **MAJOR-2 CLOSED**
+  — BLOCKER 0 / MAJOR 0 / MINOR 1 / UNRESOLVED 0, G6 & MAJOR-1
+  PRESERVATION CONFIRMED, DESIGN AMENDMENT REQUIRED: NO
+  (`docs/reviews/2026-10-12-b10-astra-major2-review.md`). The new
+  MINOR (observer does not re-hash the served plan body against
+  its stated digest) joins the five previously tracked MINOR
+  items for the final cleanup pass. I26–I29 is not claimed
+  0/0/0/0. PR #31 remains unmerged; I30 not started; I31 NOT
+  AUTHORIZED.
