@@ -298,13 +298,16 @@ async function renderCompare(root, signal, params) {
   if (params.metric) query.set('metric', params.metric);
   const data = await fetchEvaluation('evaluation/compare?' + query, signal);
   // Compatibility: eligibility from definitions and provenance only.
+  // (Responses without an eligibility field use the legacy boolean.)
+  const eligibility = data.eligibility
+    ?? (data.compatible ? 'compatible' : 'incompatible');
   const compat = card('Compatibility');
-  if (data.eligibility === 'compatible') {
+  if (eligibility === 'compatible') {
     compat.append(el('p',
       'Compatible for descriptive comparison of the stored results. '
       + 'Compatibility is not a scientific verdict: the UI does not '
       + 'rank the runs.'));
-  } else if (data.eligibility === 'incompatible') {
+  } else if (eligibility === 'incompatible') {
     compat.append(el('p',
       'Incompatible for automatic comparison: the dimensions below '
       + 'differ. Side-by-side descriptive inspection only; the UI '
@@ -316,8 +319,13 @@ async function renderCompare(root, signal, params) {
       + 'descriptive inspection only; the UI does not rank the '
       + 'runs.', 'notice'));
   }
-  const statusText = entry => entry.status === 'match' ? 'Match'
-    : entry.status === 'differs' ? 'Differs' : 'Not established';
+  const statusText = entry => {
+    const status = entry.status
+      ?? (entry.match ? 'match' : entry.match === false
+          ? 'differs' : 'not_established');
+    return status === 'match' ? 'Match'
+      : status === 'differs' ? 'Differs' : 'Not established';
+  };
   const dimensions = data.dimensions || {};
   compat.append(table(
     ['Dimension', 'Left', 'Right', 'Status'],

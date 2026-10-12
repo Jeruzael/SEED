@@ -181,6 +181,49 @@ assert.ok(!/better|worse|equivalent/i.test(text), 'no automatic verdict');
 ''')
 
 
+def test_comparison_separates_eligibility_from_identity():
+    """MAJOR-2: compatible runs with different science digests show
+    eligibility, scientific identity and stored results as three
+    separate concepts, with no ranking language."""
+    compare = ('{"left":"' + 'a' * 32 + '","right":"' + 'b' * 32 + '",'
+               '"compatible":true,"eligibility":"compatible",'
+               '"reasons":[],"dimensions":{'
+               '"experiment":{"left":{"id":"x","version":1},'
+               '"right":{"id":"x","version":1},"match":true,'
+               '"status":"match"},'
+               '"plan_digest":{"left":"p1","right":"p1","match":true,'
+               '"status":"match"}},'
+               '"plan_fields":[],'
+               '"scientific_identity":{"science_digest":{"left":"s1",'
+               '"right":"s2","equal":false}},'
+               '"findings":{"left":[{"question":"prediction",'
+               '"status":"NEGATIVE","reason":"R"}],'
+               '"right":[{"question":"prediction","status":"NEGATIVE",'
+               '"reason":"R"}]},'
+               '"metric":{"id":"prediction.numeric-mae",'
+               '"state":"paired",'
+               '"identity":"member-0:prediction.numeric-mae:all:whole",'
+               '"left":{"value":0.0},"right":{"value":0.5}}}')
+    javascript(r'''
+import assert from 'node:assert/strict';
+import {Element, installDOM} from '../../tests/dashboard/astra_dom.mjs';
+installDOM();
+''' + _mock_fetch([('evaluation/compare', compare)]) + r'''
+globalThis.location = {hash: '#evaluation?left=' + 'a'.repeat(32) + '&right=' + 'b'.repeat(32)};
+const {renderEvaluation} = await import('./views/evaluation.js');
+const root = new Element();
+await renderEvaluation(root, new AbortController().signal);
+const text = root.textContent;
+assert.ok(text.includes('Compatibility'), text);
+assert.ok(text.includes('Compatible for descriptive comparison'), text);
+assert.ok(text.includes('Scientific identity'), text);
+assert.ok(text.includes('Different results'), text);
+assert.ok(text.includes('Scientific results'), text);
+assert.ok(text.includes('NEGATIVE'), 'stored findings stay visible');
+assert.ok(!/better|worse|equivalent/i.test(text), 'no automatic verdict');
+''')
+
+
 def test_evaluation_dom_and_chart_caps():
     rows = ','.join(
         '{"identity":"m%d","metric":"prediction.numeric-mae","version":1,'
