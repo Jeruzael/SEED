@@ -236,3 +236,37 @@ run/suite/re-execute/modify/delete/import endpoints exist.
   TECHNICAL ACCEPTANCE: PASS — DESIGN AMENDMENT REQUIRED: NO.**
 - PR #31 remains unmerged pending the owner's decision. I30 not
   started; I31 NOT AUTHORIZED.
+
+## I26–I29 engineering merge and post-merge verification — 2026-10-12
+
+- [Engineering PR #31](https://github.com/Jeruzael/SEED/pull/31)
+  was merged normally by the owner. Accepted PR head:
+  `064d17d576071b2370a6b55e765f1491de31e6e3`. Merge commit:
+  `7ed644a80f1230bd7f6aed2391003de1786596b6` (parents: previous
+  master `3406e1f2d5f757032befc9b91380ea7636b827fb` and the
+  accepted PR head; merged tree identical to the PR-head tree).
+- PR-head CI:
+  [38264883085](https://github.com/Jeruzael/SEED/actions/runs/38264883085)
+  at `064d17d` — SUCCESS on all three jobs. Separate post-merge
+  master CI:
+  [38267915970](https://github.com/Jeruzael/SEED/actions/runs/38267915970),
+  a `push` run at the exact merge SHA `7ed644a` — SUCCESS on all
+  three jobs (Linux Python 3.11 `114874677103`, Linux Python
+  3.13 `114874676879`, macOS Python 3.13 `114874676779`).
+  Post-merge counts: Linux 3.11 1,579 passed / 1 skipped
+  (standalone step skipped by workflow policy) / 2 warnings;
+  Linux 3.13 1,580 passed / 2 warnings, standalones successful;
+  macOS 3.13 1,580 passed / 2 warnings, standalones successful.
+- Final verdict carried into the merge: BLOCKER 0 / MAJOR 0 /
+  MINOR 0 / UNRESOLVED 0; G1–G6 PASS / PRESERVED; MAJOR-1 CLOSED;
+  MAJOR-2 CLOSED; I26–I29 TECHNICAL ACCEPTANCE: PASS; DESIGN
+  AMENDMENT REQUIRED: NO
+  (`docs/reviews/2026-10-12-b10-astra-final-minor-review.md`).
+- Formal closure record:
+  `docs/reviews/2026-10-12-b10-astra-evaluation-closure.md`.
+  I26–I29 engineering integration is MERGED / MASTER CI
+  VERIFIED; the documentation-closure publication gate is
+  tracked there. Older entries in this ledger stating that
+  PR #31 is unmerged were accurate when written and are
+  superseded by this dated checkpoint; they are preserved
+  unchanged as history.
