@@ -60,3 +60,59 @@ Protocols [PR #24](https://github.com/Jeruzael/SEED/pull/24), exact PR-head CI 3
 | R4 MAJOR: freeze double-close and failed cleanup accepted | Owned fixture completion delegates original core close, which owns Memory and instance lock, then constructs manifest only after success. Freeze requires successful separate worker cleanup receipt. Two actual normal/faulted freeze RED failures; three handoff/guard checks PASS; affected completed-fixture/foundation checks PASS. | `0c89c8a0f206c710cf66b05119cc8d224f70a3f1` |
 
 Executor ruling: every behavior explicitly declined in the initial review is accepted for the reason listed there and remains within the approved scope/test evidence; none is silently dropped. The full registered science families, native hostile same-UID SQLite race prevention and I14+ publication architecture remain outside this task. Final independent resolution: **0 BLOCKER / 0 MAJOR / 0 MINOR / 0 unresolved**, R1–R4 resolved; see the distinct repaired-head report. Exact publication evidence follows only after hosted verification; no initial verdict is rewritten or reused as approval.
+
+## I30 engineering release qualification — 2026-10-13
+
+Branch `seed-0.2-b10-impl-06-release` from canonical master
+`f736b0feccf9bc99496bb6d9894f3a6b8ea77bf5` (PR #32 merge; post-merge
+CI 38292784699, push, all three jobs SUCCESS). I30 adds bounded
+suite inventory tooling and technical qualification only; it does
+not execute the registered empirical suite.
+
+- **Suite inventory (`registered_suite`)**: one `RunRequest` per
+  registered member of the frozen default plan, in frozen order:
+  exactly 30 (A10 / B5 / C5 / D10, seeds 0–4; family C members are
+  single robustness bundles; family D random-eligible trajectories
+  are individually counted). Deterministic and byte-identical
+  across calls. Eight seeds expanding to 48 requests are rejected
+  before work begins; the 32-run ceiling (counting re-executions
+  and counterparts) admits exactly 32 and rejects 33; the seed
+  ceiling binds independently. No member is dropped to fit a limit.
+- **Suite reconciliation (`verify_suite`)**: evidence is supplied
+  as `MemberEvidence`, the smallest compatible typed projection
+  of the published immutable evidence (the contracts define no
+  `RunArtifact` input type; that name exists in `integrity` as
+  the publish result). Missing, duplicate, unexpected,
+  digest/seed/protocol/variant-mismatched, non-terminal,
+  incomplete and evidence-free members are each reported by
+  identity; supplied measurement inventories must match the
+  registered inventory exactly. Technical-fixture evidence is
+  labeled as such and never satisfies G7.
+- **Technical scenario** (`python -m tests.evaluation_scenario`):
+  bounded disposable qualification of all four families and both
+  protocols, artifact publication and recorded replay, and an
+  honest all-skipped failure ladder; output classification
+  `TECHNICAL_FIXTURE`, 17/17 checks PASS. Pytest integration in
+  `tests/test_evaluation_scenario.py` exercises the same
+  assertions.
+- **Acceptance matrix** (`tests/evaluation/
+  test_engineering_acceptance.py`): all 22 criteria mapped to
+  real, identified tests and evidence records under G1–G6;
+  technical portions verified, every empirical portion
+  `PENDING_EMPIRICAL`; the matrix refuses full scientific
+  acceptance and refuses empirical completion from technical
+  fixtures.
+- **Dispatch lock**: CLI `run`/`suite`/`reexecute` still return
+  `EMPIRICAL_DISPATCH_DISABLED` (exit 2); the coordinator generic
+  dispatch path still raises; arbitrary paths, URLs, unknown
+  verbs and unregistered selectors are rejected.
+- **Author verification**: focused I30 tests 12 passed;
+  evaluation 641 passed; dashboard 362 passed; full repository
+  1,592 passed / 2 warnings; seven pre-existing standalones exit
+  0; new technical standalone exit 0; `pip check` clean;
+  protected scope (`seed/**`, dependencies/lock, workflows) zero
+  diff against canonical master.
+- **Status**: G1–G6 PASS / PRESERVED. G7 EMPIRICAL: PENDING /
+  NOT AUTHORIZED. I31 NOT AUTHORIZED. No registered B10
+  experiments executed. Independent engineering review and PR
+  publication gates follow this entry.
