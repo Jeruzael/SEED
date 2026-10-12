@@ -170,3 +170,12 @@ run/suite/re-execute/modify/delete/import endpoints exist.
   separate repair. I26–I29 is not claimed 0/0/0/0. PR #31 remains
   unmerged pending the owner's decision; I30 not started; I31 NOT
   AUTHORIZED.
+- Final deadline verification follow-up (2026-10-12): the
+  remaining end-to-end server-processing deadline gap (post-read
+  processing and response construction were unchecked) was
+  reproduced at `3364ace` and repaired at `fefce84`; a fresh
+  independent narrow review confirmed the MAJOR-1 deadline
+  contract COMPLETE with G6 PRESERVATION CONFIRMED — BLOCKER 0 /
+  MAJOR 0 / MINOR 1 / UNRESOLVED 0 (the MINOR is a pre-existing
+  admission-precedence note, tracked with the other MINORs). See
+  `docs/reviews/2026-10-12-b10-astra-major1-deadline-review.md`.
