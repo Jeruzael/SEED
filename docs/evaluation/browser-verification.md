@@ -292,3 +292,17 @@ connection: item 3 is fully PASS (replay list and event detail)
 and item 10 is PASS at all six widths. **I29 browser acceptance
 is COMPLETE (11 of 11)**, the earlier 9-of-11 record above
 remaining unchanged as the historical tunnel-based result.
+
+## Erratum (2026-10-12, final MINOR cleanup, M-05)
+
+Item 4 in the historical table above quotes a visible label
+"Untrusted artifact preview". That label does not exist in the
+implementation and did not appear on screen. What the acceptance
+actually observed -- and what remains true of the code -- is that
+the stored artifact bytes were rendered as literal text using safe
+DOM text construction (never as HTML), alongside the displayed
+byte count. The quoted label in the historical record is a wording
+inaccuracy in the checklist, not an observed UI element. The
+original table, the 9-of-11 tunnel-based record and the 11-of-11
+local macOS acceptance addendum are preserved unchanged; this note
+is appended, not edited into them.
