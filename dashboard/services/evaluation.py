@@ -8,6 +8,7 @@ constructed, every method reports a clear unavailable state and no
 evaluator machinery is initialized.
 """
 import json
+from contextlib import contextmanager
 from pathlib import Path
 
 from development.evaluation import replay as _replay
@@ -16,6 +17,30 @@ from development.evaluation.paths import EvaluationRoot
 from development.evaluation.reader import (EvaluationReader, ReaderError)
 
 from .read_store import ServiceError
+
+
+class _DeadlineGuard:
+    """Final deadline enforcement for one Evaluation HTTP request.
+
+    The reader session's deadline is the single authoritative time
+    boundary for the request; enforce() is called after the response
+    has been fully constructed and before it is returned, so CPU-only
+    processing and serialization after the last physical read cannot
+    return success past the deadline.
+    """
+
+    __slots__ = ('_session',)
+
+    def __init__(self, session):
+        self._session = session
+
+    def enforce(self):
+        if self._session is not None \
+                and self._session.deadline_passed():
+            raise ServiceError(
+                'deadline_exceeded',
+                'Evaluation request exceeded its approved time limit.',
+                429)
 
 
 class EvaluationService:
@@ -49,6 +74,19 @@ class EvaluationService:
                 503)
         return self._reader
 
+    @contextmanager
+    def request_context(self):
+        """Scope one Evaluation HTTP request: the reader session (one
+        budget, one deadline) spans request validation, service
+        processing and final response construction. When the service
+        is used without the API layer, _guarded opens the same
+        session per call as before."""
+        if self._reader is None:
+            yield _DeadlineGuard(None)
+            return
+        with self._reader.request_session() as session:
+            yield _DeadlineGuard(session)
+
     def _guarded(self, call):
         reader = self._require()
         try:
@@ -58,7 +96,7 @@ class EvaluationService:
             # and concurrent requests own independent sessions.
             with reader.request_session() as session:
                 try:
-                    return call(reader)
+                    result = call(reader)
                 except _replay.BudgetError:
                     # Resource exhaustion is never mislabeled as
                     # artifact corruption.
@@ -71,6 +109,15 @@ class EvaluationService:
                         'resource_limit',
                         'Evaluation request exceeded its approved '
                         'resource limits.', 429)
+                # Processing after the final physical read (stored
+                # JSON decoding, response-dict construction) is inside
+                # the same deadline: it cannot return success late.
+                if session.deadline_passed():
+                    raise ServiceError(
+                        'deadline_exceeded',
+                        'Evaluation request exceeded its approved '
+                        'time limit.', 429)
+                return result
         except ReaderError as error:
             if error.reason in ('RECEIPT_UNAVAILABLE',
                                 'ARTIFACT_NOT_PUBLISHED'):

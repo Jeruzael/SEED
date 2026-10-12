@@ -95,70 +95,96 @@ def evaluation_router(service: EvaluationService) -> APIRouter:
 
     @router.get('/runs')
     def runs(request: Request):
-        params = _params(request, {'limit', 'cursor'})
-        return _respond(service.runs(_cursor(params), _limit(params)))
+        with service.request_context() as guard:
+            params = _params(request, {'limit', 'cursor'})
+            response = _respond(service.runs(_cursor(params),
+                                             _limit(params)))
+            guard.enforce()
+            return response
 
     @router.get('/runs/{run_id}')
     def detail(request: Request, run_id: str):
-        _params(request, set())
-        return _respond(service.detail(_run_id(run_id)))
+        with service.request_context() as guard:
+            _params(request, set())
+            response = _respond(service.detail(_run_id(run_id)))
+            guard.enforce()
+            return response
 
     @router.get('/runs/{run_id}/measurements')
     def measurements(request: Request, run_id: str):
-        params = _params(request, {'limit', 'cursor'})
-        return _respond(service.measurements(
-            _run_id(run_id), _cursor(params), _limit(params)))
+        with service.request_context() as guard:
+            params = _params(request, {'limit', 'cursor'})
+            response = _respond(service.measurements(
+                _run_id(run_id), _cursor(params), _limit(params)))
+            guard.enforce()
+            return response
 
     @router.get('/runs/{run_id}/events')
     def events(request: Request, run_id: str):
-        params = _params(request, {'limit', 'cursor'})
-        return _respond(service.events(_run_id(run_id),
-                                       _cursor(params), _limit(params)))
+        with service.request_context() as guard:
+            params = _params(request, {'limit', 'cursor'})
+            response = _respond(service.events(
+                _run_id(run_id), _cursor(params), _limit(params)))
+            guard.enforce()
+            return response
 
     @router.get('/runs/{run_id}/events/{event_key}')
     def event(request: Request, run_id: str, event_key: str):
-        _params(request, set())
-        return _respond(service.event(_run_id(run_id),
-                                      _event_key(event_key)))
+        with service.request_context() as guard:
+            _params(request, set())
+            response = _respond(service.event(
+                _run_id(run_id), _event_key(event_key)))
+            guard.enforce()
+            return response
 
     @router.get('/runs/{run_id}/curve')
     def curve(request: Request, run_id: str):
-        params = _params(request, {'metric', 'series'})
-        metric, series = params.get('metric'), params.get('series')
-        if not metric or not series or not _NAME.fullmatch(metric) \
-                or not _NAME.fullmatch(series):
-            raise _invalid('Invalid curve selection.')
-        return _respond(service.curve(_run_id(run_id), metric, series))
+        with service.request_context() as guard:
+            params = _params(request, {'metric', 'series'})
+            metric, series = params.get('metric'), params.get('series')
+            if not metric or not series or not _NAME.fullmatch(metric) \
+                    or not _NAME.fullmatch(series):
+                raise _invalid('Invalid curve selection.')
+            response = _respond(service.curve(_run_id(run_id), metric,
+                                              series))
+            guard.enforce()
+            return response
 
     @router.get('/compare')
     def compare(request: Request):
-        params = _params(request, {'left', 'right', 'metric'})
-        left, right = params.get('left'), params.get('right')
-        if not left or not right:
-            raise _invalid('Compare requires two run IDs.')
-        metric = params.get('metric')
-        if metric is not None and not _NAME.fullmatch(metric):
-            raise _invalid('Invalid metric.')
-        return _respond(service.compare(_run_id(left), _run_id(right),
-                                        metric))
+        with service.request_context() as guard:
+            params = _params(request, {'left', 'right', 'metric'})
+            left, right = params.get('left'), params.get('right')
+            if not left or not right:
+                raise _invalid('Compare requires two run IDs.')
+            metric = params.get('metric')
+            if metric is not None and not _NAME.fullmatch(metric):
+                raise _invalid('Invalid metric.')
+            response = _respond(service.compare(
+                _run_id(left), _run_id(right), metric))
+            guard.enforce()
+            return response
 
     @router.get('/runs/{run_id}/files/{file_id}')
     def files(request: Request, run_id: str, file_id: str):
-        params = _params(request, {'chunk'})
-        if not _FILE_ID.fullmatch(file_id) or '..' in file_id:
-            raise _invalid('Invalid file ID.')
-        raw = params.get('chunk', '0')
-        if not _DIGITS.fullmatch(raw):
-            raise _invalid('Invalid chunk index.')
-        data = service.chunk(_run_id(run_id), file_id, int(raw))
-        if len(data) > _RESPONSE_BYTES:
-            raise ServiceError(
-                'resource_limit',
-                'Evaluation response exceeded its approved size limit.',
-                429)
-        return Response(
-            content=data, media_type='application/octet-stream',
-            headers={'Content-Disposition':
-                     f'attachment; filename="{file_id}"'})
+        with service.request_context() as guard:
+            params = _params(request, {'chunk'})
+            if not _FILE_ID.fullmatch(file_id) or '..' in file_id:
+                raise _invalid('Invalid file ID.')
+            raw = params.get('chunk', '0')
+            if not _DIGITS.fullmatch(raw):
+                raise _invalid('Invalid chunk index.')
+            data = service.chunk(_run_id(run_id), file_id, int(raw))
+            if len(data) > _RESPONSE_BYTES:
+                raise ServiceError(
+                    'resource_limit',
+                    'Evaluation response exceeded its approved size '
+                    'limit.', 429)
+            response = Response(
+                content=data, media_type='application/octet-stream',
+                headers={'Content-Disposition':
+                         f'attachment; filename="{file_id}"'})
+            guard.enforce()
+            return response
 
     return router
