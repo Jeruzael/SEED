@@ -13,6 +13,7 @@ allowance, with independent budgets for concurrent requests.
 Physical reads are instrumented at every mechanism the serving paths
 use: ``Path.read_bytes``, ``os.pread`` and ``os.read``.
 """
+import contextvars
 import hashlib
 import json
 import os
@@ -24,6 +25,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.responses import JSONResponse
 
+import dashboard.services.evaluation as service_module
 import development.evaluation.reader as reader_module
 import development.evaluation.replay as replay_module
 from dashboard.app import create_app
@@ -587,3 +589,178 @@ def test_genuine_fixture_servable_within_real_ceiling(
             params={'chunk': 0})
         assert response.status_code == 200
         assert physical['bytes'] <= MIB
+
+
+# ---------------------------------------------------------------------------
+# MAJOR-1 final deadline verification: the deadline must also cover
+# processing AFTER the last physical read and response construction.
+# A deterministic fake monotonic clock (patched only into the reader
+# and replay module namespaces) replaces timing-sensitive sleeps.
+# ---------------------------------------------------------------------------
+
+class _FakeTime:
+    """Monotonic clock under test control; all other time attributes
+    pass through to the real time module."""
+
+    def __init__(self):
+        self.now = time.monotonic()
+
+    def monotonic(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+
+    def __getattr__(self, name):
+        return getattr(time, name)
+
+
+@pytest.fixture
+def fake_clock(monkeypatch):
+    fake = _FakeTime()
+    monkeypatch.setattr(reader_module, 'time', fake)
+    monkeypatch.setattr(replay_module, 'time', fake)
+    return fake
+
+
+def test_deadline_after_last_artifact_read(
+        home, genuine_checkout, fake_clock, monkeypatch):
+    """CPU processing after the final artifact read (stored-JSON
+    decoding in the service) that pushes the request past its
+    deadline must not return success: the last reader charge happens
+    before the parse, so only a post-processing deadline check can
+    catch this."""
+    real_strict_json = service_module.strict_json
+
+    def slow_parse(data, **kwargs):
+        result = real_strict_json(data, **kwargs)
+        fake_clock.advance(3.0)  # post-read CPU time, no further reads
+        return result
+
+    monkeypatch.setattr(service_module, 'strict_json', slow_parse)
+    with _client(home, genuine_checkout) as client:
+        response = client.get(f'/api/evaluation/runs/{RUN}')
+    assert response.status_code == 429, (
+        f'processing past the deadline returned '
+        f'{response.status_code}')
+    assert response.json()['error']['code'] == 'deadline_exceeded'
+    assert 'findings' not in response.json()
+
+
+def test_deadline_includes_json_serialization(
+        home, genuine_checkout, fake_clock, monkeypatch):
+    """Time spent constructing the JSON response after the service
+    returns is inside the same deadline: a slow serialization must
+    not produce HTTP 200 after the deadline."""
+    real_render = JSONResponse.render
+
+    def slow_render(self, content):
+        fake_clock.advance(3.0)  # serialization time
+        return real_render(self, content)
+
+    monkeypatch.setattr(JSONResponse, 'render', slow_render)
+    with _client(home, genuine_checkout) as client:
+        response = client.get(f'/api/evaluation/runs/{RUN}')
+    assert response.status_code == 429
+    assert response.json()['error']['code'] == 'deadline_exceeded'
+
+
+def test_deadline_applies_to_all_evaluation_routes(
+        home, genuine_checkout, fake_clock, monkeypatch):
+    """Every Evaluation response form -- JSON pages, detail, events,
+    curve, comparison and the binary chunk -- obeys the deadline,
+    checked after response construction."""
+    index = json.loads((genuine_checkout / '.seed-evaluation'
+                        / 'evaluation' / 'runs' / RUN
+                        / 'index.json').read_bytes())
+    series = next(iter(index['curves']))
+    json_paths = [
+        '/api/evaluation/runs',
+        f'/api/evaluation/runs/{RUN}',
+        f'/api/evaluation/runs/{RUN}/measurements',
+        f'/api/evaluation/runs/{RUN}/events',
+        f'/api/evaluation/runs/{RUN}/events/'
+        'measured%3Adefault%3A1%3Aupdate',
+        f'/api/evaluation/runs/{RUN}/curve'
+        f'?metric=prediction.numeric-mae&series={series}',
+        f'/api/evaluation/compare?left={RUN}&right={RUN}'
+        '&metric=prediction.numeric-mae',
+    ]
+    real_render = JSONResponse.render
+
+    def slow_render(self, content):
+        fake_clock.advance(3.0)
+        return real_render(self, content)
+
+    monkeypatch.setattr(JSONResponse, 'render', slow_render)
+    with _client(home, genuine_checkout) as client:
+        for path in json_paths:
+            response = client.get(path)
+            assert response.status_code == 429, (
+                f'{path}: got {response.status_code}')
+            assert response.json()['error']['code'] == \
+                'deadline_exceeded', path
+    monkeypatch.setattr(JSONResponse, 'render', real_render)
+    real_chunk = service_module.EvaluationService.chunk
+
+    def slow_chunk(self, run_id, file_id, index):
+        data = real_chunk(self, run_id, file_id, index)
+        fake_clock.advance(3.0)  # post-read handling of the bytes
+        return data
+
+    monkeypatch.setattr(service_module.EvaluationService, 'chunk',
+                        slow_chunk)
+    with _client(home, genuine_checkout) as client:
+        response = client.get(
+            f'/api/evaluation/runs/{RUN}/files/metrics.json',
+            params={'chunk': 0})
+    assert response.status_code == 429
+    assert response.json()['error']['code'] == 'deadline_exceeded'
+
+
+def test_deadline_boundary_at_and_past(
+        home, genuine_checkout, fake_clock, monkeypatch):
+    """At exactly the deadline the request may still succeed (the
+    contract is exceeded only strictly past it); past the deadline
+    the same request must fail with deadline_exceeded."""
+    real_render = JSONResponse.render
+
+    def make_render(amount):
+        def render(self, content):
+            fake_clock.advance(amount)
+            return real_render(self, content)
+        return render
+
+    with _client(home, genuine_checkout) as client:
+        monkeypatch.setattr(JSONResponse, 'render', make_render(2.0))
+        response = client.get(f'/api/evaluation/runs/{RUN}')
+        assert response.status_code == 200
+        monkeypatch.setattr(JSONResponse, 'render', make_render(2.5))
+        response = client.get(f'/api/evaluation/runs/{RUN}')
+    assert response.status_code == 429
+    assert response.json()['error']['code'] == 'deadline_exceeded'
+
+
+def test_concurrent_request_deadlines_are_independent(genuine_checkout,
+                                                      fake_clock):
+    """Two overlapping request sessions keep independent deadlines:
+    the earlier session expires on its own schedule while the later
+    one is still within its allowance, and neither resets the other."""
+    reader = EvaluationReader(EvaluationRoot.create(genuine_checkout))
+    sessions = {}
+
+    def open_session(name):
+        with reader.request_session() as session:
+            sessions[name] = session
+
+    context_a = contextvars.copy_context()
+    context_b = contextvars.copy_context()
+    context_a.run(open_session, 'a')       # starts at F, deadline F+2
+    fake_clock.advance(1.0)
+    context_b.run(open_session, 'b')       # starts at F+1, deadline F+3
+    fake_clock.advance(1.5)                # now F+2.5
+    assert sessions['a'].deadline_passed()
+    assert not sessions['b'].deadline_passed()
+    assert sessions['a'].budget is not sessions['b'].budget
+    assert sessions['b'].budget.deadline \
+        == sessions['a'].budget.deadline + 1.0
