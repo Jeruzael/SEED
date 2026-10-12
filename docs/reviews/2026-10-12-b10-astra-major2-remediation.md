@@ -134,3 +134,19 @@ I26–I29 is not claimed 0/0/0/0.
 
 PR #31 remains OPEN and unmerged. I30 not started; I31 NOT
 AUTHORIZED; no empirical execution performed.
+
+## Post-review CI note (2026-10-12, appended)
+
+The first CI run at the documentation head `bd71461`
+(run `38253014501`) failed on macOS only: Linux Python 3.11 and
+3.13 passed; `test (macos-py313)` failed in the new suite's
+`test_compare_reads_plan_within_same_budget`. The failure was in
+the TEST's instrumentation, not the product: it resolved file
+descriptors to paths via `/proc/self/fd`, a Linux-only facility,
+so on macOS the plan-read assertion could not name the reads (the
+compare itself returned 200 within budget). Fixed test-only at
+`cfc8b96` by naming descriptors from the `os.open` call's own path
+argument (portable; descriptor-relative opens pass the payload
+file name) with close tracking; product code unchanged. The fresh
+exact-head CI for the final head is recorded in the PR #31
+completion report.
