@@ -454,6 +454,7 @@ def test_compare_reads_plan_within_same_budget(
     real_read_bytes = _Path.read_bytes
     real_pread = os.pread
     real_open = os.open
+    real_close = os.close
 
     def spy_read_bytes(self):
         data = real_read_bytes(self)
@@ -462,11 +463,16 @@ def test_compare_reads_plan_within_same_budget(
 
     def spy_open(path, flags, mode=0o777, *, dir_fd=None):
         fd = real_open(path, flags, mode, dir_fd=dir_fd)
-        try:
-            fd_paths[fd] = os.readlink(f'/proc/self/fd/{fd}')
-        except OSError:
-            pass
+        # Portable fd naming: the path argument of the open call
+        # itself (descriptor-relative opens pass the payload file
+        # name). /proc/self/fd readlink is Linux-only and is not
+        # relied on.
+        fd_paths[fd] = str(path)
         return fd
+
+    def spy_close(fd):
+        fd_paths.pop(fd, None)
+        return real_close(fd)
 
     def spy_pread(fd, length, offset):
         data = real_pread(fd, length, offset)
@@ -475,6 +481,7 @@ def test_compare_reads_plan_within_same_budget(
 
     monkeypatch.setattr(_Path, 'read_bytes', spy_read_bytes)
     monkeypatch.setattr(os, 'open', spy_open)
+    monkeypatch.setattr(os, 'close', spy_close)
     monkeypatch.setattr(os, 'pread', spy_pread)
     response = _compare(home, differing_results_root, A, B)
     assert response.status_code == 200
