@@ -157,3 +157,24 @@ not execute the registered empirical suite.
 - Distinct exact post-merge master push [CI 38317966927](https://github.com/Jeruzael/SEED/actions/runs/38317966927), run #65, attempt 2: Linux 3.11 1,596 passed / 1 skipped; Linux 3.13 and macOS 3.13 1,597 passed; two warnings each. All three jobs SUCCESS; deterministic standalones succeed on both Python 3.13 jobs (skipped as planned on 3.11).
 - Engineering and temporary fixture cleanup independent review records remain unmodified. No empirical B10 experiments have run. G1–G6 PASS / PRESERVED; G7 PENDING; I31 NOT AUTHORIZED.
 - [I30 engineering closure record](../reviews/2026-10-13-b10-i30-engineering-closure.md): drafted; documentation closure publication still requires its own independent review, exact PR-head CI, owner-approved normal merge, and distinct post-merge master CI. Do not record final closure until all pass.
+
+### I30 closure retrospective and corrective publication (2026-10-14)
+
+- PR #34 (closure documentation) merged at `0c477f2` before its
+  independent documentation review (governance exception,
+  tracked in issue #36; the closure record had disclosed the
+  pending condition in advance).
+- Retrospective independent review at `0c477f2`: PASS WITH
+  FINDINGS — BLOCKER 0 / MAJOR 0 / MINOR 1 / INFORMATIONAL 3
+  (record:
+  `docs/reviews/2026-10-13-b10-i30-closure-retrospective-review.md`).
+  MINOR-1: contradictory current-status wording in the
+  development plan, corrected in the corrective-publication PR.
+- PR #34 gates since fulfilled: exact-head CI `38323590019`
+  SUCCESS; distinct post-merge master CI `38325297633` SUCCESS
+  on all three jobs (fulfillment note appended to the closure
+  record, Section G).
+- **Status**: I30 ENGINEERING MERGED / MASTER CI VERIFIED /
+  RETROSPECTIVE REVIEW COMPLETE / FINAL CORRECTIVE PUBLICATION
+  PENDING. G1–G6 PASS / PRESERVED. G7 EMPIRICAL: PENDING /
+  NOT AUTHORIZED. I31 NOT AUTHORIZED.
