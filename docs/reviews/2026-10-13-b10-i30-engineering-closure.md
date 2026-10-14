@@ -85,3 +85,51 @@ Status until then:
 - `NO REGISTERED B10 EXPERIMENTS EXECUTED`.
 
 **Stop after documentation PR publication review and exact CI evidence. Do not authorize or launch I31 automatically.**
+
+## G. Fulfillment note (appended 2026-10-14; the historical text above is preserved unchanged)
+
+The publication gates listed as pending in Section F have since occurred:
+
+- **This closure PR's exact-head CI**: run
+  [38323590019](https://github.com/Jeruzael/SEED/actions/runs/38323590019),
+  head `b3b3ee6` — SUCCESS on Linux Python 3.11, Linux Python 3.13
+  and macOS Python 3.13.
+- **Owner-approved normal merge**: PR #34 merged at
+  `0c477f2ecd6f48ab4362a7f11f00e6c37dae760e` (parents `0868300` +
+  `b3b3ee6`).
+- **Distinct post-merge master push CI**: run
+  [38325297633](https://github.com/Jeruzael/SEED/actions/runs/38325297633),
+  head `0c477f2` — SUCCESS on all three jobs.
+
+**Governance exception (recorded, not rewritten):** PR #34 was
+created 2026-10-12T23:43:04Z and merged by its author
+2026-10-13T00:03:02Z, before the independent documentation
+review Section F required; GitHub recorded zero reviews and
+zero comments on the PR. This record had disclosed the pending
+condition in advance, so the deviation is one of process order,
+not of disclosure. The omitted review was performed
+retrospectively under issue #36 by a fresh independent reviewer
+at the exact merge commit: **PASS WITH FINDINGS — BLOCKER 0 /
+MAJOR 0 / MINOR 1 / INFORMATIONAL 3**
+(`docs/reviews/2026-10-13-b10-i30-closure-retrospective-review.md`).
+That review is retrospective; it is not, and must never be
+cited as, pre-merge approval.
+
+**Remaining step:** MINOR-1 (a contradictory current-status
+paragraph in `docs/seed-0.2-development-plan.md`) and this note
+are carried by a separate corrective-publication PR. The final
+`I30 COMPLETE / VERIFIED / CLOSED` wording takes effect only
+after that PR's exact-head CI, owner-approved merge, and
+distinct post-merge master CI. Until then the status is:
+`I30 ENGINEERING MERGED / MASTER CI VERIFIED / RETROSPECTIVE
+REVIEW COMPLETE / FINAL CORRECTIVE PUBLICATION PENDING`;
+`B10 OVERALL: IN PROGRESS`; `G7 EMPIRICAL: PENDING / NOT
+AUTHORIZED`; `I31: NOT STARTED / NOT AUTHORIZED`.
+
+## H. Final corrective publication and owner engineering closure acceptance (2026-10-14)
+
+**Later authoritative fulfillment, not an edit to the historical conditional text in Sections F and G.** Corrective [PR #37](https://github.com/Jeruzael/SEED/pull/37), accepted head `f1a7ff9435dbf6a1d5137b68763a1742bf66e0db`, passed [exact PR-head CI #69](https://github.com/Jeruzael/SEED/actions/runs/38430212852) on all three required platforms. The owner approved its normal merge to `master` at `59336087395a5df30aa1eaff35af8f4b1b2073a2` (parents `0c477f2` and `f1a7ff9`). Distinct exact post-merge [CI #70](https://github.com/Jeruzael/SEED/actions/runs/38464296292), run #70, attempt 1, `push` event, completed SUCCESS on Linux Python 3.11 (1,596 passed, 1 skipped), Linux Python 3.13 (1,597 passed), and macOS Python 3.13 (1,597 passed); 2 warnings per job. The independent correction review is published as a [PR comment](https://github.com/Jeruzael/SEED/pull/37#issuecomment-6153856858): PASS 0 BLOCKER / 0 MAJOR / 0 MINOR / 0 UNRESOLVED, agent-produced and owner-posted, not a formal approval from another GitHub account.
+
+[Issue #36](https://github.com/Jeruzael/SEED/issues/36) is **CLOSED / COMPLETED**, supported by the owner's [final closure evidence comment](https://github.com/Jeruzael/SEED/issues/36#issuecomment-6155583340). The retrospective review findings (PASS WITH FINDINGS 0 BLOCKER / 0 MAJOR / 1 MINOR / 3 INFORMATIONAL) and the historical fact that PR #34 was merged before its own independent documentation review remain permanently disclosed; the later review is **not** represented as pre-merge approval. MINOR-1 was corrected in PR #37.
+
+**Final accepted status:** `B10-I30: COMPLETE / VERIFIED / CLOSED`; `B10 ENGINEERING: COMPLETE / VERIFIED`; `G1–G6: PASS / PRESERVED`. `B10 OVERALL: IN PROGRESS`; `G7 EMPIRICAL: PENDING / NOT AUTHORIZED`; `I31: NOT STARTED / NOT AUTHORIZED`. No registered B10 empirical experiments have been executed and no scientific finding, empirical dispatch unlock, installation, or deployment is authorized by this closure.
