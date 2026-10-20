@@ -14,8 +14,12 @@ hosted CI remains pending.
 The [admission worksheet](../../evaluation/2026-10-20-admission-readiness.md)
 records unresolved gates. Gio subsequently requested an
 [infrastructure proposal](../specs/2026-10-20-i31-infrastructure-proposal.md),
-which is prepared for review with account-separation, host, retention and cost
-assumptions. No provisioning or spending was authorized.
+which now recommends local engineering on existing resources following Gio's
+explicit no-budget/no-spending instruction. The priced cloud design is deferred
+reference. No provisioning or spending was authorized.
+The [next local engineering design](../specs/2026-10-20-local-evaluation-next-design.md)
+maps frozen reproduction and nondestructive retention alternatives for review;
+it does not implement them.
 
 Milestones 4 and 5 remain conditional on the decisions and empirical evidence
 described below. The [review record](../../reviews/2026-10-20-evaluation-evidence-repair-review.md)

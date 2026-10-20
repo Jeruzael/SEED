@@ -37,6 +37,7 @@ Controlling repository references:
 - [Engineering gates](engineering-gates.md)
 - [Current repair plan](../superpowers/plans/2026-10-20-evaluation-evidence-repair.md)
 - [Infrastructure proposal](../superpowers/specs/2026-10-20-i31-infrastructure-proposal.md)
+- [Next local engineering design](../superpowers/specs/2026-10-20-local-evaluation-next-design.md)
 - [Repair review and verification](../reviews/2026-10-20-evaluation-evidence-repair-review.md)
 
 Additional supplied primary records, held outside the repository:
@@ -54,7 +55,7 @@ and the existing Stage A closure/signing documents. They have not been edited.
 | D2 | Retention period and durable evidence policy | Unselected |
 | D3 | Administrator separation across the four trust domains | Unestablished |
 | D4 | Exact Linux/macOS execution host and stable root identity | Unselected/unqualified |
-| D5 | Charges, resource limits and operational budget | No spending authorized |
+| D5 | Charges, resource limits and operational budget | Gio states no budget/no spending for now; $0 new infrastructure/service spending |
 | D6 | I7 linearization plus dormant rotation-instruction/expiry policy | Requires explicit ratification |
 | DEC-04 | Reviewed suite-versus-global admission correction | Current global 32-run check remains; do not merely change it to 60 |
 | DEC-05 | Full-shape fresh frozen reexecution for the A/C members | Unimplemented; online replay is not a substitute |

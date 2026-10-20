@@ -86,7 +86,24 @@ Local logs are retained in ignored `.review-artifacts/`, including
 `final-native-full.log`, `final-source-manifest.json` and `final-scenarios.json`.
 The repository's required
 Linux 3.11 / Linux 3.13 / macOS 3.13 exact-PR-head CI remains a separate check.
-No hosted verification or post-merge success is asserted by this local record.
+Hosted verification is recorded separately below. No post-merge success is
+asserted.
+
+### Subsequent hosted verification of the engineering commit
+
+[CI run 39398419123](https://github.com/Jeruzael/SEED/actions/runs/39398419123),
+PR event, attempt 1, completed successfully for exact engineering commit
+`042b90384e200590b076896961e7f450935a5f62`:
+
+- Linux 3.11: 1,652 passed, 1 skipped, 2 warnings.
+- Linux 3.13: 1,653 passed, 2 warnings.
+- macOS 3.13: 1,653 passed, 2 warnings.
+
+All three jobs succeeded. Deterministic scenarios succeeded on both 3.13 jobs;
+the 3.11 scenario step was skipped by workflow policy. Later no-budget design
+documentation does not change that source/test code, but its final exact-head
+CI remains separately tracked in [PR #43](https://github.com/Jeruzael/SEED/pull/43).
+The PR remains unmerged; no post-merge closure is asserted.
 
 ## Decisions and limits
 
@@ -106,3 +123,9 @@ The infrastructure proposal received a separate read-only consistency review.
 It identified missing four-domain administrator separation and durable
 one-use-ledger qualification; both were added. It is a proposal for Gio, not a
 deployment review or provisioned infrastructure.
+
+Gio subsequently specified no budget and no plan to spend. The proposal now
+recommends local engineering on existing resources, with the cloud design
+retained only as deferred reference. Separate read-only analyses prepared the
+next frozen-reexecution and retention design; they ran no experiments and do
+not approve implementation or empirical admission.

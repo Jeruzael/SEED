@@ -1,16 +1,24 @@
-# SEED I31 infrastructure proposal
+# SEED infrastructure proposal: local first, no new spending
 
-**Status: proposed for Gio's review.** Prepared on 2026-10-20 under the explicit
-instruction to prepare an infrastructure proposal. This document creates no
+**Status: revised for Gio's no-budget constraint.** On 2026-10-20, Gio stated
+that there is no budget and no plan to spend for now. The active recommendation
+is to use existing equipment and services for engineering, with no new paid
+resources or service purchases. The cloud design below is deferred reference.
+This document creates no
 resources, account, credentials, keys, permit, signature, spending commitment,
 deployment approval, or execution authority.
 
 ## Intended outcome
 
-Give SEED a small, inspectable research execution environment whose admissions
-can be checked against independently retained revocation evidence. This supports
-the existing B10 research programme. It does not demonstrate SEED's long-term
-learning ambitions or establish a deployment that can live everywhere.
+Give SEED a repeatable local workbench for its developmental learning programme:
+reliable measurements, inspectable evidence and a clear path toward a small
+deterministic Nursery. This advances engineering with the equipment already
+available. It does not demonstrate general learning, grounded communication,
+scientific reasoning or portability to every platform.
+
+The deferred execution design describes admissions checked against independently
+retained revocation evidence. That control research supports trustworthy
+evaluation; it is not SEED's cognition.
 
 The design must preserve original registered science, resource caps, complete
 failure accounting and owner control. A compromised or restored authority must
@@ -25,20 +33,68 @@ unsigned. This proposal does not repeat that review or close it.
 
 ## Recommendation and alternatives
 
-Use **two Linux VMs and one private S3 witness bucket across separately
+**Continue on the existing Windows PC and Ubuntu/WSL. Do not provision cloud
+infrastructure now.** This environment has already run the repaired engineering
+suite: 1,653 tests and seven deterministic scenarios. That is useful local
+development evidence, not qualification as the registered I31 execution host.
+
+Use disposable Linux-filesystem workspaces for Linux checks, canonical Git
+source bytes, the existing dependency lock and the installed runtimes. Keep the
+installed learner and supplied evidence separate. Microsoft recommends storing
+Linux-worked files in the Linux filesystem.
+[WSL filesystem guidance](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
+
+Keep the existing standard public-repository CI for cross-platform engineering
+verification. GitHub documents free standard-hosted-runner use for public
+repositories; larger runners and paid storage are separate. Do not enable larger
+runners, paid storage, paid APIs, model training services, subscriptions or
+trial-credit infrastructure. Existing CI artifacts retain their bounded current
+policy; CI is not a permanent independent witness.
+[GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+
+### Work that can progress with existing resources
+
+1. Complete review and integration readiness for the evaluator repairs, retaining
+   literal measurements, genuine replay and explicit unavailable evidence.
+2. Prepare the next narrow engineering design for frozen A/C reproduction and
+   suite/retention accounting. A design proposal does not change caps, dispatch
+   locks, evidence retention or admission rules.
+3. Record the minimal Nursery question, deterministic-world boundaries and
+   dependencies. Result-dependent B11 choices and acceptance claims still await
+   I31; no substitute scientific result is manufactured from technical fixtures.
+4. Keep the original scientific admission gates visible. Revisit execution only
+   when qualifying existing/donated resources and genuinely independent
+   administrators are available, or an explicitly reviewed owner design decision
+   establishes a different acceptable scope.
+
+New infrastructure/service spending allowance for this recommendation is **$0**.
+Existing electricity, hardware and current account subscriptions are not claimed
+to have no cost. The separate Codex work limit remains **45% weekly remaining**.
+
+A single PC, multiple VMs on that PC, different folders or separate GitHub
+branches do not establish independent administrators or durable nonrollback
+evidence. Local emulation can test engineering behavior; it does not satisfy
+the current four-domain deployment claim. No new provider, region, budget or
+personnel decision is needed to continue the bounded engineering work above.
+
+### Deferred qualified execution design
+
+If the prerequisites and a later budget are established, the earlier priced
+candidate is **two Linux VMs and one private S3 witness bucket across separately
 administered accounts**. One VM executes research; the other hosts the authority.
 No GPU is proposed. The existing learner is CPU based.
 
 | Option | Arrangement | Trade-off |
 |---|---|---|
-| **Recommended** | AWS execution account, separate authority account, separate witness account | EC2 instance roles provide temporary AWS credentials; fewer additional credential systems to operate. Independent administration must still be established. |
+| **Recommended now** | Existing PC and WSL, disposable technical fixtures, existing standard CI | No new paid infrastructure. Engineering work only; four-domain qualification remains unmet. |
+| Deferred AWS | AWS execution account, separate authority account, separate witness account | EC2 instance roles provide temporary AWS credentials; fewer additional credential systems to operate. Requires a later budget and independent administration. |
 | Existing hardware | Suitable spare native Linux execution host; AWS authority and witness | Saves incremental execution compute charges if hardware already exists. Adds host operation, connectivity, and external read-credential management. |
 | Mixed provider | Linux execution VM from another provider; AWS authority and witness | Provider diversity, with another account and external AWS authentication to maintain. No security improvement is assumed solely from diversity. |
 
 EC2 roles support temporary credentials. External hosts can use IAM Roles
 Anywhere, but that introduces X.509 certificate management; it is not free
-operational simplicity. These are reasons for the recommendation, not proof that
-three AWS accounts establish independence.
+operational simplicity. These are considerations for the deferred cloud option;
+three AWS accounts alone do not establish independence.
 [EC2 roles](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html);
 [Roles Anywhere](https://docs.aws.amazon.com/rolesanywhere/latest/userguide/introduction.html).
 
@@ -53,7 +109,7 @@ flowchart LR
     AA["Separate authority administrator"] -->|service operation| A
 ```
 
-## Host and credential proposal
+## Deferred host and credential proposal
 
 | Component | Proposed starting configuration | Boundary |
 |---|---|---|
@@ -91,7 +147,7 @@ control point that must be documented and resolved against the threat model.
 Four account labels do not establish four independent trust domains. Gio must
 assign the real operators; none are invented here.
 
-## Witness storage: required design refinements
+## Deferred witness storage: required design refinements
 
 The supplied DEC03B design is a useful starting point, but its initial AWS
 permission/listing outline is insufficient for a deployment claim.
@@ -149,7 +205,7 @@ closure, retention expiry, or network access remains an availability boundary.
 WORM does not establish truthful content, permanent availability, or immunity to
 the cloud provider's account lifecycle.
 
-## Admission and qualification
+## Deferred admission and qualification
 
 Preserve the Stage A finding boundary: every execution client independently
 replays the witnessed chain and compares the fresh nonce-bound signed status.
@@ -183,7 +239,10 @@ retention-margin conflict remain separate prerequisite designs. Moving to a VM
 does not solve either. No canonical freeze, IMP-01+ enablement, Stage B deployment,
 P2 execution, I31 run or G7 acceptance is performed by this proposal.
 
-## Cost and operating controls
+## Deferred cloud cost comparison and operating controls
+
+The following figures are retained for possible future comparison. They do not
+fit Gio's current $0 new-spending constraint and are not the active recommendation.
 
 The following indicative estimate was checked against AWS's live public pricing
 feeds on **2026-10-20**, in USD, for **US East (N. Virginia)**. This is a comparison
@@ -215,10 +274,10 @@ Set the burstable authority's credit mode deliberately: extra CPU credits are
 excluded, and a no-overage choice can throttle sustained use. Actual host
 qualification still determines whether this sizing is adequate.
 
-For initial planning, prefer the intermittent execution case. Obtain a dated
-itemized quote including the omitted operational costs and a contingency before
-Gio chooses monthly and per-session ceilings. Existing suitable execution
-hardware remains a useful comparison if available.
+If cloud execution is reconsidered later, compare the intermittent execution
+case first. Obtain a dated itemized quote including omitted operational costs
+and a contingency before Gio chooses any nonzero ceiling. Existing suitable
+execution hardware remains a useful comparison if available.
 
 Budget explicitly for:
 
@@ -238,18 +297,23 @@ approved operating allowance is exhausted. Preserve already locked evidence;
 turning off compute does not end retention charges.
 [AWS Budgets limitations](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html).
 
-## Decisions this proposal asks Gio to make
+## Deferred deployment decisions
 
-| Latest decision | Proposed disposition | Still required from Gio |
+These decisions remain necessary for the current qualified-execution design;
+they are not prerequisites for continuing local engineering. Gio's current
+spending decision is already known and does not need reconfirmation.
+
+| Latest decision | Current disposition | Required only before later deployment/admission |
 |---|---|---|
-| D1 | Three-account AWS arrangement plus offline owner domain, private S3 witness, temporary instance-role credentials | Provider/region/accounts and named administrators |
+| D1 | Cloud deployment deferred; existing local development environment continues | Provider/region/accounts and named administrators if deployment is reconsidered |
 | D2 | 400-day witness retention floor with proactive extension review | Retention obligation and evidence horizon acceptance |
 | D3 | Administration and recovery separation across owner/offline, execution, authority and witness domains | Real personnel, credential, device and recovery assignments for all four domains |
-| D4 | Native Linux execution host with the configuration above | Exact host and qualification schedule |
-| D5 | Dated itemized quote, explicit monthly/session ceilings; no automatic scaling | Monetary ceilings and later provisioning approval |
+| D4 | Existing Windows/WSL for engineering; no qualified research host claimed | Exact host and qualification schedule |
+| D5 | $0 new infrastructure/service spending; no provisioning | Any later change to budget requires an explicit owner decision and priced configuration |
 | D6 | Preserve mandatory chain replay and reviewed I7/rotation/expiry rules | Exact policy ratification after the deployment amendment is reviewed |
 
-Approval of this written proposal would support preparing a scoped deployment
-amendment and implementation plan. Provisioning, owner signing, target-host
-experiments and scientific dispatch remain separate concrete actions with their
-required decisions and evidence.
+Proceed with bounded local engineering and design preparation under the active
+assignment. Provisioning, owner signing, target-host experiments and scientific
+dispatch remain separate concrete actions with their required decisions and
+evidence. This proposal neither completes the unsigned Stage A record nor
+changes the scope of I31.
