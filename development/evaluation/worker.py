@@ -141,6 +141,12 @@ def _worker_entry(pipe, launch):
                         try:value['updates']=capture_updates(core,message['key'])
                         except BaseException:value['updates']=capture.record.get('updates',{})
                         value['capture']={k:v for k,v in capture.record.items() if k not in ('history_rows','updates')}
+                    if capture.acked:
+                        try:
+                            value['measurement_evidence'] = capture.post_ack_measurement()
+                        except Exception:
+                            capture.failed = True
+                            value.update(status='incomplete', reason='MEASUREMENT_CAPTURE_INTERRUPTED')
                     last_cycle=value
                 elif message['operation']=='action_catalog':
                     value={'actions':list(client.action_catalog())}

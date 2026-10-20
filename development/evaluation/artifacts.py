@@ -234,25 +234,77 @@ def _checkpoints(root, run_id, record):
     return entries
 
 
-def derive_scientific_outputs(plan, frames, checkpoint_data, status):
+def _producer_checkpoint_sources(plan, checkpoint_data, checkpoint_entries):
+    """Bind explicitly named raw sources; positional order is not provenance."""
+    if checkpoint_entries is None:
+        return {}
+    if (type(checkpoint_entries) not in (list, tuple)
+            or type(checkpoint_data) not in (list, tuple)
+            or len(checkpoint_entries) != len(checkpoint_data)
+            or len(checkpoint_entries) > 8):
+        raise ContractError()
+    members = {row['id'] for row in strict_json(
+        plan.plan.body, max_bytes=128 * 1024)['members']}
+    from .producer_sources import checkpoint_source
+    sources, names = {}, set()
+    for entry, raw in zip(checkpoint_entries, checkpoint_data):
+        if (type(entry) is not dict or type(entry.get('name')) is not str
+                or type(entry.get('file')) is not str
+                or not _CHECKPOINT.fullmatch(entry['file'])
+                or entry['name'] in names):
+            raise ContractError()
+        names.add(entry['name'])
+        if not entry['name'].startswith('producer-source:'):
+            continue
+        member = entry['name'].removeprefix('producer-source:')
+        if member not in members or member in sources or type(raw) is not bytes:
+            raise ContractError()
+        if ('bytes' in entry and entry['bytes'] != len(raw)
+                or 'sha256' in entry
+                and entry['sha256'] != hashlib.sha256(raw).hexdigest()):
+            raise ContractError()
+        sources[member] = checkpoint_source(raw)
+    return sources
+
+
+def derive_scientific_outputs(plan, frames, checkpoint_data, status, *,
+                              checkpoint_entries=None, post_ack_events=()):
     """Recompute every registered measurement and question finding from the
     recorded evidence with the original I16-I19 scientific machinery.
 
     This is the only derivation used both by producers (to build an honest
     run record) and by assembly (to reconcile one). A record never becomes
-    scientific fact by assertion: supplied values must equal these.
+    scientific fact by assertion: supplied values must equal these. Producer
+    facts require an aligned checkpoint declaration named
+    ``producer-source:<registered-member-id>``. This identifies captured
+    lifetime facts, never an inferred terminal or historical publication
+    state. Unlabelled bytes and initial checkpoints supply no such evidence.
     """
     from .metrics.findings import classify_questions
     from .metrics.prediction import measure_prediction
     from .metrics.producers import measure_producers
     from .metrics.registry import measurement_data
+    from .postack import join_checkpoint
+    if type(post_ack_events) not in (list, tuple):
+        raise ContractError()
+    # Use the same bounded event-to-journal join as publication. Direct
+    # derivation cannot bypass duplicate/orphan checks or the combined cap.
+    events_raw, _, _ = _event_lines(
+        dict(events=list(post_ack_events), attempts=[]), frames)
+    joined = {}
+    for line in events_raw.splitlines():
+        event = strict_json(line, max_bytes=DETAIL_BYTES)
+        if event['journal_sha256'] is not None:
+            joined[tuple(event['key'][:3])] = event['body']
+        elif type(event['body']) is dict and 'measurement_evidence' in event['body']:
+            raise ContractError()
     evidence = []
     for key in sorted(frames):
         line, header = frames[key]
         record = strict_json(line, max_bytes=DETAIL_BYTES)
         evidence.append(CompletedEvidence(
             (key[0], key[1], key[2], 'checkpoint'),
-            raw_bytes(record['evidence'])))
+            raw_bytes(join_checkpoint(record['evidence'], joined.get(key)))))
     evidence = tuple(evidence)
     registered = expand_inventory(plan.plan)
     derived = {}
@@ -270,22 +322,9 @@ def derive_scientific_outputs(plan, frames, checkpoint_data, status):
                                    version=m.version, member=m.member,
                                    state=m.state, value=data.get('value'),
                                    reason=data.get('reason'))
-    measurements = []
     if producer_rows:
-        sources = {}
-        if checkpoint_data:
-            import sqlite3 as _sqlite3
-            from .science import project_state
-            db = _sqlite3.connect(':memory:')
-            try:
-                db.deserialize(checkpoint_data[-1])
-                source = project_state(db)
-            except Exception:
-                raise ContractError() from None
-            finally:
-                db.close()
-            for member in {r.member for r in producer_rows}:
-                sources[member] = source
+        sources = _producer_checkpoint_sources(
+            plan, checkpoint_data, checkpoint_entries)
         for m in measure_producers(evidence, sources, plan):
             measured_objects[m.identity] = m
             data = measurement_data(m)
@@ -323,7 +362,9 @@ def _metrics(record, plan, status, reason, frames, checkpoint_data):
             raise ContractError()
         supplied[item['identity']] = item
     derived_rows, derived_findings = derive_scientific_outputs(
-        plan, frames, checkpoint_data, status)
+        plan, frames, checkpoint_data, status,
+        checkpoint_entries=record.get('checkpoints'),
+        post_ack_events=record.get('events', []))
     derived = {row['identity']: row for row in derived_rows}
     # Every supplied measurement must equal the scientific derivation from
     # the recorded evidence; a COMPLETED run must supply every registered

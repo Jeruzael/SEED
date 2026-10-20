@@ -1,0 +1,105 @@
+# I31 admission readiness — draft, 2026-10-20
+
+This worksheet is not a permit, signature, closure decision, or gate acceptance.
+It records readiness work under Gio's current five-milestone authorization.
+Scientific execution remains conditional on the required evidence and decisions.
+The weekly work limit is 55% used / 45% remaining.
+
+## Purpose
+
+SEED aims to develop its own predictive models, skills, adaptation, grounded
+communication, scientific reasoning, and evidence-backed conclusions through
+experience. Astra observes evidence. Nursery is the planned deterministic
+developmental environment. The CP2R3 control fixture is separate research into
+evaluation authority; its results do not demonstrate SEED cognition.
+
+Existing learner mechanisms and passing engineering tests are not proof of
+general learning, transfer, language, scientific reasoning, or portability to
+every platform. I31 is intended to produce bounded empirical evidence about the
+registered mechanisms. B11 design should use that evidence and its limitations.
+
+## Current records
+
+| Evidence | Current interpretation |
+|---|---|
+| Repository base `7015a9f80f8640b494c9977252337a67ea4a79ca` | I30 engineering closure and G1–G6 are recorded. I31/G7 are not empirically completed. |
+| Canonical-ID erratum in the B10 implementation plan | IMP-00 correction already exists; do not repeat it. |
+| Supplied final independent CP2R3 review | PASS WITH FINDINGS for the exact Stage A fixture. Review already performed. |
+| Later `STAGE-A-CLOSURE-RECORD-v1.1.md` | PREPARED / UNSIGNED. The circular self-hash was removed; the external manifest format and owner signing guide already exist. |
+| Completed owner signature/archive verification | Not found in the supplied evidence. Preparation is not closure. |
+| Current conversation | Gio authorized the five milestones. Older “not authorized” statements remain historical evidence; this instruction does not supply missing host choices, signatures, or permits. |
+| Current repairs | Isolated engineering work. Exact final source identity, complete verification, review and remote CI must be recorded when actually available. |
+
+Controlling repository references:
+
+- [B10 design](../superpowers/specs/2026-10-02-b10-development-evaluation-design.md)
+- [B10 implementation plan](../superpowers/plans/2026-10-02-b10-development-evaluation-implementation.md)
+- [Engineering gates](engineering-gates.md)
+- [Current repair plan](../superpowers/plans/2026-10-20-evaluation-evidence-repair.md)
+- [Infrastructure proposal](../superpowers/specs/2026-10-20-i31-infrastructure-proposal.md)
+- [Repair review and verification](../reviews/2026-10-20-evaluation-evidence-repair-review.md)
+
+Additional supplied primary records, held outside the repository:
+`SEED_I31_P1_Safe_Execution_Enablement_Design_2026-10-16.md`,
+`SEED_I31_P1_Review_Disposition_Addendum_v1_1_2026-10-16.md`,
+`P1-targeted-closure-review.md`, `DEC03B-nonrollback-authority-design.md`,
+and the existing Stage A closure/signing documents. They have not been edited.
+
+## Owner decisions and concrete evidence still needed
+
+| Item | Required decision or evidence | Present disposition |
+|---|---|---|
+| Stage A closure | Gio's selected disposition, completed fields, personally produced signature, external manifest and verified archived binding | Pending; do not recreate preparation or sign for Gio |
+| D1 | Authority/witness service, account ownership and administrators | Unselected in supplied closure evidence |
+| D2 | Retention period and durable evidence policy | Unselected |
+| D3 | Administrator separation across the four trust domains | Unestablished |
+| D4 | Exact Linux/macOS execution host and stable root identity | Unselected/unqualified |
+| D5 | Charges, resource limits and operational budget | No spending authorized |
+| D6 | I7 linearization plus dormant rotation-instruction/expiry policy | Requires explicit ratification |
+| DEC-04 | Reviewed suite-versus-global admission correction | Current global 32-run check remains; do not merely change it to 60 |
+| DEC-05 | Full-shape fresh frozen reexecution for the A/C members | Unimplemented; online replay is not a substitute |
+| Retention/preflight | Resolve 30 originals + 30 reproductions versus the 60-slot cap and proposed two-spare-slot margin | Needs nondestructive reviewed design; do not delete evidence or raise caps |
+
+The review findings CP2R3-NEW-01 and CP2R3-NEW-02 remain fixture limitations.
+The mandatory witness replay and consumer boundary cannot be relaxed by closure.
+Target-host SSHSIG, revocation freshness/nonrollback, root identity stability,
+clock/network failure behavior, and deployed endpoint negative cases remain
+separate evidence requirements.
+
+## Permit preparation checklist — fields only
+
+The proposed pre-freeze and post-freeze permits have different authority.
+No actual permit, signing key, control-root identity, freeze receipt or canonical
+frozen plan has been generated by this worksheet.
+
+Pre-freeze preparation must bind repository/source/lock/profile; registered
+experiment and plan versions; candidate plan and body digests; complete ordered
+member inventory; descriptor-verified root identity; `freeze_prepare` operation;
+validity; trusted issuer/key identity; revocation freshness; one-use ID; and
+review evidence. It cannot require the receipt that its future operation creates.
+It cannot dispatch a worker.
+
+Post-freeze dispatch must additionally bind the real verified receipt and its
+body digest, permitted operations/member subset, resource ceilings, and later
+execution approval. It cannot itself call the canonical freeze operation.
+Independent review of the authority implementation and host evidence precedes
+admission. Existing CLI/coordinator denial remains in place.
+
+## Remaining scientific boundaries
+
+Current technical fixtures can verify data transport, literal measurements,
+publication/integrity and the already supported online replay path. They do not
+establish complete registered member accounting, genuine frozen reproduction,
+or scientific acceptance.
+
+Snapshots explicitly labeled `producer-source:<member-id>` provide declared
+captured lifetime facts. The label does not authenticate their origin or infer
+terminal timing. Missing publication histories, self-model source captures and
+preselection Q-source evidence remain unavailable rather than reconstructed.
+
+A B11 design can presently record dependencies and the planned focused question:
+can SEED learn a reproducible action-to-consequence relationship for an unfamiliar
+virtual actuator without an answer label? Algorithm choices, acceptance claims,
+and claims derived from I31 remain pending actual results. Real desktop control,
+shell/filesystem access and broad language/reasoning capability are not implied
+by this Nursery foundation.
