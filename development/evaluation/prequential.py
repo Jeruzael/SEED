@@ -17,8 +17,11 @@ class PrequentialDriver:
     def capture_completed(self, value, key, worker):
         # The durable journal already owns raw selected prediction/outcome. Keep
         # this joined update record compact instead of duplicating that evidence.
-        body=wire_bytes(dict(acked=value['acked'],execution=value['status'],updates=value.get('updates',{}),
-                            decision_id=value.get('capture',{}).get('selection',{}).get('decision_id')))
+        record=dict(acked=value['acked'],execution=value['status'],updates=value.get('updates',{}),
+                    decision_id=value.get('capture',{}).get('selection',{}).get('decision_id'))
+        if 'measurement_evidence' in value:
+            record['measurement_evidence'] = value['measurement_evidence']
+        body=wire_bytes(record)
         if len(body)+getattr(worker,'checkpoint_bytes',0)>65536:
             raise OSError('POST_ACK_RECORD_LIMIT')
         self.events.append(CompletedEvidence(tuple(key[:3])+('update',),body))

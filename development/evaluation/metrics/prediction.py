@@ -43,7 +43,9 @@ def _rows(evidence, phase):
             raise ContractError()
         result.append(dict(ordinal=key[2], subcase=key[1], action=action, prediction=prediction,
             after=after, baselines=raw.get('baselines', {}),
-            cutoff=data.get('history_cutoff_id', selection.get('history', capture.get('history', {})).get('cutoff_transition_id')),
+            # Checkpoint v1 encodes empty history as zero; B8/baselines use
+            # None. Normalize only this metric view, never the stored evidence.
+            cutoff=data.get('history_cutoff_id', selection.get('history', capture.get('history', {})).get('cutoff_transition_id')) or None,
             candidates=capture.get('candidate_predictions', {})))
     result.sort(key=lambda r: (r['ordinal'], r['subcase']))
     return result

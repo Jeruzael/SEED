@@ -3,7 +3,7 @@ import copy
 import json
 import threading
 from .channel import wire_bytes
-from .contracts import ContractError, PreUpdateEvidence, validate_event_key, validate_observation
+from .contracts import ContractError, PreUpdateEvidence, strict_json, validate_event_key, validate_observation
 
 
 def permitted(state):
@@ -208,6 +208,48 @@ class CaptureSession:
         except BaseException:
             self.failed = True
             raise
+
+    def post_ack_measurement(self):
+        """Capture prior selection and baselines without reopening learner state.
+
+        This is downstream of the durable ACK and normal cycle work. The selected
+        prediction and observations remain in the journal; only the other three
+        original predictions are carried in the post-ACK event.
+        """
+        if not self.acked:
+            raise ContractError()
+        from seed.decision_record import validate_prediction, validate_record
+        from .baselines import forecast_baselines
+        from .registry import ACTIONS
+        record = self.record
+        selection = record['selection']
+        action = selection['selected_action']
+        predictions = record['candidate_predictions']
+        if set(predictions) != set(ACTIONS):
+            raise ContractError()
+        for candidate, prediction in predictions.items():
+            validate_prediction(prediction, candidate)
+        if (predictions[action] != record['selected_prediction']
+                or selection['history'] != record['history']):
+            raise ContractError()
+        before = permitted(record['state_before'])
+        validate_record(selection, prediction=predictions[action],
+                        state_before=before, draft=True)
+        history = selection['history']
+        if history['status'] == 'unavailable':
+            baselines, reason = None, history['reason']
+        else:
+            rows = tuple(record['history_rows'])
+            if len(rows) != history['raw_rows_examined']:
+                raise ContractError()
+            baselines = forecast_baselines(
+                before, action, rows, history['cutoff_transition_id'])
+            reason = None
+        return strict_json(wire_bytes(dict(
+            schema='b10_postack_measurement_v1',
+            selection=selection,
+            unselected_predictions={a: predictions[a] for a in ACTIONS if a != action},
+            baselines=baselines, baseline_unavailable_reason=reason)))
 
 
 def capture_updates(core, key):

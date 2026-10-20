@@ -319,7 +319,7 @@ def test_f3_byte_budget_interruptions_lossless(tmp_path, foundation_module,
 
 # ---------------------------------------------------------------- F1
 def _produce_genuine(tmp_path, foundation_module, plan_body, *,
-                     tamper_prediction=False):
+                     tamper_prediction=False, measurement_evidence=False):
     """Produce a genuine run with the PrequentialDriver + real worker."""
     from development.evaluation.contracts import (
         PreUpdateEvidence, RunRequest, RunResult, WorkerLaunch)
@@ -343,20 +343,29 @@ def _produce_genuine(tmp_path, foundation_module, plan_body, *,
     events = []
     for ev in driver.events:
         body = json.loads(ev.body)
-        events.append(dict(key=list(ev.key), body=dict(
+        projected = dict(
             acked=body['acked'], execution=body['execution'],
             decision_id=body.get('decision_id'),
-            updates={k: {'status': v['status']} for k, v in body['updates'].items()})))
+            updates={k: {'status': v['status']} for k, v in body['updates'].items()})
+        if measurement_evidence:
+            projected['measurement_evidence'] = body['measurement_evidence']
+        events.append(dict(key=list(ev.key), body=projected))
     attempts = []
     for raw in driver.skipped:
         item = json.loads(raw)
         attempts.append(dict(key=item['key'], status='skipped',
                              reason=item['reason']))
-    rows, findings = _derive(frozen, journal_raw)
+    artifacts = foundation_module('artifacts')
+    if measurement_evidence:
+        rows, findings = artifacts.derive_scientific_outputs(
+            frozen, artifacts._journal_frames(journal_raw), [], 'COMPLETED',
+            post_ack_events=events)
+        rows = list(rows)
+    else:
+        rows, findings = _derive(frozen, journal_raw)
     record = _record(journal_raw, frozen=frozen, measurements=rows,
                      findings=findings, events=events, attempts=attempts,
                      truth=json.loads(scenario.evaluator_view().body))
-    artifacts = foundation_module('artifacts')
     artifacts.write_run_record(root, record)
     payload = artifacts.assemble_payload(RunResult('COMPLETED', None), frozen, root)
     integrity = foundation_module('integrity')

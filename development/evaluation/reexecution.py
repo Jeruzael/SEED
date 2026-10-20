@@ -287,7 +287,7 @@ def _execution_inputs(root, run_id, record, manifest, engine=None):
 
 
 def _execute_fresh(root, run_id, execution, new_id, engine,
-                   checkpoint_bytes):
+                   checkpoint_bytes, *, measurement_evidence_keys=()):
     """Execute a fresh run in an evaluator-owned workspace.
 
     The disposable root lives inside the target root's work area (never
@@ -298,6 +298,12 @@ def _execute_fresh(root, run_id, execution, new_id, engine,
     actually selects. When the original run declared a validated initial
     checkpoint, the fresh learner starts from that owned state through
     the approved completed-fixture launch pathway.
+
+    Retain the historical status-only update projection, with fresh
+    measurement sidecars only at keys where the original recorded them.
+    Legacy missing evidence is not retrofitted, and no original sidecar
+    values are used to produce the fresh evidence. Richer original update
+    bodies remain intact for comparison; they are not pruned to force a match.
     """
     import json as _json
     import shutil
@@ -347,11 +353,15 @@ def _execute_fresh(root, run_id, execution, new_id, engine,
         events = []
         for item in driver.events:
             body = strict_json(item.body, max_bytes=64 * 1024)
-            events.append(dict(key=list(item.key), body=dict(
+            projected = dict(
                 acked=body['acked'], execution=body['execution'],
                 decision_id=body.get('decision_id'),
                 updates={k: {'status': v['status']}
-                         for k, v in body['updates'].items()})))
+                         for k, v in body['updates'].items()})
+            if item.key in measurement_evidence_keys \
+                    and 'measurement_evidence' in body:
+                projected['measurement_evidence'] = body['measurement_evidence']
+            events.append(dict(key=list(item.key), body=projected))
         attempts = []
         for raw in driver.skipped:
             item = strict_json(raw, max_bytes=512)
@@ -452,8 +462,12 @@ def reexecute(reader, run_id: str, profile: Profile) -> ReexecutionResult:
     if inputs is None:
         raise ContractError()
     execution, checkpoint_bytes = inputs
+    measurement_evidence_keys = frozenset(
+        tuple(event['key']) for event in record['events']
+        if type(event['body']) is dict and 'measurement_evidence' in event['body'])
     result, fresh, events, attempts = _execute_fresh(
-        root, run_id, execution, new_id, engine, checkpoint_bytes)
+        root, run_id, execution, new_id, engine, checkpoint_bytes,
+        measurement_evidence_keys=measurement_evidence_keys)
     # Admission BEFORE the first staging write (remediation C): the
     # fresh journal and any checkpoint copy are charged, plus the new
     # retained-run slot, before the partial directory appears.
@@ -491,7 +505,7 @@ def reexecute(reader, run_id: str, profile: Profile) -> ReexecutionResult:
         return ReexecutionResult('incompatible', ('INCOMPLETE_COMPARISON',))
     frames = _artifacts._journal_frames(fresh)
     rows, findings = _artifacts.derive_scientific_outputs(
-        frozen, frames, [], 'COMPLETED')
+        frozen, frames, [], 'COMPLETED', post_ack_events=events)
     new_record = dict(new_record, measurements=list(rows), findings=findings)
     _artifacts.write_run_record(root, new_record)
     payload = _artifacts.assemble_payload(
